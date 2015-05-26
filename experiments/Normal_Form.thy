@@ -1,5 +1,5 @@
-theory NormalForm
-imports AbstractAF
+theory Normal_Form
+imports Abstract_AF
 begin
 
 section {* Normal form conversion *}
@@ -49,7 +49,9 @@ ML {*
 
   fun normalize_pure_nf ct =
     ((pure_rotate_conv then_conv Conv.arg1_conv normalize_pure_nf) else_conv merge_conv) ct;
+
   val normalize_nf_pure = swap_conv then_conv normalize_pure_nf;
+
   fun normalize_nf_nf ct =
     ((rotate_conv then_conv
       Conv.arg1_conv (Conv.arg1_conv normalize_pure_nf then_conv normalize_nf_nf)) else_conv

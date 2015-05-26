@@ -1,4 +1,4 @@
-theory AbstractAF
+theory Abstract_AF
 imports Main
 begin
 
