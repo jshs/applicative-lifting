@@ -75,22 +75,23 @@ ML {*
 notepad
 begin
   fix f g x y z
-  ML_prf {* normalform_conv @{cterm "x :: 'a af"} *}
-  ML_prf {* normalform_conv @{cterm "pure x"} *}
-  ML_prf {* normalform_conv @{cterm "pure f \<diamond> x"} *}
-  ML_prf {* normalform_conv @{cterm "pure f \<diamond> x \<diamond> y"} *}
-  ML_prf {* normalform_conv @{cterm "pure g \<diamond> (f \<diamond> x)"} *}
-  ML_prf {* normalform_conv @{cterm "f \<diamond> x \<diamond> y"} *}
-  ML_prf {* normalform_conv @{cterm "g \<diamond> (f \<diamond> x)"} *}
-  ML_prf {* normalform_conv @{cterm "f \<diamond> pure x"} *}
-  ML_prf {* normalform_conv @{cterm "pure x \<diamond> pure y"} *}
-  ML_prf {* normalform_conv @{cterm "f \<diamond> x \<diamond> pure y"} *}
-  ML_prf {* normalform_conv @{cterm "pure f \<diamond> x \<diamond> pure y"} *}
-  ML_prf {* normalform_conv @{cterm "pure f \<diamond> x \<diamond> pure y \<diamond> z"} *}
-  ML_prf {* normalform_conv @{cterm "pure f \<diamond> x \<diamond> (pure g \<diamond> y)"} *}
-  ML_prf {* normalform_conv @{cterm "f \<diamond> (g \<diamond> x) \<diamond> y"} *}
-  ML_prf {* normalform_conv @{cterm "f \<diamond> (g \<diamond> x \<diamond> y) \<diamond> z"} *}
-  ML_prf {* normalform_conv @{cterm "f \<diamond> (g \<diamond> (x \<diamond> pure y)) \<diamond> z"} *}
+
+  ML_val {* normalform_conv @{cterm "x :: 'a af"} *}
+  ML_val {* normalform_conv @{cterm "pure x"} *}
+  ML_val {* normalform_conv @{cterm "pure f \<diamond> x"} *}
+  ML_val {* normalform_conv @{cterm "pure f \<diamond> x \<diamond> y"} *}
+  ML_val {* normalform_conv @{cterm "pure g \<diamond> (f \<diamond> x)"} *}
+  ML_val {* normalform_conv @{cterm "f \<diamond> x \<diamond> y"} *}
+  ML_val {* normalform_conv @{cterm "g \<diamond> (f \<diamond> x)"} *}
+  ML_val {* normalform_conv @{cterm "f \<diamond> pure x"} *}
+  ML_val {* normalform_conv @{cterm "pure x \<diamond> pure y"} *}
+  ML_val {* normalform_conv @{cterm "f \<diamond> x \<diamond> pure y"} *}
+  ML_val {* normalform_conv @{cterm "pure f \<diamond> x \<diamond> pure y"} *}
+  ML_val {* normalform_conv @{cterm "pure f \<diamond> x \<diamond> pure y \<diamond> z"} *}
+  ML_val {* normalform_conv @{cterm "pure f \<diamond> x \<diamond> (pure g \<diamond> y)"} *}
+  ML_val {* normalform_conv @{cterm "f \<diamond> (g \<diamond> x) \<diamond> y"} *}
+  ML_val {* normalform_conv @{cterm "f \<diamond> (g \<diamond> x \<diamond> y) \<diamond> z"} *}
+  ML_val {* normalform_conv @{cterm "f \<diamond> (g \<diamond> (x \<diamond> pure y)) \<diamond> z"} *}
 end
 
 end
