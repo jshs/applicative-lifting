@@ -1,0 +1,11 @@
+- reorganize & update notes
+
+- applicative functor registry (type expressions?)
+- generalize normalform_conv
+- proof method using NF
+
+- lifting lemma
+- proper user interface with debugging
+- intermediate forms (cf. Hinze, §7)?
+- other logical operators?
+- examples & tests
