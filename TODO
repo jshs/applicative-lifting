@@ -1,7 +1,8 @@
 - reorganize & update notes
 
-- applicative functor registry (type expressions?)
-- generalize normalform_conv
+- normalform_conv: better names for new bound variables
+- generalize normalform_conv to registered applicative functors
+- document normalization algorithm
 - proof method using NF
 
 - lifting lemma
