@@ -41,11 +41,29 @@ ML {*
   fun dest_ap (Const (@{const_name "ap"}, _) $ f $ x) = (f, x)
     | dest_ap t = raise TERM ("dest_ap", [t]);
 
-  val leaf_conv = Conv.rewr_conv @{thm nf_leaf};
+  val clean_name = perhaps (perhaps_apply [try Name.dest_skolem, try Name.dest_internal]);
+
+  (* based on term_name from Pure/term.ML *)
+  fun term_to_vname (Const (x, _)) = Long_Name.base_name x
+    | term_to_vname (Free (x, _)) = clean_name x
+    | term_to_vname (Var ((x, _), _)) = clean_name x
+    | term_to_vname _ = Name.uu;
+
+  fun rename_rewr_conv mk_map rule ct =
+    let val rule' = Drule.rename_bvars (mk_map (Thm.term_of ct)) rule
+    in Conv.rewr_conv rule' ct end;
+
+  val leaf_conv = rename_rewr_conv (fn t => [("x", term_to_vname t)]) @{thm nf_leaf};
   val merge_conv = Conv.rewr_conv @{thm nf_merge};
   val swap_conv = Conv.rewr_conv @{thm nf_swap};
-  val rotate_conv = Conv.rewr_conv @{thm nf_rotate};
-  val pure_rotate_conv = Conv.rewr_conv @{thm nf_pure_rotate};
+
+  fun rename_rr_conv v = rename_rewr_conv (fn t =>
+      (case t of
+          _ $ (_ $ t') => [(v, term_to_vname t')]
+        | _ => raise TERM ("rename_rr_conv", [t])));
+
+  val rotate_conv = rename_rr_conv "x" @{thm nf_rotate};
+  val pure_rotate_conv = rename_rr_conv "x" @{thm nf_pure_rotate};
 
   fun normalize_pure_nf ct =
     ((pure_rotate_conv then_conv Conv.arg1_conv normalize_pure_nf) else_conv merge_conv) ct;
@@ -92,6 +110,8 @@ begin
   ML_val {* normalform_conv @{cterm "f \<diamond> (g \<diamond> x) \<diamond> y"} *}
   ML_val {* normalform_conv @{cterm "f \<diamond> (g \<diamond> x \<diamond> y) \<diamond> z"} *}
   ML_val {* normalform_conv @{cterm "f \<diamond> (g \<diamond> (x \<diamond> pure y)) \<diamond> z"} *}
+  ML_val {* normalform_conv @{cterm "f \<diamond> (g \<diamond> x \<diamond> x)"} *}
+  ML_val {* normalform_conv @{cterm "f x \<diamond> y"} *}
 end
 
 end
