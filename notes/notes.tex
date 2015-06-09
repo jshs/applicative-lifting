@@ -1,0 +1,53 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{stmaryrd}
+
+\usepackage{amsthm}
+\usepackage{thmtools}
+\declaretheorem[style=definition,qed=$\blacktriangle$]{example}
+
+\usepackage{enumitem}
+\setlist[enumerate,1]{label=\alph*)}
+
+\usepackage[
+	style=numeric,
+	sorting=none,
+	doi=false,
+	urldate=iso8601,
+]{biblatex}
+\addbibresource{bibliography.bib}
+
+\usepackage[hidelinks]{hyperref}
+
+
+\newcommand{\ldb}{\llbracket}
+\newcommand{\rdb}{\rrbracket}
+\newcommand{\todo}{\fbox{To do.}}
+
+\newcommand{\oftype}{\mathrel{::}}
+\newcommand{\funT}{\Rightarrow}
+\newcommand{\abs}[2]{\lambda #1.\>#2}
+\newcommand{\All}[2]{\bigwedge #1.\>#2}
+\newcommand{\all}[2]{\forall #1.\>#2}
+\newcommand{\set}[2]{\{#1\mid #2\}}
+
+\DeclareMathOperator{\pure}{\mathit{pure}}
+\newcommand{\ap}{\diamond}
+
+
+\title{Applicative Functors in Isabelle/HOL: Notes}
+\author{Joshua Schneider}
+
+\begin{document}
+
+\maketitle
+\input{overview}
+\printbibliography
+
+\end{document}

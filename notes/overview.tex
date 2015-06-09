@@ -1,0 +1,184 @@
+\section{Project Overview}\label{sec:overview}
+
+\subsection{Introduction}\label{subsec:introduction}
+
+Our primary goal is to implement an Isabelle/HOL proof method which reduces
+lifted equations to their base form.
+% FIXME restriction to Isabelle/HOL?
+Here, lifting refers to a transition from operations on base types to related
+operations on some structure.
+Hinze~\cite{hinze10} studied the conditions under which lifting preserves the
+validity of equations.
+He noticed that lifting can be defined in an intuitive fashion if the target
+structure is an applicative functor~\cite{mcbride08}:
+a unary type constructor $f$ with associated constants%
+\footnote{Types are given in Isabelle notation.}
+\begin{align*}
+	\pure_f &\oftype \alpha \funT \alpha f, \\
+	(\ap_f) &\oftype (\alpha \funT \beta) f \funT \alpha f \funT \beta f.
+\end{align*}
+The operator $\ap_f$ is left-associative.
+We omit the subscripts if the functor is clear from the context.
+Moreover, the following laws must be satisfied:
+\begin{align*}
+	\tag{identity} \pure{\mathit{id}} \ap u &= u \\
+	\tag{composition} \pure{(\cdot)} \ap u \ap v \ap w &= u \ap (v \ap w) \\
+	\tag{homomorphism} \pure{f} \ap \pure x &= \pure{(f x)} \\
+	\tag{interchange} u \ap \pure{x} &= \pure{(\abs{f}{f x})} \ap u
+\end{align*}
+
+The identity type constructor defined by $\alpha\,\mathit{id} = \alpha$ is a
+trivial applicative functor for $\pure{x} = x$, $f \ap x = f x$.
+We can take any abstraction-free term $t$ and replace each constant $c$ by
+$\pure{c}$, and each instance of function application $f x$ by $f \ap x$.
+The rewritten term is equivalent to $t$ under the identity functor
+interpretation, or identity ``idiom'' as coined in \cite{mcbride08}.
+By choosing a different applicative functor, we obtain a different
+interpretation of the same term structure.
+In fact, this is how we define the lifting of $t$ to an idiom.
+We also permit variables, which remain as such in the lifted term, but range
+over the structure instead.
+A term consisting only of $\pure$ and $\ap$ applications and
+free variables is called an idiomatic expression.
+
+\begin{example}\label{exmp:set-intro}
+Another applicative functor can be constructed from sets.
+For each type $\alpha$ there is a corresponding type $\alpha\,\mathit{set}$
+of sets with elements in $\alpha$;
+$\pure$ denotes the singleton set constructor $x \mapsto \{x\}$;
+$F \ap X$ takes a set of functions $F$ and a set of arguments $X$
+with compatible type, applying each function to each argument:
+\[ F \ap X = \set{f x}{f \in F,\, x \in X}. \]
+We can lift addition on natural numbers to the set idiom by defining the operator
+\begin{align*}
+	(\oplus) &\oftype \mathit{nat}\,\mathit{set} \funT \mathit{nat}\,\mathit{set} \funT
+		\mathit{nat}\,\mathit{set}, \\
+	X \oplus Y &= \pure{(+)} \ap X \ap Y = \set{x + y}{x \in X,\, y \in Y}.
+\end{align*}
+The associative property of addition
+\[ \all{x y z}{(x + y) + z = x + (y + z)} \]
+can be translated to sets of natural numbers
+\[ \all{X Y Z}{(X \oplus Y) \oplus Z = X \oplus (Y \oplus Z)}, \]
+where it holds as well, as one can check with a slightly laborious proof.
+Note that the two sides of the latter equation are the lifted counterparts
+of the former, respectively.
+\end{example}
+
+As we have seen, lifting can be generalized to equations.
+There is actually a more fundamental relationship between the two equations
+from above example---the lifted form can be proven for all applicative
+functors, not just $\mathit{set}$, using only the base property and the
+applicative functor laws.
+We want to automate this step with a proof method.
+
+Not all equations can be lifted in all idioms, though.
+In certain cases stronger conditions are required.
+\todo{}
+
+\subsection{User Interface}\label{subsec:interface}
+
+Since Isabelle's core logic does not allow parameterization of type constructors,
+we need a custom mechanism for registering applicative functors with the
+system.
+In order to apply the proof method, the user must provide beforehand
+\begin{enumerate}
+	\item corresponding $\pure$ and $\ap$ instances, and
+	\item a proof of the applicative functor laws, optionally with extended
+	properties.
+\end{enumerate}
+Lifted constants may be registered with an attribute, which can be applied to
+facts $\mathit{lhs} = \mathit{rhs}$, where $\mathit{rhs}$ is an idiomatic
+expression.
+These must be suitable for rewriting.
+
+The complete set of subgoal forms to support has not been determined yet.
+\todo{}
+As a minimal requirement, after unfolding lifted constants, HOL equations of
+idiomatic expressions shall be handled.
+Only the outermost functor $f$ is considered per invocation.
+The conceptual variables of the lifted expressions may be instantiated with
+arbitrary terms.
+However, the method actually proves the fully universally quantified form---%
+for every ``impure'' subterm not matching $\pure_f{\_}$ or $\_ \ap_f \_$,
+a new, locally quantified variable is introduced.
+The method attempts to transform the first subgoal to the base form of the
+equation, in other words, its identity functor interpretation.
+Variable names shall be preserved, if possible.
+Finally, it is desirable to have some kind of debugging facility for tracing
+intermediate steps.
+
+\begin{example}\label{exmp:set-usage}
+Continuing with the set idiom from example~\ref{exmp:set-intro}, assume that
+the user wants to prove an instantiation of the associativity law for $\oplus$,
+\[ (X \oplus Y) \oplus F a = X \oplus (Y \oplus F a), \]
+as part of a larger proof, where $X$, $Y$ and $F$ are fixed variables, and
+$a$ is a constant.
+The system has been informed of $\mathit{set}$ and $\oplus$.
+After applying the proof method, the new proof obligation reads
+\[ \All{x y u}{(x + y) + u = x + (y + u)}. \qedhere \]
+\end{example}
+
+\subsection{Proof Strategy}\label{subsec:proof-strategy}
+
+The proof method starts with testing the first subgoal for the expected
+structure.
+If the test succeeds, the applicative functor $f$ is known, such that the
+relevant theorems can be accessed subsequently.
+We then rewrite the subgoal using the declared rules for lifted constants.
+Only those related to $f$ are used, the reason being that overeager, unwanted
+unfolding may be difficult to reverse.
+All following steps depend on which additional properties of $f$ have been
+provided.
+
+If there are none, we normalize both sides of the equation.
+Hinze's Normal Form Lemma~\cite[7]{hinze10} asserts the existence of a certain
+normal form for idiomatic expressions where each variable occurs only once.
+As it turns out, we can compute this normal form for arbitrary terms.
+This is convenient because impure parts are handled implicitly.
+The details of the normalization algorithm are described in \ref{sec:normal-form}.
+The normalized equation is
+\[ \pure{g} \ap t_1 \ap \cdots \ap t_m = \pure{h} \ap s_1 \ap \cdots \ap s_n, \]
+where $g$ and $h$ are new terms, and $\vec t$ and $\vec s$ are the impure
+subterms of the original equation.
+If either $m \ne n$ or $t_i \ne s_i$ for some $i$ (as terms modulo
+$\alpha\beta\eta$-conversion), the proof method fails.
+Otherwise, we apply appropriate congruence rules until the subgoal is reduced
+to $g = h$.
+Since $g$ and $h$ are at least $n$-ary functions, we can further apply
+extensionality, reaching the subgoal
+\[ \All{x_1 \dots x_n}{g x_1 \cdots x_n = h x_1 \cdots x_n}. \]
+The normal form has the interesting property that this is exactly the
+generalized base form of the original equation.
+
+\todo
+
+\subsection{Choice of Embedding}\label{subsec:embedding}
+
+In Isabelle, it is not possible to construct an abstract framework for
+applicative functors in such a way that it is inhabited by all instances.
+We already referred to the fact that type constructors are fixed.
+Another issue is the lack of polymorphism in the inner logic:
+We cannot have, say, a schematic variable \textit{?pure} and use it with
+different types within the same proposition or proof.
+One solution is to define a custom logic, including a term language, axioms
+and meta theorems, and formalize it using the available specification tools.
+This is a \emph{deep embedding}~\cite{wildmoser04} of the logic.
+Then it would be possible to derive the Normal Form Lemma as a regular
+inference rule, for example.
+However, we want to prove propositions about arbitrary HOL objects, not just
+their encodings in the embedded logic.
+Some machinery is necessary, which performs the encoding and transfers results.
+\begin{itemize}
+\item finite number of types involved per term $\implies$ could use sum types
+\item number of types in sum is linear in size of terms
+\item would introduce a large number of projections/abstractions
+\end{itemize}
+\todo
+
+A different approach, which we will take, is a \emph{shallow embedding}.
+The ``formul\ae'' (here, idiomatic terms) are expressed directly in HOL.
+Due to aforementioned restrictions, meta-theorectical results must be provided
+in specialized form for each case.
+We make use of the powerful ML interface of Isabelle to program the proof
+construction.
+The correctness of the proofs is still verified by the system, of course.
