@@ -34,6 +34,8 @@ unfolding nf_rotate af_homomorphism
 by (rule reflexive)
 
 
+ML_file "applicative.ML"
+
 ML {*
   fun dest_pure (Const (@{const_name "pure"}, _) $ x) = x
     | dest_pure t = raise TERM("dest_pure", [t]);
