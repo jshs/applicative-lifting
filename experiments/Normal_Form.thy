@@ -116,4 +116,60 @@ begin
   ML_val {* normalform_conv @{cterm "f x \<diamond> y"} *}
 end
 
+
+ML {*
+  val abstract_af =
+   {pure = @{term pure},
+    ap = @{term "op \<diamond>"},
+    identity = @{thm af_identity},
+    composition = @{thm af_composition},
+    homomorphism = @{thm af_homomorphism},
+    interchange = @{thm af_interchange}};
+*}
+setup {* Applicative.add_global abstract_af *}
+
+lemma id_unfold: "id \<equiv> \<lambda>x. x"
+by (unfold id_def)
+
+lemma comp_unfold: "comp \<equiv> (\<lambda>g f x. g (f x))"
+by (unfold comp_def_ext)
+
+ML {*
+  type nf_rules =
+   {leaf_rule: thm,
+    merge_rule: thm,
+    swap_rule: thm,
+    rotate_rule: thm,
+    pure_rotate_rule: thm};
+
+  fun mk_nf_rules ctx (af: Applicative.afun) =
+    let
+      val leaf_rule = Thm.symmetric (#identity af RS eq_reflection)
+          |> Raw_Simplifier.rewrite_rule ctx [@{thm id_unfold}];
+      val merge_rule = #homomorphism af RS eq_reflection;
+      val swap_rule = #interchange af RS eq_reflection;
+      val rotate_rule = Thm.symmetric (#composition af RS eq_reflection)
+          |> Raw_Simplifier.rewrite_rule ctx [@{thm comp_unfold}];
+
+      val g = Thm.cprop_of rotate_rule |> Thm.dest_arg1 |> Thm.dest_arg1;
+      val gT = Thm.typ_of_cterm g;
+      val pure = Logic.varify_global (#pure af);
+      val pure_argT = Term.type_of pure |> Term.dest_funT |> fst;
+      val pure_x = betapply (pure, Var (("", maxidx_of_term pure + 1), pure_argT));
+      val tyenv = Sign.typ_match (Proof_Context.theory_of ctx) (Term.type_of pure_x, gT) Vartab.empty;
+      val g' = Envir.subst_term_types tyenv (Thm.term_of g);
+      val pure_x' = Envir.subst_term_types tyenv pure_x;
+      val pure_rotate_rule = Thm.certify_instantiate ([], [(Term.dest_Var g', pure_x')]) rotate_rule
+          |> Raw_Simplifier.rewrite_rule @{context} [merge_rule];
+    in
+      {leaf_rule = leaf_rule, merge_rule = merge_rule, swap_rule = swap_rule,
+       rotate_rule = rotate_rule, pure_rotate_rule = pure_rotate_rule}
+    end;
+*}
+
+ML_val {*
+  val ctx = @{context};
+  mk_nf_rules ctx (Applicative.get (Context.Proof ctx) @{term "f \<diamond> x"})
+*}
+
 end
