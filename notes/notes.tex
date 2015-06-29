@@ -10,10 +10,17 @@
 
 \usepackage{amsthm}
 \usepackage{thmtools}
+\declaretheorem{lemma}
 \declaretheorem[style=definition,qed=$\blacktriangle$]{example}
+\declaretheorem[style=definition]{definition}
+\numberwithin{equation}{section}
+\usepackage{mathtools}
 
 \usepackage{enumitem}
 \setlist[enumerate,1]{label=\alph*)}
+\newenvironment{prfcases}{\begin{enumerate}[label={\it Case \arabic*.},leftmargin=0pt]}{\end{enumerate}}
+
+\usepackage{algorithm}
 
 \usepackage[
 	style=numeric,
@@ -39,6 +46,11 @@
 
 \DeclareMathOperator{\pure}{\mathit{pure}}
 \newcommand{\ap}{\diamond}
+\DeclareMathOperator{\simp}{\mathsf{imp}}
+\DeclareMathOperator{\spure}{\mathsf{pure}}
+\newcommand{\sap}{\mathbin{\mathsf{`ap`}}}
+\newcommand{\sapp}{\>}
+\newcommand{\sabs}[2]{{\boldsymbol\lambda} #1.\>#2}
 
 
 \title{Applicative Functors in Isabelle/HOL: Notes}
@@ -48,6 +60,7 @@
 
 \maketitle
 \input{overview}
+\input{normal_form}
 \printbibliography
 
 \end{document}
