@@ -29,6 +29,7 @@ sig
   val normalform_conv: Proof.context -> afun -> conv
   val normalize_eq_conv: Proof.context -> afun option -> conv
   val normalize_eq_tac: Proof.context -> int -> tactic
+  val lifting_nf_tac: Proof.context -> int -> tactic
 end;
 
 structure Applicative : APPLICATIVE =
@@ -261,5 +262,9 @@ fun normalize_eq_conv ctxt af ct =
 (* ignores local premises *)
 fun normalize_eq_tac ctxt = CONVERSION (Conv.params_conv ~1 (fn ctxt =>
     Conv.concl_conv ~1 (normalize_eq_conv ctxt NONE)) ctxt);
+
+fun lifting_nf_tac ctxt = normalize_eq_tac ctxt THEN'
+  TRY o (REPEAT_ALL_NEW (rtac refl ORELSE' cong_tac ctxt) THEN'
+    REPEAT o rtac ext);
 
 end;

@@ -18,6 +18,9 @@ by (unfold comp_def_ext)
 
 ML_file "applicative.ML"
 
+method_setup lifting_nf = {* Scan.succeed (fn ctxt =>
+  SIMPLE_METHOD' (Applicative.lifting_nf_tac ctxt)) *}
+
 
 subsection {* Example: Abstract functor *}
 
@@ -33,45 +36,31 @@ setup {*
   in Applicative.add_global abstract_af end
 *}
 
-ML {*
-  fun auto_normalform_conv ctxt ct = Applicative.normalform_conv ctxt
-      (Applicative.get (Context.Proof ctxt) (Thm.term_of ct)) ct;
-*}
-
-(* Tests *)
-
 notepad
 begin
-  fix f g x y z
-
-  ML_val {* auto_normalform_conv @{context} @{cterm "pure x"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "pure f \<diamond> x"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "pure f \<diamond> x \<diamond> y"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "pure g \<diamond> (f \<diamond> x)"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "f \<diamond> x \<diamond> y"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "g \<diamond> (f \<diamond> x)"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "f \<diamond> pure x"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "pure x \<diamond> pure y"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "f \<diamond> x \<diamond> pure y"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "pure f \<diamond> x \<diamond> pure y"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "pure f \<diamond> x \<diamond> pure y \<diamond> z"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "pure f \<diamond> x \<diamond> (pure g \<diamond> y)"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "f \<diamond> (g \<diamond> x) \<diamond> y"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "f \<diamond> (g \<diamond> x \<diamond> y) \<diamond> z"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "f \<diamond> (g \<diamond> (x \<diamond> pure y)) \<diamond> z"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "f \<diamond> (g \<diamond> x \<diamond> x)"} *}
-  ML_val {* auto_normalform_conv @{context} @{cterm "f x \<diamond> y"} *}
-
-  have "x = pure (\<lambda>x. x) \<diamond> x"
-    apply (tactic {* Applicative.normalize_eq_tac @{context} 1 *})
-    apply (rule refl)
-    done
-
-  have "pure g \<diamond> (f \<diamond> x) = pure (\<lambda>f x. g (f x)) \<diamond> f \<diamond> x"
-    apply (tactic {* Applicative.normalize_eq_tac @{context} 1 *})
-    apply (rule refl)
-    done
+  have "\<And>x. x = pure (\<lambda>x. x) \<diamond> x" by lifting_nf
+  have "\<And>x. pure x = pure x" by lifting_nf
+  have "\<And>f x. pure f \<diamond> x = pure f \<diamond> x" by lifting_nf
+  have "\<And>f x y. pure f \<diamond> x \<diamond> y = pure f \<diamond> x \<diamond> y" by lifting_nf
+  have "\<And>g f x. pure g \<diamond> (f \<diamond> x) = pure (\<lambda>f x. g (f x)) \<diamond> f \<diamond> x" by lifting_nf
+  have "\<And>f x y. f \<diamond> x \<diamond> y = pure (\<lambda>f x y. f x y) \<diamond> f \<diamond> x \<diamond> y" by lifting_nf
+  have "\<And>g f x. g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by lifting_nf
+  have "\<And>f x. f \<diamond> pure x = pure (\<lambda>f. f x) \<diamond> f" by lifting_nf
+  have "\<And>x y. pure x \<diamond> pure y = pure (x y)" by lifting_nf
+  have "\<And>f x y. f \<diamond> x \<diamond> pure y = pure (\<lambda>f x. f x y) \<diamond> f \<diamond> x" by lifting_nf
+  have "\<And>f x y. pure f \<diamond> x \<diamond> pure y = pure (\<lambda>x. f x y) \<diamond> x" by lifting_nf
+  have "\<And>f x y z. pure f \<diamond> x \<diamond> pure y \<diamond> z = pure (\<lambda>x z. f x y z) \<diamond> x \<diamond> z" by lifting_nf
+  have "\<And>f x g y. pure f \<diamond> x \<diamond> (pure g \<diamond> y) = pure (\<lambda>x y. f x (g y)) \<diamond> x \<diamond> y" by lifting_nf
+  have "\<And>f g x y. f \<diamond> (g \<diamond> x) \<diamond> y = pure (\<lambda>f g x y. f (g x) y) \<diamond> f \<diamond> g \<diamond> x \<diamond> y" by lifting_nf
+  have "\<And>f g x y z. f \<diamond> (g \<diamond> x \<diamond> y) \<diamond> z = pure (\<lambda>f g x y z. f (g x y) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> y \<diamond> z" by lifting_nf
+  have "\<And>f g x y z. f \<diamond> (g \<diamond> (x \<diamond> pure y)) \<diamond> z = pure (\<lambda>f g x z. f (g (x y)) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> z" by lifting_nf
+  have "\<And>f g x. f \<diamond> (g \<diamond> x \<diamond> x) = pure (\<lambda>f g x x'. f (g x x')) \<diamond> f \<diamond> g \<diamond> x \<diamond> x" by lifting_nf
+  have "\<And>f x y. f x \<diamond> y = pure (\<lambda>f x. f x) \<diamond> f x \<diamond> y" by lifting_nf
+next
+  fix f :: "('a \<Rightarrow> 'b) af" and g :: "('b \<Rightarrow> 'c) af" and x
+  have "g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by lifting_nf
 end
+(* TODO automatic test for names of new variables *)
 
 
 subsection {* Example: Sets *}
@@ -111,17 +100,14 @@ setup {*
   in Applicative.add_global set_af end
 *}
 
-notepad
+instantiation set :: (semigroup_add) semigroup_add
 begin
-  fix X Y Z :: "nat set"
-
-  have "single plus \<otimes> X \<otimes> (single plus \<otimes> Y \<otimes> Z) = single plus \<otimes> (single plus \<otimes> X \<otimes> Y) \<otimes> Z"
-    apply (tactic {* Applicative.normalize_eq_tac @{context} 1 *})
-    apply (tactic "cong_tac @{context} 1", simp_all)+
-    apply (rule ext)+
-    apply (insert add.assoc)
-    apply simp
-    done
+  definition set_plus_def: "X + Y = single plus \<otimes> X \<otimes> Y"
+  instance proof
+    fix X Y Z :: "'a set"
+    from add.assoc
+    show "X + Y + Z = X + (Y + Z)" unfolding set_plus_def by lifting_nf
+   qed
 end
 
 end
