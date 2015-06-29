@@ -27,6 +27,8 @@ sig
   val get: Context.generic -> term -> afun
 
   val normalform_conv: Proof.context -> afun -> conv
+  val normalize_eq_conv: Proof.context -> afun option -> conv
+  val normalize_eq_tac: Proof.context -> int -> tactic
 end;
 
 structure Applicative : APPLICATIVE =
@@ -143,6 +145,7 @@ fun mk_afun ctxt (sign, laws) =
     val comp_g = Abs ("f", T1 --> T2, Abs ("x", T1, g $ (Bound 1 $ Bound 0)));
     val rhs = ap sign (T1, T3) $ (ap sign (T1 --> T2, T1 --> T3) $ lift sign comp_g $ f) $ x;
     val prop = Logic.mk_equals (lhs, rhs);
+    (* FIXME refine tactic *)
     val tac = HEADGOAL (Raw_Simplifier.rewrite_goal_tac ctxt' [rotate_rule, merge_rule] THEN'
         rtac reflexive_thm);
     val rule = Goal.prove ctxt' [] [] prop (K tac);
@@ -239,5 +242,24 @@ fun normalform_conv ctxt {sign, nf_rules, ...} =
           else leaf_conv ct
       end;
   in normalize end;
+
+(* TODO support meta eq *)
+fun normalize_eq_conv ctxt af ct =
+  let
+    val context = Context.Proof ctxt;
+    val (lhs, rhs) = Thm.term_of ct |> HOLogic.dest_Trueprop |> HOLogic.dest_eq
+      handle TERM _ => raise CTERM ("no conversion", [ct]);
+    (* XXX nice combinators? *)
+    val af' = case af of
+        SOME a => a
+      | NONE => case try (get context) lhs of
+            SOME a => a
+          | NONE => get context rhs handle TERM _ => raise CTERM ("no conversion", [ct]);
+    val nf_conv = normalform_conv ctxt af';
+  in HOLogic.Trueprop_conv (Conv.arg1_conv nf_conv then_conv Conv.arg_conv nf_conv) ct end;
+
+(* ignores local premises *)
+fun normalize_eq_tac ctxt = CONVERSION (Conv.params_conv ~1 (fn ctxt =>
+    Conv.concl_conv ~1 (normalize_eq_conv ctxt NONE)) ctxt);
 
 end;
