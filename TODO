@@ -1,11 +1,14 @@
 - document normalization algorithm
-- comparison with related tools
 
-- generalize normalform_conv to arbitrary applicative functors
-- proof method using normal form
+- NF: forbid beta redexes
+- NF: allow additional fixed (type) variables
+- NF: extend 'unlift' wrapper
+- provide rewrite wrapper for normalform_conv
 
-- lifting lemma
+- lifting lemma: investigate combinator subsets
+
 - proper user interface with debugging
 - intermediate forms (cf. Hinze, §7)?
-- other logical operators?
+- other logical operators -> relators
+- comparison with related tools
 - examples & tests
