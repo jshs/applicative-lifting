@@ -8,19 +8,32 @@
 \usepackage{amssymb}
 \usepackage{stmaryrd}
 
+\usepackage{mathtools}
 \usepackage{amsthm}
 \usepackage{thmtools}
 \declaretheorem{lemma}
 \declaretheorem[style=definition,qed=$\blacktriangle$]{example}
-\declaretheorem[style=definition]{definition}
+\declaretheorem[style=definition,qed=$\blacktriangle$]{definition}
 \numberwithin{equation}{section}
-\usepackage{mathtools}
 
 \usepackage{enumitem}
 \setlist[enumerate,1]{label=\alph*)}
+% FIXME use \newlist
 \newenvironment{prfcases}{\begin{enumerate}[label={\it Case \arabic*.},leftmargin=0pt]}{\end{enumerate}}
 
 \usepackage{algorithm}
+
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric}
+\tikzset{itermtree/.style={anchor=north,child anchor=north,%
+	level distance=6mm,sibling distance=10mm,%
+	edge from parent/.style={draw,solid},every node/.style={solid}}}
+\tikzset{pure/.style={draw,rectangle,inner sep=4pt,minimum size=5mm}}
+\tikzset{term/.style={draw,circle,inner sep=1pt,minimum size=5mm}}
+\tikzset{ap/.style={fill,diamond,inner sep=0pt,minimum size=6pt}}
+\tikzset{subtrm/.style={draw,isosceles triangle,isosceles triangle apex angle=55,%
+	shape border rotate=90,minimum height=10mm}}
+\tikzset{abbrv/.style={dashed}}
 
 \usepackage[
 	style=numeric,
@@ -46,7 +59,7 @@
 
 \DeclareMathOperator{\pure}{\mathit{pure}}
 \newcommand{\ap}{\diamond}
-\DeclareMathOperator{\simp}{\mathsf{imp}}
+\DeclareMathOperator{\sterm}{\mathsf{term}}
 \DeclareMathOperator{\spure}{\mathsf{pure}}
 \newcommand{\sap}{\mathbin{\mathsf{`ap`}}}
 \newcommand{\sapp}{\>}
