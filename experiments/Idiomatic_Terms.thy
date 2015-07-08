@@ -107,10 +107,10 @@ using assms
 by (auto intro: pure_nf_in_nf)
 
 lemma nf_nf_in_nf:
-  assumes "f \<in> NF" and "x \<in> NF"
+  assumes "x \<in> NF" and "f \<in> NF"
     shows "normalize_nf_nf (f \<diamond> x) \<in> NF"
 using assms
-by (induction "f \<diamond> x" arbitrary: f x rule: normalize_nf_nf.induct) (auto intro: pure_nf_in_nf)
+by (induction arbitrary: f rule: NF.induct) (auto intro: pure_nf_in_nf nf_pure_in_nf)
 
 lemma normalized: "normalize x \<in> NF"
 by (induction x rule: normalize.induct) (auto intro: nf_nf_in_nf)
