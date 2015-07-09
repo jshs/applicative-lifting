@@ -1,4 +1,4 @@
-\documentclass[a4paper]{article}
+\documentclass[a4paper,draft]{article}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -18,21 +18,22 @@
 
 \usepackage{enumitem}
 \setlist[enumerate,1]{label=\alph*)}
-% FIXME use \newlist
-\newenvironment{prfcases}{\begin{enumerate}[label={\it Case \arabic*.},leftmargin=0pt]}{\end{enumerate}}
+\newlist{prfcases}{enumerate}{1}
+\setlist[prfcases,1]{label={\it Case \arabic*.},align=left,leftmargin=\parindent,itemindent=*}
 
 \usepackage{algorithm}
 
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric}
-\tikzset{itermtree/.style={anchor=north,child anchor=north,%
-	level distance=6mm,sibling distance=10mm,%
+\tikzset{itermtree/.style={level distance=6mm,sibling distance=10mm,%
 	edge from parent/.style={draw,solid},every node/.style={solid}}}
 \tikzset{pure/.style={draw,rectangle,inner sep=4pt,minimum size=5mm}}
 \tikzset{term/.style={draw,circle,inner sep=1pt,minimum size=5mm}}
 \tikzset{ap/.style={fill,diamond,inner sep=0pt,minimum size=6pt}}
 \tikzset{subtrm/.style={draw,isosceles triangle,isosceles triangle apex angle=55,%
-	shape border rotate=90,minimum height=10mm}}
+	shape border rotate=90,minimum height=10mm,anchor=north,child anchor=north}}
+\tikzset{subtrmf/.style={subtrm,level distance=10mm,sibling distance=16.67mm}}
+\tikzset{subtrmn/.style={subtrm,level distance=4mm,sibling distance=6.67mm}}
 \tikzset{abbrv/.style={dashed}}
 
 \usepackage[
@@ -64,6 +65,7 @@
 \newcommand{\sap}{\mathbin{\mathsf{`ap`}}}
 \newcommand{\sapp}{\>}
 \newcommand{\sabs}[2]{{\boldsymbol\lambda} #1.\>#2}
+\newcommand{\termeq}{=_{\alpha\beta\eta}}
 
 
 \title{Applicative Functors in Isabelle/HOL: Notes}
