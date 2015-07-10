@@ -353,7 +353,7 @@ text \<open>
   Now, we can also lift conditional equations and relations.
   However, as we cannot double effects yet, we must require that the idiomatic expressions
   (assumption and conclusion) of the left-hand side use the same variables in the same order,
-  and similarly for the right-hand side, and both sides no not share variables.
+  and similarly for the right-hand side, and both sides do not share variables.
 
   1. If necessary, expand the assumed relation with the additional variables.
   2. Zip all impure arguments into one for each side of assumed and stated relation.
@@ -409,9 +409,9 @@ subsection \<open>Doubling effects\<close>
 
 text \<open> If we can double effects, products are unique. \<close>
 
-axiomatization S :: "(('a \<Rightarrow> 'b \<Rightarrow> 'c) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> 'a \<Rightarrow> 'c) af"
-where ap_S: "S \<diamond> f \<diamond> g \<diamond> x = f \<diamond> x \<diamond> (g \<diamond> x)"
-  and S_def: "S = pure (\<lambda>f g x. f x (g x))"
+axiomatization W :: "(('a \<Rightarrow> 'a \<Rightarrow> 'b) \<Rightarrow> 'a \<Rightarrow> 'b) af"
+where ap_W: "W \<diamond> f \<diamond> x = f \<diamond> x \<diamond> x"
+  and W_def: "W = pure (\<lambda>f x. f x x)"
 
 lemma product_unique:
    assumes x: "map fst z = x"
@@ -420,24 +420,53 @@ lemma product_unique:
 proof -
   have "zip x y = zip (map fst z) (map snd z)" by(simp add: assms)
   also have "\<dots> = map (map_prod fst snd) (zip z z)" unfolding map_zip ..
-  also have "zip z z = S \<diamond> pure Pair \<diamond> pure id \<diamond> z" unfolding zip_conv ap_S af_identity ..
-  also have "\<dots> = pure (\<lambda>S. S Pair id) \<diamond> S \<diamond> z"
-    apply(subst af_interchange)
-    apply(subst af_interchange)
-    apply(subst af_composition[symmetric])
-    unfolding af_homomorphism o_def ..
-  also have "map (map_prod fst snd) \<dots> = pure (\<lambda>S z. map_prod fst snd (S Pair id z)) \<diamond> S \<diamond> z"
+  also have "zip z z = W \<diamond> pure Pair \<diamond> z" unfolding zip_conv ap_W af_identity ..
+  also have "\<dots> = pure (\<lambda>W. W Pair) \<diamond> W \<diamond> z"
+    apply(subst af_interchange) ..
+  also have "map (map_prod fst snd) \<dots> = pure (\<lambda>W z. map_prod fst snd (W Pair z)) \<diamond> W \<diamond> z"
     unfolding map_conv af_composition[symmetric] af_homomorphism o_def ..
-  also have "\<dots> = z" unfolding S_def af_homomorphism by(simp add: af_identity[unfolded id_def])
+  also have "\<dots> = z" unfolding W_def af_homomorphism by(simp add: af_identity[unfolded id_def])
   finally show ?thesis by simp
 qed
 
+text \<open>
+  Unfortunately, doubling adjacent effects is not enough for lifting with shared variables.
+  We also want to be able to duplicate effects with other stuff in between.
+\<close>
 
+axiomatization H :: "(('a \<Rightarrow> 'b \<Rightarrow> 'a \<Rightarrow> 'c) \<Rightarrow> 'a \<Rightarrow> 'b \<Rightarrow> 'c) af"
+where ap_H: "H \<diamond> f \<diamond> x \<diamond> y = f \<diamond> x \<diamond> y \<diamond> x"
+  and H_def: "H = pure (\<lambda>f x y. f x y x)"
+  -- \<open>Hummingbird combinator taken from "To Mock a Mockingbird"\<close>
+
+text \<open>If there is H, then there is W\<close>
+
+lemma "W \<diamond> f \<diamond> x = H \<diamond> (pure (\<lambda>f x y. f x) \<diamond> f) \<diamond> x \<diamond> pure id"
+unfolding H_def W_def
+apply(subst af_interchange)
+apply(subst af_composition[symmetric])
+apply(subst af_homomorphism)
+apply(subst af_composition[symmetric])
+apply(subst af_homomorphism)+
+apply(subst af_composition[symmetric])
+apply(subst af_homomorphism)+
+apply(simp add: o_def)
+done
 
 text \<open>Lifting with shared variables\<close>
 
 axiomatization where set_natural2: "\<And>f x. set (map f x) \<supseteq> f ` set x"
   -- \<open>This is is the other half to @{thm set_natural}\<close>
+
+text \<open>
+  General approach:
+  1. obtain the product from the assumption
+  2. eliminate the shared variables using @{const H}
+  3. push pure term into the predicator
+  4. use monotonicity of the predicator
+  5. pull pure term out of the predicator
+  6. show that the projections are as expected
+\<close>
 
 lemma
   assumes *: "rel P (pure f \<diamond> x \<diamond> y) (pure g \<diamond> x \<diamond> y)"
@@ -452,21 +481,14 @@ proof -
   also have "\<dots> = pure (\<lambda>x y x' y'. (f x y, g x' y')) \<diamond> x \<diamond> y \<diamond> x \<diamond> y"
     unfolding zip_conv af_composition[symmetric] af_homomorphism o_def
     by(subst af_interchange)(simp add: af_composition[symmetric] af_homomorphism o_def)
-  also have "\<dots> = S \<diamond> map (\<lambda>x y z. (f x y, z)) x \<diamond> map g x \<diamond> y"
-    unfolding ap_S
-    unfolding ap_S af_composition[symmetric] af_homomorphism map_conv o_def
-    by(subst af_interchange)(simp add: af_composition[symmetric] af_homomorphism o_def)
-  also have "\<dots> =  pure (\<lambda>x x' y. (f x y, g x' y)) \<diamond> x \<diamond> x \<diamond> y" unfolding S_def map_conv
-    apply(simp add: af_composition[symmetric] af_homomorphism o_def)
-    apply(subst af_interchange)
-    apply(simp add: af_composition[symmetric] af_homomorphism o_def)
-    done
-  also have "\<dots> = S \<diamond> pure (\<lambda>x x' y. (f x y, g x' y)) \<diamond> pure id \<diamond> x \<diamond> y"
-    unfolding ap_S af_identity ..
-  also have "\<dots> = pure (\<lambda>x y. (f x y, g x y)) \<diamond> x \<diamond> y" unfolding S_def af_homomorphism id_apply ..
+  also have "\<dots> = H \<diamond> pure (\<lambda>x y x' y'. (f x y, g x' y')) \<diamond> x \<diamond> y \<diamond> y" unfolding ap_H ..
+  also have "\<dots> = W \<diamond> (H \<diamond> pure (\<lambda>x y x' y'. (f x y, g x' y')) \<diamond> x) \<diamond> y" unfolding ap_W ..
+  also have "\<dots> = pure (\<lambda>x y. (f x y, g x y)) \<diamond> x \<diamond> y"
+    unfolding W_def H_def af_composition[symmetric] af_homomorphism o_def ..
   also have "\<dots> = map (\<lambda>(x, y). (f x y, g x y)) (zip x y)" unfolding map_conv zip_conv 
     af_composition[symmetric] af_homomorphism o_def split_beta fst_conv snd_conv ..
   finally have "pred (\<lambda>(x, y). P (f x y) (g x y)) (zip x y)" using z
+    -- \<open>uses distributivity of predicator over map\<close>
     apply clarsimp
     apply(drule bspec)
      apply(rule subsetD[OF set_natural2])
@@ -476,43 +498,23 @@ proof -
   with base have "pred (\<lambda>(x, y). Q (f' x y) (g' x y)) (zip x y)" 
     -- \<open>uses monotonicity of the predicator\<close>
     by auto
-  txt \<open>And now unravelling everything backwards\<close>
-  hence "pred (\<lambda>(x, y). Q x y) (map (\<lambda>(x, y). (f' x y, g' x y)) (zip x y))"
+  txt \<open>And now we are essentially there: push @{term f'} and @{term g'} back into the product and then project\<close>
+  hence 1: "pred (\<lambda>(x, y). Q x y) (map (\<lambda>(x, y). (f' x y, g' x y)) (zip x y))" (is "pred _ ?z")
     apply clarsimp
     apply(drule subsetD[OF set_natural])
     apply auto
     done
-  also have "map (\<lambda>(x, y). (f' x y, g' x y)) (zip x y) = pure (\<lambda>x y. (f' x y, g' x y)) \<diamond> x \<diamond> y"
-    unfolding map_conv zip_conv af_composition[symmetric] af_homomorphism o_def split_beta fst_conv snd_conv ..
-  also have "\<dots> = S \<diamond> pure (\<lambda>x x' y. (f' x y, g' x' y)) \<diamond> pure id \<diamond> x \<diamond> y"  unfolding S_def af_homomorphism id_apply ..
-  also have "\<dots> = pure (\<lambda>x x' y. (f' x y, g' x' y)) \<diamond> x \<diamond> x \<diamond> y" unfolding ap_S af_identity ..
-  also have "\<dots> = S \<diamond> map (\<lambda>x y z. (f' x y, z)) x \<diamond> map g' x \<diamond> y"
-    unfolding S_def
-    unfolding af_composition[symmetric] af_homomorphism map_conv o_def
-    by(subst af_interchange)(simp add: af_composition[symmetric] af_homomorphism o_def)
-  also have "\<dots> = pure (\<lambda>x y x' y'. (f' x y, g' x' y')) \<diamond> x \<diamond> y \<diamond> x \<diamond> y"
-    unfolding ap_S
-    unfolding ap_S af_composition[symmetric] af_homomorphism map_conv o_def
-    by(subst af_interchange)(simp add: af_composition[symmetric] af_homomorphism o_def)
-  also have "\<dots> = zip (pure f' \<diamond> x \<diamond> y) (pure g' \<diamond> x \<diamond> y)"
-    unfolding zip_conv af_composition[symmetric] af_homomorphism o_def
-    by(subst af_interchange)(simp add: af_composition[symmetric] af_homomorphism o_def)
-  also
-  txt \<open>Finally we have to prove that the projections are as expected\<close>
-  txt \<open>If we could factor f' over f and g' over g, we would be done...
-    But we cannot in general, so we have to use weak pullback.
-    If we had a K combinator, we could just use that @{const zip} is a product
-    TOOD: Investigate whether the K combinator entails weak pullback preservation\<close>
-  have "map fst \<dots> = pure f' \<diamond> x \<diamond> y" sorry
-  moreover have "map snd (zip (pure f' \<diamond> x \<diamond> y) (pure g' \<diamond> x \<diamond> y)) = pure g' \<diamond> x \<diamond> y" sorry
+  moreover have "map fst ?z = pure f' \<diamond> x \<diamond> y"
+    unfolding zip_conv map_conv af_composition[symmetric] af_homomorphism o_def prod.simps fst_conv ..
+  moreover have "map snd ?z = pure g' \<diamond> x \<diamond> y"
+    unfolding zip_conv map_conv af_composition[symmetric] af_homomorphism o_def prod.simps snd_conv ..
   ultimately show ?thesis unfolding rel_def by blast
 qed
 
-lemma rel_mono_refl:
-  assumes "rel P x x"
-  and *: "\<forall>x. P x x \<longrightarrow> Q x x"
-  shows "rel Q x x"
-oops
+text \<open>
+  Doubling is really the crucial property here.
+  The above example with set also works for pmfs, which have K and C. 
+\<close>
 
 subsection \<open>Discarding effects\<close>
 
@@ -552,6 +554,8 @@ subsection \<open>Swapping\<close>
 
 text \<open>
   Is there an applicative functor that has a K but not a C?
+
+  If so, it cannot have H, as C is equivalent to B H K.
 \<close>
 
 axiomatization C :: "(('a \<Rightarrow> 'b \<Rightarrow> 'c) \<Rightarrow> 'b \<Rightarrow> 'a \<Rightarrow> 'c) af"
