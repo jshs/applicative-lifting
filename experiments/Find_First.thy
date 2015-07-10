@@ -31,14 +31,14 @@ unfolding pure_def by(clarsimp)
 lemma af_interchange: "f \<diamond> pure x = pure (\<lambda>g. g x) \<diamond> f"
 unfolding pure_def by(cases f) simp
 
-definition S :: "('x, ('b \<Rightarrow> 'a \<Rightarrow> 'c) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> 'a \<Rightarrow> 'c) af"
-where "S = pure (\<lambda>f g x. f (g x) x)"
+definition H :: "('x, ('a \<Rightarrow> 'b \<Rightarrow> 'a \<Rightarrow> 'c) \<Rightarrow> 'a \<Rightarrow> 'b \<Rightarrow> 'c) af"
+where "H = pure (\<lambda>f x y. f x y x)"
 
-lemma ap_S: "S \<diamond> f \<diamond> g \<diamond> x = f \<diamond> (g \<diamond> x) \<diamond> x"
-unfolding S_def pure_def
+lemma ap_H: "H \<diamond> f \<diamond> x \<diamond> y = f \<diamond> x \<diamond> y \<diamond> x"
+unfolding H_def pure_def
 apply(cases f)
-apply(cases g)
 apply(cases x)
+apply(cases y)
 apply(rename_tac u f' v g' w x')
 apply(case_tac u)
  apply(case_tac v)
