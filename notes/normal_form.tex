@@ -7,19 +7,28 @@ Hinze~\cite{hinze10} gave an explicit construction of this normal form for the
 monoidal variant of applicative functors.
 The normal form is useful for our purpose because the pure part reflects the
 term that was lifted.
-Its construction can be performed using only the applicative laws, thus this is
+Its construction can be performed using only the applicative laws, so this is
 the most general approach regarding instances (but not regarding lifted
 equalities).
 In the following, we define lifting and normalization formally, based on a
 syntactic representation of idiomatic terms.
-Then we describe the implementation of the normalization procedure in Isabelle.
+Then we describe the implementation of the normalization procedure in
+Isabelle/ML.
 
 \subsection{The Idiomatic Calculus}\label{subsec:idiomatic-calculus}
 
-Though we are mainly interested in idiomatic terms, we need to represent
-pure and (opaque) impure values.
-It makes sense to refer to general lambda terms;
-then we can define the semantics consistently.
+In Section~\ref{subsec:introduction}, we introduced idiomatic expressions built
+from $\pure$ and $\ap$ constants of an applicative functor.
+This structure maps straightforward to a recursive datatype, given that there
+is a representation for arguments of $\pure$.
+These must have a some structure as well such that the applicative laws can
+be expressed.
+It should also be possible to have ``opaque'' idiomatic subterms, which cannot
+(or should not) be written as a combination of $\pure$ and $\ap$.
+This is primarily useful for variables ranging over lifted types, but as
+demonstrated in Example~\ref{exmp:set-usage}, more complex terms may occur too.
+Therefore it makes sense to refer to general lambda terms in both cases;
+then we can define semantics consistently.
 However, types are ignored for simplicity.
 
 \begin{definition}[Untyped lambda terms]
@@ -32,182 +41,314 @@ The set of untyped lambda terms is defined as
 \end{equation}
 An equivalence relation on $\mathcal{T}$ is a $\mathcal{T}$-congruence iff it
 is closed under application and abstraction.
-Let $=_\beta$ be the smallest $\mathcal{T}$-congruence containing $\alpha$- and
-$\beta$-conversion.
+Let $\termeq$ be the smallest $\mathcal{T}$-congruence containing $\alpha$-,
+$\beta$-, and $\eta$-conversion.
 \end{definition}
 
 \begin{definition}[Idiomatic terms]
 The set of idiomatic terms is defined as
 \begin{equation}
-	\mathcal{I} ::= \simp \mathcal{T} \mid \spure \mathcal{T} \mid
+	\mathcal{I} ::= \sterm \mathcal{T} \mid \spure \mathcal{T} \mid
 		\mathcal{I} \sap \mathcal{I}.
 \end{equation}
+$\sap$ associates to the left.
 An $\mathcal{I}$-congruence is an equivalence relation closed under $\sap$.
 The congruence $\simeq$ is induced by the rules
 \begin{align}
-	\spure{(\sabs{x}{x})} \sap x &\simeq x \label{eq:term-id}\\
-	((\spure \mathbb{B} \sap g) \sap f) \sap x &\simeq g \sap (f \sap x) \label{eq:term-comp}\\
-	\spure f \sap \spure x &\simeq \spure (f \sapp x) \label{eq:term-morph}\\
-	f \sap \spure x &\simeq \spure{((\sabs{x}\sabs{f}{f \sapp x}) \sapp x)} \sap f \label{eq:term-xchng}
+	x &\simeq \spure{(\sabs{x}{x})} \sap x \label{eq:iterm-id}\\
+	g \sap (f \sap x) &\simeq \spure \mathbf{B} \sap g \sap f \sap x \label{eq:iterm-comp}\\
+	\spure f \sap \spure x &\simeq \spure (f \sapp x) \label{eq:iterm-morph}\\
+	f \sap \spure x &\simeq \spure{((\sabs{x}\sabs{f}{f \sapp x}) \sapp x)} \sap f \label{eq:iterm-xchng}
 \end{align}
-where $\mathbb{B}$ abbreviates
-$\mathbb{B} = \sabs{g}{\sabs{f}{\sabs{x}{g \sapp (f \sapp x)}}}$.
+where $\mathbf{B}$ abbreviates
+$\mathbf{B} = \sabs{g}{\sabs{f}{\sabs{x}{g \sapp (f \sapp x)}}}$.
 \end{definition}
+
+$\sterm$ represents arbitrary values in the lifted domain, whereas $\spure$
+lifts a value.
+The introduction rules for the relation $\simeq$ are obviously the syntactical
+counterparts of the applicative laws.
+Together with symmetry, substitution, etc., they give rise to a simple
+calculus of equivalence judgements.
+The intuitive meaning of $s \simeq t$ is that the terms can be used
+interchangeably.
+For example, there is a derivation for
+\begin{equation}\label{eq:pure-rotate}
+	\spure g \sap (f \sap x) \simeq \spure{(\mathbf{B} \sapp g)} \sap f \sap x
+\end{equation}
+from \eqref{eq:iterm-comp}, where $g$ is instantied with $\spure g$, and a
+substitution along \eqref{eq:iterm-morph} on the right-hand side.
+
+\begin{figure}
+\begin{minipage}[t]{0.46\textwidth}\centering
+\begin{tikzpicture}[itermtree]
+	\node[ap] {} child {
+		node[ap] {} child { node[pure] {$a$} } child[subtrm] { node[subtrm] {$b$} }
+	} child { node[term] {$c$} };
+\end{tikzpicture}
+\caption{$(\spure a \sap b) \sap \sterm c$ as a tree.}
+\label{fig:iterm-ex}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.46\textwidth}\centering
+\begin{tikzpicture}[itermtree]
+	\node[ap] {} child {
+		node[ap] {} child {
+			node[ap] {} child {
+				node[pure] {$f$}
+			} child { node[term] {$x_1$} }
+		} child { node[term] {$x_2$} }
+	    edge from parent [abbrv]
+	} child { node[term] {$x_n$} };
+\end{tikzpicture}
+\caption{A term in normal form.}
+\label{fig:iterm-nf-ex}
+\end{minipage}
+\end{figure}
+
+Idiomatic terms are visualized naturally as trees.
+This will be helpful in explaining term transformations.
+Figure~\ref{fig:iterm-ex} shows the conventions:
+Inner nodes correspond to $\sap$, leaves are either pure terms (boxes) or
+opaque terms (circles).
+Whole subterms may be abbreviated by a triangle.
+A term has normal form if it consists of a single pure node to which a number
+of opaque terms (or none) are applied in sequence.
+Figure~\ref{fig:iterm-nf-ex} gives a general example.
+A formal construction follows:
 
 \begin{definition}[Normal form]
 The set $\mathcal{N} \subset \mathcal{I}$ of idiomatic terms in normal form is
 defined inductively as
 \begin{gather}
 	\spure x \in \mathcal{N}, \label{eq:nf-base}\\
-	t \in \mathcal{N} \implies t \sap \simp x \in \mathcal{N}. \label{eq:nf-step}
+	t \in \mathcal{N} \implies t \sap \sterm s \in \mathcal{N}. \label{eq:nf-step}
 \end{gather}
 \end{definition}
 
-\begin{algorithm}
-\caption{Normalization of idiomatic terms.}
-\label{alg:normalize}
-\begin{align}
-	\operatorname{pure-nf} t &= \begin{cases}
-		\operatorname{pure-nf}{(\spure{(\mathbb{B} g)} \sap f)} \sap x
-			&\text{if } t = \spure g \sap (f \sap x), \\
-		\spure{(f x)} &\text{if } t = \spure f \sap \spure x, \\
-		t &\text{otherwise.}
-	\end{cases} \label{eq:pure-nf}\\
-	\operatorname{nf-pure} t &= \begin{cases}
-		\operatorname{pure-nf}{(\spure{((\sabs{x}\sabs{f}{f x}) \sapp x)} \sap f)}
-			&\text{if } t = f \sap \spure x, \\
-		t &\text{otherwise.}
-	\end{cases} \label{eq:nf-pure}\\
-	\operatorname{nf-nf} t &= \begin{cases}
-		\operatorname{nf-nf}{(\operatorname{pure-nf}{(\spure \mathbb{B} \sap g)} \sap f)} \sap x
-			&\text{if } t = g \sap (f \sap x), \\
-		\operatorname{nf-pure} t &\text{otherwise.}
-	\end{cases} \label{eq:nf-nf}\\
-	\operatorname{normalize} t &= \begin{cases}
-		t &\text{if } t = \spure x, \\
-		\spure{(\sabs{x}{x})} \sap t &\text{if } t = \simp x, \\
-		\operatorname{nf-nf}{(\operatorname{normalize} x \sap \operatorname{normalize} y)}
-			&\text{if } t = x \sap y.
-	\end{cases} \label{eq:normalize-def}
-\end{align}
-\end{algorithm}
+\begin{figure}\centering
+\begin{tikzpicture}[itermtree]
+	\node[ap] {} child { node[pure] {$g$} } child {
+		node[ap] {} child[subtrmn] { node[subtrm] {$t'$} } child { node[term] {$x$} }
+	};
+\end{tikzpicture}
+\raisebox{10mm}{$\qquad\simeq\qquad$}
+\begin{tikzpicture}[itermtree]
+	\node[ap] {} child {
+		node[ap] {} child {
+			node[ap] {} child { node[pure] {$\mathbf{B}$} } child { node[pure] {$g$} }
+		} child[subtrmf] { node[subtrm] {$t'$} }
+	} child { node[term] {$x$} };
+\end{tikzpicture}
+\raisebox{10mm}{$\qquad\simeq\qquad$}
+\begin{tikzpicture}[itermtree]
+	\node[ap] {} child {
+		node[ap] {} child { node[pure] {$\mathbf{B} \sapp g$} } child[subtrm] { node[subtrm] {$t'$} }
+	} child { node[term] {$x$} };
+\end{tikzpicture}
+\caption{The ``pure-rotate'' step.}
+\label{fig:pure-rotate}
+\end{figure}
 
-\begin{lemma}\label{thm:normalize-alg}
-$\operatorname{normalize}$ (cf.\ algorithm~\ref{alg:normalize}) terminates for all
-inputs $t \in \mathcal{I}$, and%
-\footnote{$a \in S \simeq b$ abbreviates ``$a \in S$ and $a \simeq b$''.}
-$\operatorname{normalize} t \in \mathcal{N} \simeq t$.
+It is not entirely obvious how the normal form can be derived from equations
+\eqref{eq:iterm-id}--\eqref{eq:iterm-xchng}.
+Rewriting blindly with these is prone to infinite recursion.
+Therefore we need a more controlled algorithm.
+Consider an idiomatic term $t$.
+If $t$ is a single pure term, then it is already in normal form.
+The case $t = \sterm x$ is also easy:
+Due to \eqref{eq:iterm-id}, we have $t \simeq \spure{(\sabs{x}{x})} \sap t$,
+which is in normal form.
+But in the case of $t = u \sap v$, various steps could be performed,
+depending on the subterms.
+We simplify the situation by normalizing each subterm recursively, so we get
+an equivalent term $u' \sap v'$ where $u',v' \in \mathcal{N}$.
+
+Now let us assume that $u'$ is just $\spure g$.
+If $v'$ is also a pure term, they can be combined along \eqref{eq:iterm-morph}.
+Otherwise, the term looks like the one on the left of Figure~\ref{fig:pure-rotate}.
+As is shown there, the term tree can be rotated such that one opaque term moves
+to the outer-most level.
+This is the same equivalence as stated in \eqref{eq:pure-rotate}.
+Because the remaining part again has the shape ``pure term applied to normal
+form'', we proceed recursively.
+In pattern-matching style, the transformation `pure-nf' reads
+\begin{align}
+	\operatorname{pure-nf}(\spure g \sap (f \sap x)) &=
+		\operatorname{pure-nf}{(\spure{(\mathbf{B} g)} \sap f)} \sap x \\
+	\operatorname{pure-nf}(\spure f \sap \spure x) &= \spure{(f x)}
+\end{align}
+\begin{lemma}\label{thm:pure-nf}
+For all $g \in \mathcal{T}$ and $t \in \mathcal{N}$,
+$\operatorname{pure-nf}(\spure g \sap t)$ is well-defined, and%
+\/\footnote{$a \in S \simeq b$ abbreviates ``$a \in S$ and $a \simeq b$''.}
+$\operatorname{pure-nf}(\spure g \sap t) \in \mathcal{N} \simeq \spure g \sap t$.
 \end{lemma}
 \begin{proof}
-The proof proceeds bottom-up, proving results about the auxiliary definitions
-first.
-pure-nf terminates because the number of $\sap$ constructors in the argument
-of the recursive call decreases strictly.
-We show that for all $f \in \mathcal{T}$ and $x \in \mathcal{N}$,
-$\operatorname{pure-nf}(\spure f \sap x) \in \mathcal{N} \simeq \spure f \sap x$;
-by induction on $x$ via $\mathcal{N}$, where $f$ is arbitrary:
+We prove all claims simultaneously by induction on $t \in \mathcal{N}$,
+where $g$ is arbitrary.
 \begin{prfcases}
-\item $x = \spure x'$ for some $x' \in \mathcal{T}$. Then,
-	\[ \operatorname{pure-nf}{(\spure f \sap \spure x')} = \spure{(f \sapp x')} \in \mathcal{N}. \]
-	Equivalence holds by \eqref{eq:term-morph}.
-\item $x = x' \sap \simp y$ for some $x' \in \mathcal{N}$, $y \in \mathcal{T}$.
-	The induction hypothesis is
-	\[ \operatorname{pure-nf}{(\spure f' \sap x')} \in \mathcal{N} \simeq \spure f' \sap x' \]
-	for all $f' \in \mathcal{T}$.
-	By definition, we have
-	\[ \operatorname{pure-nf}{(\spure f \sap (x' \sap \simp y))} =
-		\operatorname{pure-nf}{(\spure{(\mathbb{B} \sapp f)} \sap x')} \sap \simp y. \]
-	Instantiating the hypothesis with $f' = \mathbb{B} \sapp f$ and using \eqref{eq:nf-step}
-	it follows that
-	\[ \operatorname{pure-nf}{(\spure f \sap (x' \sap \simp y))} \in \mathcal{N} \simeq
-		(\spure{(\mathbb{B} \sapp f)} \sap x') \sap \simp y. \]
-	It remains to show that the right hand side is equivalent to $\spure f \sap x$:
+\item Assume $t = \spure x$ for some $x \in \mathcal{T}$.
+	Only the second equation applies, so we have
+	\[ \operatorname{pure-nf}(\spure g \sap t) = \spure{(g \sapp x)}. \]
+	All pure terms are in $\mathcal{N}$, and equivalence follows from
+	\eqref{eq:iterm-morph}.
+\item Assume $t = t' \sap \sterm x$ for some
+	$t' \in \mathcal{N}$, $x \in \mathcal{T}$, and that the hypothesis holds
+	for $t'$ and all $g$.
+	Only the first equation applies, so
+	\[ \operatorname{pure-nf}(\spure g \sap t) =
+		\operatorname{pure-nf}(\spure{(\mathbf{B} g)} \sap t') \sap \sterm x. \]
+	Instantiating the induction hypothesis, we find that
+	\[ \operatorname{pure-nf}(\spure{(\mathbf{B} \sapp g)} \sap t') \in \mathcal{N} \simeq
+		\spure{(\mathbf{B} \sapp g)} \sap t' \]
+	is well-defined.
+	$\mathcal{N}$ is closed under application to opaque terms \eqref{eq:nf-step},
+	hence $\operatorname{pure-nf}(\spure g \sap t) \in \mathcal{N}$.
+	Finally, we have
 	\begin{align*}
-		\spure f \sap x &= \spure f \sap (x' \sap \simp y) \\
-		&\stackrel{\mathclap{\eqref{eq:term-comp}}}{\simeq} ((\spure \mathbb{B} \sap \spure f) \sap x') \sap \simp y \\
-		&\stackrel{\mathclap{\eqref{eq:term-morph}}}{\simeq} (\spure{(\mathbb{B} \sapp f)} \sap x') \sap \simp y.
+		\operatorname{pure-nf}(\spure g \sap t) &\simeq
+			\spure{(\mathbf{B} \sapp g)} \sap t' \sap \sterm x \\
+		&\stackrel{\mathclap{\eqref{eq:pure-rotate}}}{\simeq}
+			\spure g \sap (\spure t' \sap \sterm x) =
+			\spure g \sap t. \qedhere
 	\end{align*}
-\end{prfcases}
-
-Termination of nf-pure is trivial.
-Consider arbitrary but fixed $f \in \mathcal{N}$ and $x \in \mathcal{T}$.
-From the previous result,
-\[ \operatorname{pure-nf}(\spure{((\sabs{x}\sabs{f}{f \sapp x}) \sapp x)} \sap f)
-	\in \mathcal{N} \simeq \spure{((\sabs{x}\sabs{f}{f \sapp x}) \sapp x)} \sap f, \]
-hence clearly $\operatorname{nf-pure}(f \sap \spure x) \in \mathcal{N}$.
-Equivalence follows from \eqref{eq:term-xchng}.
-
-Finding a termination measure for nf-nf is more involved.
-It turns out that we can use the number of leaves ($\simp$ and $\spure$ instances)
-in an idiomatic term, where the left-most $\spure$ is ignored.
-More formally, we define functions $m,m' : \mathcal{I} \to \mathrm{Nat}$
-\begin{align*}
-	m(\spure x) &= 1, & m(\simp x) &= 1, & m(f \sap x) &= m(f) + m(x); \\
-	m'(\spure x) &= 0, & m'(\simp x) &= 1, & m'(f \sap x) &= m'(f) + m(x).
-\end{align*}
-The first observation is that
-\[ \all{f x}{m'(\operatorname{pure-nf}(\spure f \sap x)) \leq m'(x)}. \]
-The simple proof by induction is omitted.
-Because $m(x) > 0$ for all $x \in \mathcal{I}$, we have
-\begin{align*}
-	&\mathrel{\phantom{=}} m'(\operatorname{pure-nf}(\spure \mathbb{B} \sap g) \sap f) \\
-	&= m'(\operatorname{pure-nf}(\spure \mathbb{B} \sap g)) + m(f) \\
-	&\leq m'(g) + m(f) \\
-	&< m'(g) + m(f) + m(x) = m'(g \sap (f \sap x)).
-\end{align*}
-This relates the argument to the recursive invocation of nf-nf with the
-original argument.
-Since $<$ is a well-founded relation on the natural numbers, the termination
-proof is complete.
-
-We now show that for all $f,x \in \mathcal{N}$,
-$\operatorname{nf-nf}(f \sap x) \in \mathcal{N} \simeq f \sap x$.
-\todo
-
-Termination of `normalize' is once again due to the number of $\sap$ constructors.
-Finally, it remains to show that for all $t \in \mathcal{I}$,
-$\operatorname{normalize} t \in \mathcal{N} \simeq t$.
-This time, induction on the term structure of $t$ is used:
-\begin{prfcases}
-\item $t = \spure x$ for some $x \in \mathcal{T}$.
-	This case is trivial:
-	\[ \operatorname{normalize}(\spure x) = \spure x \in \mathcal{N} \simeq \spure x. \]
-\item $t = \simp y$ for some $y \in \mathcal{T}$.
-	Then
-	\[ \operatorname{normalize}(\simp y) = \spure{(\sabs{x}{x})} \sap \simp y \in \mathcal{N} \]
-	by \eqref{eq:nf-base} and a single step of \eqref{eq:nf-step}.
-	Equivalence follows from \eqref{eq:term-id}.
-\item $t = x \sap y$ for some $x,y \in \mathcal{I}$.
-	The induction hypothesis is
-	$\operatorname{normalize}(x) \in \mathcal{N} \simeq x$
-	and similarly for $y$.
-	We then use the result for nf-nf and obtain
-	\[ \operatorname{nf-nf}(\operatorname{normalize} x \sap \operatorname{normalize} y)
-		\in \mathcal{N} \simeq x \sap y. \qedhere \]
 \end{prfcases}
 \end{proof}
 
-\begin{lemma}
-For all $t \in \mathcal{I}$, there is a unique term $t' \in \mathcal{N}$ such
-that $t \simeq t'$.
+Going back to $u' \sap v'$, we assumed that $u'$ is a pure term.
+The case where $v'$ is pure instead can be translated to the former by
+\begin{equation}
+	\operatorname{nf-pure}(f \sap \spure x) =
+		\operatorname{pure-nf}{(\spure{((\sabs{x}\sabs{f}{f x}) \sapp x)} \sap f)} \\
+\end{equation}
+\begin{lemma}\label{thm:nf-pure}
+For all $t \in \mathcal{N}$ and $x \in \mathcal{T}$,
+$\operatorname{nf-pure}(t \sap \spure x)$ is well-defined, and
+$\operatorname{nf-pure}(t \sap \spure x) \in \mathcal{N} \simeq t \sap \spure x$.
 \end{lemma}
 \begin{proof}
-Existence of the normal form is a corollary of Lemma~\ref{thm:normalize-alg}.
-\todo\ prove uniqueness (if it is actually true)
+Follows from Lemma~\ref{thm:pure-nf} and \eqref{eq:iterm-xchng}.
+\end{proof}
+
+\begin{figure}\centering
+\begin{tikzpicture}[itermtree]
+	\node[ap] {} child[subtrmf] { node[subtrm] {$s$} } child {
+		node[ap] {} child[subtrmn] { node[subtrm] {$t'$} } child { node[term] {$x$} }
+	};
+\end{tikzpicture}
+\raisebox{10mm}{$\qquad\simeq\qquad$}
+\begin{tikzpicture}[itermtree]
+	\node[ap] {} child {
+		node[ap] {} child {
+			node[ap] {} child { node[pure] {$\mathbf{B}$} } child[subtrmn] {
+				node[subtrm] {$s$}
+			}
+		} child[subtrmf] { node[subtrm] {$t'$} }
+	} child { node[term] {$x$} };
+\end{tikzpicture}
+\caption{The ``rotate'' step.}
+\label{fig:rotate}
+\end{figure}
+
+Finally, we look at general $u'$, $v'$.
+A term rotation is useful again, see Figure~\ref{fig:rotate}.
+Before recursion, we must normalize the subterm $\spure \mathbf{B} \sap s$.
+But we already know how to do this: by `pure-nf'.
+The base case is reached when $v'$ is a single pure term, which is the domain
+of `nf-pure'.
+The corresponding transformation is therefore
+\begin{align}
+	\operatorname{nf-nf}(g \sap (f \sap x)) &=
+		\operatorname{nf-nf}{(\operatorname{pure-nf}{(\spure \mathbf{B} \sap g)} \sap f)} \sap x \\
+	\operatorname{nf-nf}(t) &= \operatorname{nf-pure}(t) \quad\text{(otherwise)}
+\end{align}
+\begin{lemma}\label{thm:nf-nf}
+For all $s,t \in \mathcal{N}$, 
+$\operatorname{nf-nf}(s \sap t)$ is well-defined, and
+$\operatorname{nf-nf}(s \sap t) \in \mathcal{N} \simeq s \sap t$.
+\end{lemma}
+\begin{proof}
+The proof is similar to the one of Lemma~\ref{thm:pure-nf}, by induction on
+$t \in \mathcal{N}$ and arbitrary $s \in \mathcal{N}$.
+\begin{prfcases}
+\item Assume $t = \spure x$ for some $x \in \mathcal{T}$.
+	The second equation applies, so we have
+	\[ \operatorname{nf-nf}(s \sap t) = \operatorname{nf-pure}(s \sap \spure x). \]
+	Since $s \in \mathcal{N}$, the claim follows directly from Lemma~\ref{thm:nf-pure}.
+\item Assume $t = t' \sap \sterm x$ for some
+	$t' \in \mathcal{N}$, $x \in \mathcal{T}$, and that the hypothesis holds
+	for $t'$ and all $s \in \mathcal{N}$.
+	Only the first equation applies,
+	\[ \operatorname{nf-nf}(s \sap t) =
+		\operatorname{nf-nf} (\operatorname{pure-nf}(\spure \mathbf{B} \sap s) \sap t') \sap \sterm x. \]
+	We have
+	$\operatorname{pure-nf}(\spure \mathbf{B} \sap s) \in \mathcal{N} \simeq \spure \mathbf{B} \sap s$
+	from Lemma~\ref{thm:pure-nf}.
+	Thus we can instantiate the induction hypothesis, and the transformed term
+	is indeed in normal form.
+	Furthermore,
+	\begin{align*}
+		\operatorname{nf-nf}(s \sap t) &\stackrel{\mathclap{\text{(IH)}}}{\simeq}
+			\operatorname{pure-nf}(\spure \mathbf{B} \sap s) \sap t' \sap \sterm x \\
+		&\simeq \spure \mathbf{B} \sap s \sap t' \sap \sterm x \\
+		&\stackrel{\mathclap{\eqref{eq:iterm-comp}}}{\simeq}
+			s \sap (t' \sap \sterm x) = s \sap t. \qedhere
+	\end{align*}
+\end{prfcases}
+\end{proof}
+
+\begin{algorithm}[t]
+\caption{Normalization of idiomatic terms.}
+\label{alg:normalize}
+\begin{gather*}
+	\begin{align*}
+		\operatorname{normalize}(\spure x) &= \spure x \\
+		\operatorname{normalize}(\sterm x) &= \spure{(\sabs{x}{x})} \sap \sterm x \\
+		\operatorname{normalize}(x \sap y) &=
+			\operatorname{nf-nf}(\operatorname{normalize} x \sap \operatorname{normalize} y)
+	\end{align*} \\[2ex]
+	\begin{align*}
+		\operatorname{nf-nf}(g \sap (f \sap x)) &=
+			\operatorname{nf-nf}{(\operatorname{pure-nf}{(\spure \mathbf{B} \sap g)} \sap f)} \sap x \\
+		\operatorname{nf-nf}(t) &= \operatorname{nf-pure}(t) \quad\text{(otherwise)}
+	\end{align*} \\[2ex]
+	\begin{align*}
+		\operatorname{pure-nf}(\spure g \sap (f \sap x)) &=
+			\operatorname{pure-nf}{(\spure{(\mathbf{B} g)} \sap f)} \sap x \\
+		\operatorname{pure-nf}(\spure f \sap \spure x) &= \spure{(f x)}
+	\end{align*} \\[2ex]
+	\operatorname{nf-pure}(f \sap \spure x) =
+		\operatorname{pure-nf}{(\spure{((\sabs{x}\sabs{f}{f x}) \sapp x)} \sap f)}
+\end{gather*}
+\end{algorithm}
+
+Algorithm~\ref{alg:normalize} summarizes all pieces of the normal form
+transformation.
+`normalize' is the entry point and performs the main recursion mentioned in the
+beginning.
+We haven't proved the desired property for `normalize' yet, but this is just a
+straightforward induction.
+
+\begin{lemma}\label{thm:normalize}
+For all $t \in \mathcal{I}$, $\operatorname{normalize} t$ is well-defined, and
+$\operatorname{normalize} t \in \mathcal{N} \simeq t$.
+\end{lemma}
+\begin{proof}
+By induction on $t$, Lemma~\ref{thm:nf-nf}, and equation \eqref{eq:iterm-id}.
 \end{proof}
 
 Until now, we only have considered the syntactic structure of idiomatic terms
 together with the artificial relation $\simeq$, which is also based on syntax.
 In order to define the semantics of idiomatic terms, we assume that we operate
 in an equational theory $\Omega$ based on $\mathcal{T}$-terms, where
-$=_\Omega \supseteq =_\beta$ is an equivalence relation.
+$=_\Omega\,\supseteq\,\termeq$ is an equivalence relation.
 
-\begin{definition}[Idiomatic interpretation]
+\begin{definition}[Idiomatic interpretation]\label{def:iterm-interp}
 Let $\iota = \langle p, a \rangle$ with $p,a \in \mathcal{T}$.
 The interpretation $\ldb t \rdb_\iota$ of the idiomatic term $t$ w.r.t. $\iota$
 is defined as
 \begin{align}
-	\ldb \simp t \rdb_\iota &= t, \\
+	\ldb \sterm t \rdb_\iota &= t, \\
 	\ldb \spure t \rdb_\iota &= p \sapp t, \\
 	\ldb s \sap t \rdb_\iota &= (a \sapp \ldb s \rdb_\iota) \sapp \ldb t \rdb_\iota.
 \end{align}
@@ -217,11 +358,48 @@ $\iota$ is an idiomatic structure (in $\Omega$) iff
 \end{equation}
 \end{definition}
 
-\begin{definition}
+\begin{definition}\label{def:id-structure}
 \begin{equation}
 	\iota_\mathrm{id} = \langle \sabs{x}{x}, \sabs{f}{\sabs{x}{f \sapp x}} \rangle
 \end{equation}
+is the identity structure.
 \end{definition}
+
+% TODO lift \termeq to I
+
+\begin{lemma}\label{thm:normal-form}
+For all $t \in \mathcal{I}$, there is a unique term $t' \in \mathcal{N}$ such
+that $t \simeq t'$.
+\end{lemma}
+\begin{proof}
+Existence of the normal form is a corollary of Lemma~\ref{thm:normalize}.
+In order to show that it is unique, we construct a relation
+$R \subseteq \mathcal{I}\times\mathcal{I}$, such that
+\begin{itemize}
+\item for all idiomatic terms $s$ and $t$, $s \simeq t \implies (s,t) \in R$, and
+\item for all terms in normal form $n$ and $n'$, $(n,n') \in R \implies n \termeq n'$.
+\end{itemize}
+$R$ is defined in two steps.
+The first deals with the sequence of opaque terms,
+\[
+	\operatorname{opaq}(\spure x) = [], \quad
+	\operatorname{opaq}(\sterm x) = [x], \quad
+	\operatorname{opaq}(s \sap t) = \operatorname{opaq}(s) @ \operatorname{opaq}(t).
+\]
+Let $(s,t) \in R'$ if and only if $\operatorname{opaq}(s) = \operatorname{opaq}(t)$
+pointwise.
+Now assume $(s,t) \in R'$.
+We can modify both terms such that all opaque terms are replaced by new pure
+variables, say $\spure v_1,\dots,\spure v_n$.
+The mapping is the same for both terms, i.e., the variable is determined by
+the position in $\operatorname{opaq}(\_)$.
+Let $s'$, $t'$ be these modified terms.
+Then $(s,t) \in R$ if and only if
+$\ldb s' \rdb_{\iota_\mathrm{id}} \termeq \ldb t' \rdb_{\iota_\mathrm{id}}$.
+
+It remains to show that $R$ satisfies both properties.
+\todo
+\end{proof}
 
 \begin{lemma}
 \todo\ Every encoding of an applicative functor in $\Omega$ is an idiomatic
@@ -236,7 +414,7 @@ $\ldb q \rdb_{\iota_\mathrm{id}} =_\Omega t$.
 
 \begin{lemma}
 Let $q$ be a lifting of $t$. The normal form $q'$ of $q$ can be written as
-\[ q' = ( \cdots ((\spure t' \sap \simp a_1) \sap \simp a_2) \cdots ) \sap \simp a_n. \]
+\[ q' = ( \cdots ((\spure t' \sap \sterm a_1) \sap \sterm a_2) \cdots ) \sap \sterm a_n. \]
 Then $t' \sapp \vec a =_\Omega t$.
 \end{lemma}
 \todo
