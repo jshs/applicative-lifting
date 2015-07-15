@@ -128,11 +128,11 @@ structure Data = Generic_Data
 fun mk_afun ctxt (sign, laws) =
   let
     val leaf_rule = Thm.symmetric (#identity laws RS eq_reflection)
-        |> Raw_Simplifier.rewrite_rule ctxt [@{thm Normal_Form.id_unfold}];
+        |> Raw_Simplifier.rewrite_rule ctxt [@{thm Applicative.id_unfold}];
     val merge_rule = #homomorphism laws RS eq_reflection;
     val swap_rule = #interchange laws RS eq_reflection;
     val rotate_rule = Thm.symmetric (#composition laws RS eq_reflection)
-        |> Raw_Simplifier.rewrite_rule ctxt [@{thm Normal_Form.comp_unfold}];
+        |> Raw_Simplifier.rewrite_rule ctxt [@{thm Applicative.comp_unfold}];
 
     val ([t1, t2, t3, gvar, fvar, xvar], ctxt') = Variable.variant_fixes
         ["'a", "'b", "'c", "g", "f", "x"] ctxt;
