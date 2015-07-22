@@ -1,89 +1,10 @@
 theory Idiomatic_Terms
-imports Lambda Eta  (* in HOL-Proofs-Lambda *)
+imports Beta_Eta
 begin
 
 section {* Operations on idiomatic terms *}
 
 subsection {* Extensions to lambda terms *}
-
-subsubsection {* Combined beta- and eta-reduction *}
-
-abbreviation beta_eta :: "dB \<Rightarrow> dB \<Rightarrow> bool" (infixl "\<rightarrow>\<^sub>\<beta>\<^sub>\<eta>" 50)
-where
-  "s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta> t \<equiv> s \<rightarrow>\<^sub>\<beta> t \<or> s \<rightarrow>\<^sub>\<eta> t"
-
-abbreviation beta_eta_reds :: "dB \<Rightarrow> dB \<Rightarrow> bool" (infixl "\<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>*" 50)
-where
-  "s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* t \<equiv> (beta_eta)\<^sup>*\<^sup>* s t"
-
-lemma beta_eta_appl: "s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* s' \<Longrightarrow> s \<degree> t \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* s' \<degree> t"
-by (induction set: rtranclp) (auto intro: rtranclp.rtrancl_into_rtrancl)
-
-lemma beta_eta_appr: "t \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* t' \<Longrightarrow> s \<degree> t \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* s \<degree> t'"
-by (induction set: rtranclp) (auto intro: rtranclp.rtrancl_into_rtrancl)
-
-lemma beta_eta_abs[intro]: "t \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* t' \<Longrightarrow> Abs t \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* Abs t'"
-by (induction set: rtranclp) (auto intro: rtranclp.rtrancl_into_rtrancl)
-
-lemma beta_mono: "s \<rightarrow>\<^sub>\<beta>\<^sup>* t \<Longrightarrow> s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* t"
-by (auto intro: rtranclp_mono[THEN predicate2D])
-
-lemma eta_mono: "s \<rightarrow>\<^sub>\<eta>\<^sup>* t \<Longrightarrow> s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* t"
-by (auto intro: rtranclp_mono[THEN predicate2D])
-
-lemma beta_eta_confluent: "confluent beta_eta"
-proof -
-  have "beta_eta = sup beta eta" by blast
-  with Eta.confluent_beta_eta show ?thesis by simp
-qed
-
-
-subsubsection {* Equivalent terms *}
-
-definition term_equiv :: "dB \<Rightarrow> dB \<Rightarrow> bool" (infixl "\<leftrightarrow>" 50)
-where
-  "s \<leftrightarrow> t = (\<exists>u. s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* u \<and> t \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* u)"
-
-lemma term_refl[simp,intro]: "t \<leftrightarrow> t"
-unfolding term_equiv_def by blast
-
-lemma term_sym[sym]: "(s \<leftrightarrow> t) \<Longrightarrow> (t \<leftrightarrow> s)"
-unfolding term_equiv_def by blast
-
-lemma diamond_merge: "diamond P \<Longrightarrow> P x y \<Longrightarrow> P x z \<Longrightarrow> (\<exists>w. P y w \<and> P z w)"
-unfolding diamond_def commute_def square_def
-by blast
-
-lemma term_trans[trans]: "s \<leftrightarrow> t \<Longrightarrow> t \<leftrightarrow> u \<Longrightarrow> s \<leftrightarrow> u"
-proof -
-  assume "s \<leftrightarrow> t"
-  then obtain x where A: "s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* x" and B: "t \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* x"
-    unfolding term_equiv_def by blast
-  assume "t \<leftrightarrow> u"
-  then obtain y where B': "t \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* y" and C: "u \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* y"
-    unfolding term_equiv_def by blast
-  from B B' obtain z where D: "x \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* z" "y \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* z"
-    using diamond_merge[OF beta_eta_confluent] by blast
-  from A C D show "s \<leftrightarrow> u"
-    unfolding term_equiv_def by (blast intro: rtranclp_trans)
-qed
-
-lemma term_appl: "s \<leftrightarrow> s' \<Longrightarrow> s \<degree> t \<leftrightarrow> s' \<degree> t"
-unfolding term_equiv_def
-by (blast intro: beta_eta_appl)
-
-lemma term_appr: "t \<leftrightarrow> t' \<Longrightarrow> s \<degree> t \<leftrightarrow> s \<degree> t'"
-unfolding term_equiv_def
-by (blast intro: beta_eta_appr)
-
-lemma term_abs[intro]: "t \<leftrightarrow> t' \<Longrightarrow> Abs t \<leftrightarrow> Abs t'"
-unfolding term_equiv_def
-by blast
-
-lemma beta_eta_red: "s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* t \<Longrightarrow> s \<leftrightarrow> t"
-unfolding term_equiv_def
-by blast
-
 
 subsubsection {* Some combinators *}
 
@@ -97,7 +18,7 @@ proof -
   thus ?thesis by simp
 qed
 
-lemmas I_equiv = I_eval[THEN beta_mono, THEN beta_eta_red]
+lemmas I_equiv = I_eval[THEN beta_into_beta_eta, THEN red_into_equiv]
 
 lemma subst_lift2[simp]: "(lift (lift t 0) 0)[x/Suc 0] = lift t 0"
 proof -
@@ -121,7 +42,7 @@ proof -
   finally show ?thesis .
 qed
 
-lemmas B_equiv = B_eval[THEN beta_mono, THEN beta_eta_red]
+lemmas B_equiv = B_eval[THEN beta_into_beta_eta, THEN red_into_equiv]
 
 lemma A'_eval: "\<A>' \<degree> x \<degree> f \<rightarrow>\<^sub>\<beta>\<^sup>* f \<degree> x"
 proof -
@@ -132,7 +53,7 @@ proof -
   finally show ?thesis .
 qed
 
-lemmas A'_equiv = A'_eval[THEN beta_mono, THEN beta_eta_red]
+lemmas A'_equiv = A'_eval[THEN beta_into_beta_eta, THEN red_into_equiv]
 
 
 subsubsection {* Auxiliary lemmas *}
@@ -289,7 +210,7 @@ next
     unfolding unlift_ap by simp
   moreover have "unlift' n (f' \<diamond> x) i = unlift' n f' (i + iorder x) \<degree> unlift' n x i"
     unfolding unlift_ap by simp
-  ultimately show ?case using itrm_apl.IH term_appl by auto
+  ultimately show ?case using itrm_apl.IH equiv_appL by auto
 next
   case (itrm_apr x x' f)
   from itrm_apr.hyps have order_eq: "iorder x = iorder x'"
@@ -298,7 +219,7 @@ next
     unfolding unlift_ap by simp
   moreover have "unlift' n (f \<diamond> x') i = unlift' n f (i + iorder x) \<degree> unlift' n x' i"
     unfolding unlift_ap order_eq by simp
-  ultimately show ?case using itrm_apr.IH term_appr by auto
+  ultimately show ?case using itrm_apr.IH equiv_appR by auto
 next
   case itrm_refl
   show ?case ..
@@ -392,7 +313,7 @@ next
     also have "... = unlift' (iorder f) f 0"
       using unlift_subst by (metis One_nat_def Suc_eq_plus1 le0)
     finally show ?thesis
-      by (simp add: r_into_rtranclp wrap_abs_equiv beta_eta_red)
+      by (simp add: r_into_rtranclp wrap_abs_equiv red_into_equiv)
   qed
   finally show ?case
     using NF_head.simps ap_nf.IH term_sym term_trans by presburger
