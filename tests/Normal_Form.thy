@@ -1,26 +1,8 @@
 theory Normal_Form
-imports Abstract_AF
+imports "../src/Applicative" Abstract_AF
 begin
 
 section {* Normal form conversion *}
-
-subsection {* Setup *}
-
-lemma comp_def_ext:
-  "comp = (\<lambda>g f x. g (f x))"
-by rule+ simp
-
-lemma id_unfold: "id \<equiv> \<lambda>x. x"
-by (unfold id_def)
-
-lemma comp_unfold: "comp \<equiv> (\<lambda>g f x. g (f x))"
-by (unfold comp_def_ext)
-
-ML_file "applicative.ML"
-
-method_setup lifting_nf = {* Scan.succeed (fn ctxt =>
-  SIMPLE_METHOD' (Applicative.lifting_nf_tac ctxt)) *}
-
 
 subsection {* Example: Abstract functor *}
 
@@ -88,6 +70,10 @@ lemma set_interchange: "F \<otimes> single x = single (\<lambda>g. g x) \<otimes
 unfolding single_def set_ap_def
 by simp
 
+lemma set_flip: "single (\<lambda>f x y. f y x) \<otimes> F \<otimes> X \<otimes> Y \<equiv> F \<otimes> Y \<otimes> X"
+unfolding single_def set_ap_def
+by (rule eq_reflection) fastforce
+
 setup {*
   let
     val set_sign = Applicative.mk_sign @{context} (@{term "single"}, @{term "op \<otimes>"});
@@ -96,7 +82,8 @@ setup {*
       composition = @{thm set_composition},
       homomorphism = @{thm set_homomorphism},
       interchange = @{thm set_interchange}};
-    val set_af = Applicative.mk_afun @{context} (set_sign, set_laws);
+    val set_af = Applicative.mk_afun @{context} (set_sign, set_laws)
+      |> Applicative.add_C_comb @{thm set_flip};
   in Applicative.add_global set_af end
 *}
 
@@ -108,6 +95,19 @@ begin
     from add.assoc
     show "X + Y + Z = X + (Y + Z)" unfolding set_plus_def by lifting_nf
    qed
+end
+
+
+notepad begin
+fix X Y :: "nat set"
+ML_prf {*
+  val ctxt = @{context};
+  val t1 = @{term "single plus \<otimes> X \<otimes> Y"};
+  val t2 = @{term "single plus \<otimes> Y \<otimes> X"};
+  val af = Applicative.get (Context.Proof ctxt) t1;
+
+  Applicative.generalized_nf ctxt af (t1, t2)
+*}
 end
 
 end
