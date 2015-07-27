@@ -6,14 +6,21 @@ section {* Normal form conversion *}
 
 subsection {* Example: Abstract functor *}
 
+lemma af_identity': "pure (\<lambda>x. x) \<diamond> x = x"
+using af_identity unfolding id_def .
+
+lemma af_composition': "pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x = g \<diamond> (f \<diamond> x)"
+using af_composition unfolding comp_def[THEN ext, THEN ext] .
+
 setup {*
   let
     val abstract_sign = Applicative.mk_sign @{context} (@{term "pure"}, @{term "op \<diamond>"});
     val abstract_laws =
-     {identity = @{thm af_identity},
-      composition = @{thm af_composition},
+     {identity = @{thm af_identity'},
+      composition = @{thm af_composition'},
       homomorphism = @{thm af_homomorphism},
-      interchange = @{thm af_interchange}};
+      interchange = @{thm af_interchange},
+      flip = NONE, const = NONE, duplicate = NONE};
     val abstract_af = Applicative.mk_afun @{context} (abstract_sign, abstract_laws);
   in Applicative.add_global abstract_af end
 *}
@@ -54,7 +61,7 @@ definition single :: "'a \<Rightarrow> 'a set"
 definition set_ap :: "('a \<Rightarrow> 'b) set \<Rightarrow> 'a set \<Rightarrow> 'b set" (infixl "\<otimes>" 60)
   where "F \<otimes> X = {f x | f x. f \<in> F \<and> x \<in> X}"
 
-lemma set_identity: "single id \<otimes> X = X"
+lemma set_identity: "single (\<lambda>x. x) \<otimes> X = X"
 unfolding single_def set_ap_def
 by simp
 
@@ -62,7 +69,7 @@ lemma set_homomorphism: "single f \<otimes> single x = single (f x)"
 unfolding single_def set_ap_def
 by simp
 
-lemma set_composition: "single comp \<otimes> G \<otimes> F \<otimes> X = G \<otimes> (F \<otimes> X)"
+lemma set_composition: "single (\<lambda>g f x. g (f x)) \<otimes> G \<otimes> F \<otimes> X = G \<otimes> (F \<otimes> X)"
 unfolding single_def set_ap_def
 by fastforce
 
@@ -70,9 +77,9 @@ lemma set_interchange: "F \<otimes> single x = single (\<lambda>g. g x) \<otimes
 unfolding single_def set_ap_def
 by simp
 
-lemma set_flip: "single (\<lambda>f x y. f y x) \<otimes> F \<otimes> X \<otimes> Y \<equiv> F \<otimes> Y \<otimes> X"
+lemma set_flip: "single (\<lambda>f x y. f y x) \<otimes> F \<otimes> X \<otimes> Y = F \<otimes> Y \<otimes> X"
 unfolding single_def set_ap_def
-by (rule eq_reflection) fastforce
+by fastforce
 
 setup {*
   let
@@ -81,33 +88,78 @@ setup {*
      {identity = @{thm set_identity},
       composition = @{thm set_composition},
       homomorphism = @{thm set_homomorphism},
-      interchange = @{thm set_interchange}};
-    val set_af = Applicative.mk_afun @{context} (set_sign, set_laws)
-      |> Applicative.add_C_comb @{thm set_flip};
+      interchange = @{thm set_interchange},
+      flip = SOME @{thm set_flip},
+      const = NONE, duplicate = NONE};
+    val set_af = Applicative.mk_afun @{context} (set_sign, set_laws);
   in Applicative.add_global set_af end
 *}
 
-instantiation set :: (semigroup_add) semigroup_add
+instantiation set :: (plus) plus
 begin
   definition set_plus_def: "X + Y = single plus \<otimes> X \<otimes> Y"
+  instance ..
+end
+
+instantiation set :: (semigroup_add) semigroup_add
+begin
   instance proof
     fix X Y Z :: "'a set"
     from add.assoc
-    show "X + Y + Z = X + (Y + Z)" unfolding set_plus_def by lifting_nf
+    show "X + Y + Z = X + (Y + Z)" unfolding set_plus_def by general_lifting
    qed
 end
 
-
-notepad begin
-fix X Y :: "nat set"
-ML_prf {*
-  val ctxt = @{context};
-  val t1 = @{term "single plus \<otimes> X \<otimes> Y"};
-  val t2 = @{term "single plus \<otimes> Y \<otimes> X"};
-  val af = Applicative.get (Context.Proof ctxt) t1;
-
-  Applicative.generalized_nf ctxt af (t1, t2)
-*}
+instantiation set :: (ab_semigroup_add) ab_semigroup_add
+begin
+  instance proof
+    fix X Y :: "'a set"
+    from add.commute
+    show "X + Y = Y + X" unfolding set_plus_def by general_lifting
+  qed
 end
+
+
+subsection {* Example: Sum type (a.k.a. either) *}
+
+(* TODO support parametric functors, so we can generalize the other type *)
+
+fun do_with :: "('a \<Rightarrow> 'b) + nat \<Rightarrow> 'a + nat \<Rightarrow> 'b + nat" (infixl "\<oplus>" 60)
+where
+    "Inr e \<oplus> _ = Inr e"
+  | "Inl f \<oplus> Inr e = Inr e"
+  | "Inl f \<oplus> Inl x = Inl (f x)"
+
+lemma inl_identity: "Inl (\<lambda>x. x) \<oplus> x = x"
+by (cases x) simp_all
+
+lemma inl_homomorphism: "Inl f \<oplus> Inl x = Inl (f x)"
+by simp
+
+lemma inl_composition: "Inl (\<lambda>g f x. g (f x)) \<oplus> g \<oplus> f \<oplus> x = g \<oplus> (f \<oplus> x)"
+by (cases g, cases f, cases x) simp_all
+
+lemma inl_interchange: "f \<oplus> Inl x = Inl (\<lambda>f. f x) \<oplus> f"
+by (cases f) simp_all
+
+lemma inl_duplicate: "Inl (\<lambda>f x. f x x) \<oplus> f \<oplus> x = f \<oplus> x \<oplus> x"
+by (cases f, cases x) simp_all
+
+setup {*
+  let
+    val inl_sign = Applicative.mk_sign @{context} (@{term "Inl::'a \<Rightarrow> 'a + nat"}, @{term "op \<oplus>"});
+    val inl_laws =
+     {identity = @{thm inl_identity},
+      composition = @{thm inl_composition},
+      homomorphism = @{thm inl_homomorphism},
+      interchange = @{thm inl_interchange},
+      flip = NONE, const = NONE,
+      duplicate = SOME @{thm inl_duplicate}};
+    val inl_af = Applicative.mk_afun @{context} (inl_sign, inl_laws);
+  in Applicative.add_global inl_af end
+*}
+
+lemma "Inl plus \<oplus> (x :: nat + nat) \<oplus> x = Inl (\<lambda>x. 2 * x) \<oplus> x"
+by general_lifting linarith
 
 end
