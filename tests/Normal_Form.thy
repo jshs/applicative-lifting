@@ -1,5 +1,5 @@
 theory Normal_Form
-imports "../src/Applicative" Abstract_AF
+imports "../src/Applicative" Abstract_AF "~~/src/HOL/Library/Stream"
 begin
 
 section {* Normal form conversion *}
@@ -122,7 +122,7 @@ end
 
 subsection {* Example: Sum type (a.k.a. either) *}
 
-(* TODO support parametric functors, so we can generalize the other type *)
+(* TODO support parametric functors to generalize the other type *)
 
 fun do_with :: "('a \<Rightarrow> 'b) + nat \<Rightarrow> 'a + nat \<Rightarrow> 'b + nat" (infixl "\<oplus>" 60)
 where
@@ -161,5 +161,75 @@ setup {*
 
 lemma "Inl plus \<oplus> (x :: nat + nat) \<oplus> x = Inl (\<lambda>x. 2 * x) \<oplus> x"
 by general_lifting linarith
+
+
+subsection {* Example: Streams *}
+
+definition stream_ap :: "('a \<Rightarrow> 'b) stream \<Rightarrow> 'a stream \<Rightarrow> 'b stream" (infixl "<.>" 60)
+where
+  "stream_ap f x = smap (\<lambda>(f, x). f x) (szip f x)"
+
+lemma stream_identity: "sconst (\<lambda>x. x) <.> x = x"
+unfolding stream_ap_def
+by (coinduction arbitrary: x) simp
+
+lemma stream_homomorphism: "sconst f <.> sconst x = sconst (f x)"
+unfolding stream_ap_def
+by coinduction simp
+
+lemma stream_composition: "sconst (\<lambda>g f x. g (f x)) <.> g <.> f <.> x = g <.> (f <.> x)"
+unfolding stream_ap_def
+by (coinduction arbitrary: g f x) auto
+
+lemma stream_interchange: "f <.> sconst x = sconst (\<lambda>f. f x) <.> f"
+unfolding stream_ap_def
+by (coinduction arbitrary: f) auto
+
+lemma stream_flip: "sconst (\<lambda>f x y. f y x) <.> f <.> x <.> y = f <.> y <.> x"
+unfolding stream_ap_def
+by (coinduction arbitrary: f x y) auto
+
+lemma stream_const: "sconst (\<lambda>x y. x) <.> x <.> y = x"
+unfolding stream_ap_def
+by (coinduction arbitrary: x y) auto
+
+lemma stream_duplicate: "sconst (\<lambda>f x. f x x) <.> f <.> x = f <.> x <.> x"
+unfolding stream_ap_def
+by (coinduction arbitrary: f x) auto
+
+setup {*
+  let
+    val stream_sign = Applicative.mk_sign @{context} (@{term "sconst"}, @{term "op <.>"});
+    val stream_laws =
+     {identity = @{thm stream_identity},
+      composition = @{thm stream_composition},
+      homomorphism = @{thm stream_homomorphism},
+      interchange = @{thm stream_interchange},
+      flip = SOME @{thm stream_flip},
+      const = SOME @{thm stream_const},
+      duplicate = SOME @{thm stream_duplicate}};
+    val stream_af = Applicative.mk_afun @{context} (stream_sign, stream_laws);
+  in Applicative.add_global stream_af end
+*}
+
+instantiation stream :: (plus) plus
+begin
+  definition stream_plus_def: "x + y = sconst plus <.> x <.> y"
+  instance ..
+end
+
+instantiation stream :: (times) times
+begin
+  definition stream_times_def: "x * y = sconst times <.> x <.> y"
+  instance ..
+end
+
+lemma "(x::int stream) * sconst 0 = sconst 0"
+unfolding stream_times_def
+by general_lifting linarith
+
+lemma "(x::int stream) * (y + z) = x * y + x * z"
+unfolding stream_plus_def stream_times_def
+by general_lifting algebra
 
 end

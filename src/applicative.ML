@@ -66,7 +66,6 @@ type rules =
   C: thm option,
   K: thm option,
   W: thm option,
-  S: thm option,
   merge: thm,
   swap: thm,
   B_pure: thm};
@@ -223,7 +222,6 @@ fun mk_afun ctxt (sign, axioms) =
       C = Option.map comb_intro (#flip axioms),
       K = Option.map comb_intro (#const axioms),
       W = Option.map comb_intro (#duplicate axioms),
-      S = NONE,  (* TODO *)
       merge = merge_rule, swap = swap_rule, B_pure = B_pure_rule};
   in AFun {sign = sign, axioms = axioms, rules = rules} end;
 
@@ -266,6 +264,7 @@ fun binop_par_conv cvs ct =
     val (th1, th2) = cvs (arg1, arg2);
   in Drule.binop_cong_rule binop th1 th2 end;
 
+(* TODO handle HOL equalities only, due to head_cong_tac -- user can invoke atomize if needed *)
 fun any_eq_conv cv ct = case Thm.term_of ct of
     Const (@{const_name Pure.eq}, _) $ _ $ _ => cv ct
   | Const (@{const_name HOL.Trueprop}, _) $ (Const (@{const_name HOL.eq}, _) $ _ $ _) =>
@@ -465,10 +464,20 @@ fun eliminate ctxt af tt (v, v_tm) =
         val thm5 = rewr_subst_ap (#W rules |> the) thm4 (Thm.reflexive var);
         val thm6 = Thm.transitive thm1 thm5;
       in (App (extract_comb 2 thm6, tt4), thm6) end;
+    fun S_step s1 s2 =
+      let
+        val (App (App (tt1, tt2), tt3), thm1) = comb2_step (#C rules |> the) s1 s2;
+        val thm2 = Conv.rewr_conv (#B rules) (Thm.rhs_of thm1 |> Thm.dest_arg1);
+        val var = Thm.rhs_of thm1 |> Thm.dest_arg;
+        val thm3 = rewr_subst_ap (#W rules |> the) thm2 (Thm.reflexive var);
+        val thm4 = Thm.transitive thm1 thm3;
+        val tt = App (extract_comb 2 thm4, App (App (extract_comb 3 thm2, App (tt1, tt2)), tt3));
+      in (tt, thm4) end;
     fun K_step tt tm =
       let
         val ct = Thm.cterm_of ctxt tm;
-        val thm = Drule.instantiate' [SOME (Thm.ctyp_of_cterm ct)] [SOME ct]
+        val T = Term.fastype_of tm |> dest_type thy af |> Thm.ctyp_of ctxt;
+        val thm = Drule.instantiate' [SOME T] [SOME ct]
           (Conv.rewr_conv (#K rules |> the) (term_of_tterm mk_ap tt |> Thm.cterm_of ctxt))
       in (App (extract_comb 2 thm, tt), thm) end;
     fun unreachable _ = raise ASSERT "eliminate: assertion failed";
@@ -480,8 +489,8 @@ fun eliminate ctxt af tt (v, v_tm) =
           | (true, false) => (case squash_atoms ctxt af t2 of
                 SOME thm => swap_B_step (elim t1) thm
               | NONE => comb2_step (#C rules |> the) (elim t1) (refl_step t2))
-          | (true, true) => if has_rule #S af
-              then comb2_step (#S rules |> the) (elim t1) (elim t2)
+          | (true, true) => if has_rule #C af
+              then S_step (elim t1) (elim t2)
               else W_step (elim t1) (elim t2));
   in if occurs_any v tt
     then elim tt
