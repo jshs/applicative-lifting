@@ -134,11 +134,11 @@ If there are none, we normalize both sides of the equation.
 Hinze's Normal Form Lemma~\cite[7]{hinze10} asserts the existence of a certain
 normal form for idiomatic expressions where each variable occurs only once.
 As it turns out, we can compute this normal form for arbitrary terms.
-This is convenient because impure parts are handled implicitly.
+This is convenient because opaque parts are handled implicitly.
 The details of the normalization algorithm are described in Section~\ref{sec:normal-form}.
 The normalized equation is
 \[ \pure{g} \ap t_1 \ap \cdots \ap t_m = \pure{h} \ap s_1 \ap \cdots \ap s_n, \]
-where $g$ and $h$ are new terms, and $\vec t$ and $\vec s$ are the impure
+where $g$ and $h$ are new terms, and $\vec t$ and $\vec s$ are the opaque
 subterms of the original equation.
 If either $m \ne n$ or $t_i \ne s_i$ for some $i$ (as terms modulo
 $\alpha\beta\eta$-conversion), the proof method fails.
