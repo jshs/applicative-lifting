@@ -1,0 +1,77 @@
+\section{Lifting with Combinators}\label{sec:combinators}
+
+\subsection{Motivation}\label{subsec:combinator-motivation}
+
+The normalization approach to solving lifted equations works only if the
+opaque terms on both sides coincide.
+This is not true for all equations of interest.
+Let's revisit the set version of addition of natural numbers, $\oplus$ from
+Example~\ref{exmp:set-intro}.
+This operator is also commutative, so it should be possible to prove
+\[ X \oplus Y = Y \oplus X. \]
+After unfolding and normalization, we get
+\begin{equation}\label{eq:comb-intro1}
+	\pure{(\abs{xy}{x + y})} \ap X \ap Y = \pure{(\abs{yx}{y + x})} \ap Y \ap X.
+\end{equation}
+Clearly, this can't be solved with a standard congruence rule, because we would
+have to to prove that $X$ is equal to $Y$.
+Since we are concerned with transferring properties from a base domain,
+we don't want to assume anything about those opaque subterms, which may
+carry additional information of the functor.
+Note that the arguments of both $\pure$ terms are actually the same function,
+so we can't even make use of the base equation there.
+Expressed with functions, it reads
+\[ \abs{xy}{x + y} = \abs{xy}{y + x}. \]
+With the flip function, defined as $\operatorname{flip} fxy = fyx$,
+we can however derive
+\[ \abs{xy}{x + y} = \operatorname{flip}{(\abs{yx}{y + x})} \]
+and further
+\[ \pure{(\abs{xy}{x + y})} \ap X \ap Y =
+	\pure{(\operatorname{flip}{(\abs{yx}{y + x})})} \ap X \ap Y. \]
+Now it would be very convenient if
+\begin{equation}\label{eq:comb-intro2}
+	\pure \operatorname{flip} \ap f \ap x \ap y = f \ap y \ap x.
+\end{equation}
+And indeed, this is true for the set idiom!
+Equation~\eqref{eq:comb-intro2} is very powerful if it holds for an idiom,
+because it will allow us to permute opaque terms freely.
+
+\todo
+
+\subsection{Combinator Bases}\label{subsec:combinator-bases}
+
+\begin{table}\centering
+\begin{tabular}{cll}
+Symbol & Reduction \\
+\hline
+$\mathbf{B}$ & $\mathbf{B} x y z = x (y z)$ \\
+$\mathbf{I}$ & $\mathbf{I} x = x$ \\
+\hline
+$\mathbf{C}$ & $\mathbf{C} x y z = x z y$ \\
+$\mathbf{K}$ & $\mathbf{K} x y = x$ \\
+$\mathbf{W}$ & $\mathbf{W} x y = x y y$ \\
+$\mathbf{S}$ & $\mathbf{S} x y z = x z (y z)$ \\
+$\mathbf{H}$ & $\mathbf{H} x y z = x y (z y)$ \\
+\end{tabular}
+\caption{Useful combinators.}
+\label{tab:combinators}
+\end{table}
+
+\begin{table}\centering
+\begin{tabular}{ll}
+Base & Example idioms \\
+\hline
+$\mathbf{BI}$ & state, list \\
+$\mathbf{BIC}$ & set \\
+$\mathbf{BIK}$ & \\
+$\mathbf{BIW}$ & either \\
+$\mathbf{BCK}$ & \\
+$\mathbf{BKW}$ & \\
+$\mathbf{BICW}$ & maybe \\
+$\mathbf{BCKW}$ & stream, $\alpha \to$ \\
+\end{tabular}
+\caption{Substructures of BCKW.}
+\label{tab:combinator-bases}
+\end{table}
+
+\todo
