@@ -21,8 +21,8 @@ In Section~\ref{subsec:introduction}, we introduced idiomatic expressions built
 from $\pure$ and $\ap$ constants of an applicative functor.
 This structure maps straightforward to a recursive datatype, given that there
 is a representation for arguments of $\pure$.
-These must have a some structure as well such that the applicative laws can
-be expressed.
+These must have some structure as well such that the applicative laws can be
+expressed.
 It should also be possible to have ``opaque'' idiomatic subterms, which cannot
 (or should not) be written as a combination of $\pure$ and $\ap$.
 This is primarily useful for variables ranging over lifted types, but as
@@ -386,8 +386,7 @@ The first deals with the sequence of opaque terms,
 	\operatorname{opaq}(\sterm x) = [x], \quad
 	\operatorname{opaq}(s \sap t) = \operatorname{opaq}(s) @ \operatorname{opaq}(t).
 \]
-Let $(s,t) \in R'$ if and only if $\operatorname{opaq}(s) = \operatorname{opaq}(t)$
-pointwise.
+Let $(s,t) \in R'$ if and only if $\operatorname{opaq}(s) = \operatorname{opaq}(t)$.
 Now assume $(s,t) \in R'$.
 We can modify both terms such that all opaque terms are replaced by new pure
 variables, say $\spure v_1,\dots,\spure v_n$.
