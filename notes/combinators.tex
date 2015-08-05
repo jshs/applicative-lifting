@@ -18,27 +18,56 @@ have to to prove that $X$ is equal to $Y$.
 Since we are concerned with transferring properties from a base domain,
 we don't want to assume anything about those opaque subterms, which may
 carry additional information of the functor.
-Note that the arguments of both $\pure$ terms are actually the same function,
-so we can't even make use of the base equation there.
-Expressed with functions, it reads
+Note that the arguments of both $\pure$ terms are actually the same function
+$(+)$, so we can't even make use of the base equation there.
+Expressed as an equality of functions, it reads
 \[ \abs{xy}{x + y} = \abs{xy}{y + x}. \]
-With the flip function, defined as $\operatorname{flip} fxy = fyx$,
-we can however derive
-\[ \abs{xy}{x + y} = \operatorname{flip}{(\abs{yx}{y + x})} \]
-and further
-\[ \pure{(\abs{xy}{x + y})} \ap X \ap Y =
-	\pure{(\operatorname{flip}{(\abs{yx}{y + x})})} \ap X \ap Y. \]
-Now it would be very convenient if
+The left-hand side is an eta-expanded from of $(+)$, while the other has the
+arguments reversed.
+We can use the flip function, defined as $\operatorname{flip} fxy = fyx$,
+to write it consistently in point-free style: $(+) = \operatorname{flip}{(+)}$.
+From this one derives
 \begin{equation}\label{eq:comb-intro2}
+	\pure{(+)} \ap X \ap Y = \pure \operatorname{flip} \ap \pure{(+)} \ap X \ap Y.
+\end{equation}
+Now it would be very convenient if the defining equation of flip can be lifted,
+that is
+\begin{equation}\label{eq:flip-lifted}
 	\pure \operatorname{flip} \ap f \ap x \ap y = f \ap y \ap x.
 \end{equation}
 And indeed, this is true for the set idiom!
-Equation~\eqref{eq:comb-intro2} is very powerful if it holds for an idiom,
-because it will allow us to permute opaque terms freely.
+The term $\pure{(\operatorname{flip}{(+)})} \ap X \ap Y$, which is equivalent
+to the right-hand side of \eqref{eq:comb-intro2}, is not the canonical normal
+form of $Y \oplus X$.
+Yet the overall structure is similar: a pure function applied to some opaque
+arguments.
+The availability of equation~\eqref{eq:flip-lifted} is a quite powerful
+condition, because it will allow us to permute opaque terms freely.%
+\footnote{Strictly speaking, a weaker property with $\pure f$ instead of $f$ is
+sufficient for this example. Section~\ref{subsec:combinator-bases} attempts to
+give a rationale why the ``full'' property is desirable.}
+% TODO how are "weak C" and C related? example where only the former holds?
+If permutations exist such that both sides of the (transformed) equation align
+regarding their opaque terms, reduction by congruence is possible again.
+Furthermore, the effect of rewriting with the flip function in one domain
+can be reversed in the other.
+This guarantees that the corresponding base equation is always applicable.
 
-\todo
-
-\subsection{Combinator Bases}\label{subsec:combinator-bases}
+As opposed to $\abs{yx}{y + x}$, the term $\operatorname{flip}{(+)}$ does not
+contain any lambda abstractions or bound variables.
+Being able to express terms this way is the general idea behind
+\emph{combinators} from combinatory logic.
+These are certain functions with characteristic defining equations, and using
+them in terms eliminates the need for explicit naming of variables.
+In this context, flip is usually referred to as combinator $\mathbf{C}$, which
+is the name we will use in the following.
+We have already used different combinators extensively: $\mathbf{B}$ and
+$\mathbf{I} = \abs{x}{x}$.
+Both can be lifted in each idiom due to the composition and identity laws.
+We say that the combinators $\mathbf{B}$ and $\mathbf{I}$ \emph{exist} in
+each idiom.
+Table~\ref{tab:combinators} lists all combinators which are used throughout
+this text.
 
 \begin{table}\centering
 \begin{tabular}{cll}
@@ -56,6 +85,75 @@ $\mathbf{H}$ & $\mathbf{H} x y z = x y (z y)$ \\
 \caption{Useful combinators.}
 \label{tab:combinators}
 \end{table}
+
+There are certain sets of combinators which are sufficient to express all
+lambda terms, $\{\mathbf{S,K}\}$ being one of them.
+Hinze's Lifting Lemma shows that all terms and thus all equations can be
+lifted if $\mathbf{S}$ and $\mathbf{K}$ exist.
+He also notes that other combinator set are useful, because there are idioms
+where more than $\{\mathbf{B,I}\}$, but not all combinators exist.
+In this section we present an implementation of this generalized lifting
+for solving a broader class of equation than with normalization.
+The abstract concept works with arbitrary combinators.
+It depends on an abstraction algorithm and the structure of representable terms,
+which are difficult to derive automatically.  % TODO or impossible?
+Therefore we will restrict ourselves to certain sets (``bases'') with
+hard-coded algorithms.
+
+\subsection{Algorithm Outline}\label{subsec:general-algorithm}
+
+The high-level method of proof is the same as with the one based on plain
+normalization: Rewriting both sides of the equation, stripping equal terms by
+congruence and finally resolving with the base equation.
+The generalized approach differs in the rewriting step:
+With additional combinators, the normal form of a given idiomatic term is not
+necessarily unique.
+
+We will first discuss how one goes from the base equation to its lifted form.
+In general, the base equation looks like this:
+\[ \all{\vec x}{s[\vec x] = t[\vec x]}, \]
+where $u[\vec x]$ means that variables $\vec x$ may occur freely in $u$.
+By function extensionality, which is an axiom of HOL, this is true iff
+\[ \abs{\vec x}{s[\vec x]} = \abs{\vec x}{t[\vec x]}. \]
+Now we attempt to translate both terms to their combinator representation,
+using those combinators which exists for the idiom we are working with.
+The exact process depends on the combinator set, and may also fail if a term
+is not representable with that set.
+The details are discussed in the next section.
+Let $s'$ and $t'$ be the translated terms.
+Each can be viewed as an function application tree of some atomic terms.
+We derive $\pure_f s' = \pure_f t'$ by simple substitution.
+This is an equation of functions of type
+\[ \tau_1 f \funT \cdots \funT \tau_n f \funT \sigma f, \]
+with $\tau_i$ is the type of $x_i$, and $\sigma$ is the type of $s[\vec x]$.
+It follows that
+\[ \all{\vec y}{\pure s' \ap y_1 \ap \cdots \ap y_n =
+	\pure t' \ap y_1 \cdots \ap y_n}. \]
+The type of $y_i$ is $\tau_i f$.
+The homomorphism law allows us to distribute $\pure$ over the applications
+in $s'$ and $t'$, which makes it possible to unfold all lifted combinators.
+For example, a subterm
+\[ \pure \mathbf{S} \ap \pure f \ap x \ap y \]
+gets rewritten to $\pure f \ap y \ap (x \ap y)$.
+The result is the lifted equation (modulo splitting/joining of adjacent
+$\pure$s), because the combinators capture the term--variable structure and
+transfer it to the idiom.
+
+However, a user should able to use the proof method without supplying the base
+equation beforehand.
+To do this, the procedure we have just described is essentially done backwards.
+(The direction of logical implication remains the same, though.)
+This may cause some issues if the proof goal cannot be represented using the
+available combinators, but is an instantiation of a more general proposition
+which can be proven.
+An example is
+\[ X \oplus (X \oplus Y) = (X \oplus X) \oplus Y. \]
+We want this to be handled automatically, if possible.
+In terms of above presentation, the algorithm has to determine the variables
+$\vec y$ and find an assignment of all opaque terms to this variables, such
+that the proof goes through.
+
+\subsection{Combinator Bases}\label{subsec:combinator-bases}
 
 \begin{table}\centering
 \begin{tabular}{ll}
