@@ -40,6 +40,15 @@ using beta_eta_confluent
 unfolding diamond_def commute_def square_def
 by (blast intro!: confluentI)
 
+lemma beta_eta_lift: "s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* t \<Longrightarrow> lift s k \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* lift t k"
+proof (induction pred: rtranclp)
+  case base show ?case ..
+next
+  case (step y z)
+  hence "lift y k \<rightarrow>\<^sub>\<beta>\<^sub>\<eta> lift z k" using lift_preserves_beta eta_lift by blast
+  with step.IH show "lift s k \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* lift z k" by iprover
+qed
+
 
 subsection \<open>Equivalence\<close>
 
@@ -47,9 +56,18 @@ definition term_equiv :: "dB \<Rightarrow> dB \<Rightarrow> bool" (infixl "\<lef
 where
   "term_equiv = joinablep beta_eta_reds"
 
+lemma term_equivI:
+  assumes "s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* u" and "t \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* u"
+  shows "s \<leftrightarrow> t"
+using assms unfolding term_equiv_def by (rule joinableI[to_pred])
+
+lemma term_equivE:
+  assumes "s \<leftrightarrow> t"
+  obtains u where "s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* u" and "t \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* u"
+using assms unfolding term_equiv_def by (rule joinableE[to_pred])
+
 lemma red_into_equiv[elim]: "s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* t \<Longrightarrow> s \<leftrightarrow> t"
-unfolding term_equiv_def
-by (blast intro: reflp_le_joinablep[THEN predicate2D] reflpI)
+by (blast intro: term_equivI)
 
 lemma term_refl[simp, intro]: "t \<leftrightarrow> t"
 unfolding term_equiv_def by (blast intro: joinablep_refl reflpI)
@@ -78,5 +96,12 @@ lemma equiv_sym_red: "term_equiv = (sup beta_eta beta_eta\<inverse>\<inverse>)\<
 unfolding term_equiv_def
 using beta_eta_confluent_rel
 by (rule joinable_eq_rtscl[to_pred])
+
+lemma equiv_lift: "s \<leftrightarrow> t \<Longrightarrow> lift s k \<leftrightarrow> lift t k"
+by (auto intro: term_equivI beta_eta_lift elim: term_equivE)
+
+lemma equiv_liftn: "s \<leftrightarrow> t \<Longrightarrow> liftn n s k \<leftrightarrow> liftn n t k"
+by (induction n) (auto intro: equiv_lift)
+
 
 end

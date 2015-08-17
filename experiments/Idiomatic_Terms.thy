@@ -2,7 +2,7 @@ theory Idiomatic_Terms
 imports Beta_Eta
 begin
 
-section \<open>Operations on idiomatic terms\<close>
+section \<open>Idiomatic terms -- Properties and operations\<close>
 
 subsection \<open>Extensions to lambda terms\<close>
 
@@ -10,7 +10,7 @@ subsubsection \<open>Some combinators\<close>
 
 abbreviation "\<I> \<equiv> Abs (Var 0)"
 abbreviation "\<B> \<equiv> Abs (Abs (Abs (Var 2 \<degree> (Var 1 \<degree> Var 0))))"
-abbreviation "\<A>' \<equiv> Abs (Abs (Var 0 \<degree> Var 1))" -- \<open>reverse application\<close>
+abbreviation "\<T> \<equiv> Abs (Abs (Var 0 \<degree> Var 1))" -- \<open>reverse application\<close>
 
 lemma I_eval: "\<I> \<degree> x \<rightarrow>\<^sub>\<beta>\<^sup>* x"
 proof -
@@ -44,16 +44,16 @@ qed
 
 lemmas B_equiv = B_eval[THEN beta_into_beta_eta, THEN red_into_equiv]
 
-lemma A'_eval: "\<A>' \<degree> x \<degree> f \<rightarrow>\<^sub>\<beta>\<^sup>* f \<degree> x"
+lemma T_eval: "\<T> \<degree> x \<degree> f \<rightarrow>\<^sub>\<beta>\<^sup>* f \<degree> x"
 proof -
-  have "\<A>' \<degree> x \<degree> f \<rightarrow>\<^sub>\<beta> Abs (Var 0 \<degree> Var 1)[x/0] \<degree> f" by clarify
+  have "\<T> \<degree> x \<degree> f \<rightarrow>\<^sub>\<beta> Abs (Var 0 \<degree> Var 1)[x/0] \<degree> f" by clarify
   also have "... = Abs (Var 0 \<degree> lift x 0) \<degree> f" by simp
   also have "... \<rightarrow>\<^sub>\<beta>\<^sup>* (Var 0 \<degree> lift x 0)[f/0]" by (rule r_into_rtranclp) clarify
   also have "... \<rightarrow>\<^sub>\<beta>\<^sup>* f \<degree> x" by simp
   finally show ?thesis .
 qed
 
-lemmas A'_equiv = A'_eval[THEN beta_into_beta_eta, THEN red_into_equiv]
+lemmas T_equiv = T_eval[THEN beta_into_beta_eta, THEN red_into_equiv]
 
 
 subsubsection \<open>Auxiliary lemmas\<close>
@@ -84,24 +84,99 @@ datatype itrm =
     Term dB | Pure dB
   | IAp itrm itrm (infixl "\<diamond>" 150)
 
-inductive itrm_cong :: "itrm \<Rightarrow> itrm \<Rightarrow> bool" (infixl "\<cong>" 50)
+inductive itrm_cong :: "(itrm \<Rightarrow> itrm \<Rightarrow> bool) \<Rightarrow> itrm \<Rightarrow> itrm \<Rightarrow> bool"
+for p
 where
-    "t \<leftrightarrow> t' \<Longrightarrow> Term t \<cong> Term t'"
-  | "t \<leftrightarrow> t' \<Longrightarrow> Pure t \<cong> Pure t'"
-  | "f \<cong> f' \<Longrightarrow> f \<diamond> x \<cong> f' \<diamond> x"
-  | "x \<cong> x' \<Longrightarrow> f \<diamond> x \<cong> f \<diamond> x'"
+    base_cong: "p x y \<Longrightarrow> itrm_cong p x y"
+  | term_subst: "x \<leftrightarrow> y \<Longrightarrow> itrm_cong p (Term x) (Term y)"
+  | pure_subst: "x \<leftrightarrow> y \<Longrightarrow> itrm_cong p (Pure x) (Pure y)"
+  | ap_congL: "itrm_cong p f f' \<Longrightarrow> itrm_cong p (f \<diamond> x) (f' \<diamond> x)"
+  | ap_congR: "itrm_cong p x x' \<Longrightarrow> itrm_cong p (f \<diamond> x) (f \<diamond> x')"
+  | itrm_sym[sym]: "itrm_cong p x y \<Longrightarrow> itrm_cong p y x"
+  | itrm_trans[trans]: "itrm_cong p x y \<Longrightarrow> itrm_cong p y z \<Longrightarrow> itrm_cong p x z"
 
-inductive itrm_equiv :: "itrm \<Rightarrow> itrm \<Rightarrow> bool" (infixl "\<simeq>" 50)
+lemma ap_cong: "itrm_cong p f f' \<Longrightarrow> itrm_cong p x x' \<Longrightarrow> itrm_cong p (f \<diamond> x) (f' \<diamond> x')"
+by (blast intro: itrm_cong.intros)
+
+lemma itrm_refl[simp,intro]: "itrm_cong p x x"
+by induction (auto intro: itrm_cong.intros ap_cong)
+
+text \<open>Idiomatic terms are \emph{similar} iff they have the same structure, and all contained
+  lambda terms are equivalent.\<close>
+
+abbreviation similar :: "itrm \<Rightarrow> itrm \<Rightarrow> bool" (infixl "\<cong>" 50)
 where
-    itrm_id: "x \<simeq> Pure \<I> \<diamond> x"
-  | itrm_comp: "g \<diamond> (f \<diamond> x) \<simeq> Pure \<B> \<diamond> g \<diamond> f \<diamond> x"
-  | itrm_hom: "Pure f \<diamond> Pure x \<simeq> Pure (f \<degree> x)"
-  | itrm_xchng: "f \<diamond> Pure x \<simeq> Pure (\<A>' \<degree> x) \<diamond> f"
-  | itrm_apL: "f \<simeq> f' \<Longrightarrow> f \<diamond> x \<simeq> f' \<diamond> x"
-  | itrm_apR: "x \<simeq> x' \<Longrightarrow> f \<diamond> x \<simeq> f \<diamond> x'"
-  | itrm_refl[simp,intro]: "x \<simeq> x"
-  | itrm_sym[sym]: "x \<simeq> y \<Longrightarrow> y \<simeq> x"
-  | itrm_trans[trans]: "x \<simeq> y \<Longrightarrow> y \<simeq> z \<Longrightarrow> x \<simeq> z"
+  "x \<cong> y \<equiv> itrm_cong (\<lambda>_ _. False) x y"
+
+lemma pure_similarE:
+  assumes "Pure x' \<cong> y"
+  obtains y' where "y = Pure y'" and "x' \<leftrightarrow> y'"
+proof -
+  from assms
+  have "(\<forall>x''. Pure x' = Pure x'' \<longrightarrow> (\<exists>y'. y = Pure y' \<and> x'' \<leftrightarrow> y')) \<and>
+    (\<forall>x''. y = Pure x'' \<longrightarrow> (\<exists>y'. Pure x' = Pure y' \<and> x'' \<leftrightarrow> y'))"
+    proof (induction)
+      case pure_subst thus ?case by (blast intro: term_sym)
+    next
+      case itrm_trans thus ?case by (fastforce intro: term_trans)
+    qed simp_all
+  with that show thesis by blast
+qed
+
+lemma term_similarE:
+  assumes "Term x' \<cong> y"
+  obtains y' where "y = Term y'" and "x' \<leftrightarrow> y'"
+proof -
+  from assms
+  have "(\<forall>x''. Term x' = Term x'' \<longrightarrow> (\<exists>y'. y = Term y' \<and> x'' \<leftrightarrow> y')) \<and>
+    (\<forall>x''. y = Term x'' \<longrightarrow> (\<exists>y'. Term x' = Term y' \<and> x'' \<leftrightarrow> y'))"
+    proof (induction)
+      case term_subst thus ?case by (blast intro: term_sym)
+    next
+      case itrm_trans thus ?case by (fastforce intro: term_trans)
+    qed simp_all
+  with that show thesis by blast
+qed
+
+lemma ap_similarE:
+  assumes "x1 \<diamond> x2 \<cong> y"
+  obtains y1 y2 where "y = y1 \<diamond> y2" and "x1 \<cong> y1" and "x2 \<cong> y2"
+proof -
+  from assms
+  have "(\<forall>x1' x2'. x1 \<diamond> x2 = x1' \<diamond> x2' \<longrightarrow> (\<exists>y1 y2. y = y1 \<diamond> y2 \<and> x1' \<cong> y1 \<and> x2' \<cong> y2)) \<and>
+    (\<forall>x1' x2'. y = x1' \<diamond> x2' \<longrightarrow> (\<exists>y1 y2. x1 \<diamond> x2 = y1 \<diamond> y2 \<and> x1' \<cong> y1 \<and> x2' \<cong> y2))"
+    proof (induction)
+      case ap_congL thus ?case by (blast intro: itrm_sym)
+    next
+      case ap_congR thus ?case by (blast intro: itrm_sym)
+    next
+      case itrm_trans thus ?case by (fastforce intro: itrm_cong.itrm_trans)
+    qed simp_all
+  with that show thesis by blast
+qed
+
+text \<open>The following relations define semantic equivalence of idiomatic terms.\<close>
+
+inductive pre_equiv :: "itrm \<Rightarrow> itrm \<Rightarrow> bool"
+where
+    itrm_id: "pre_equiv x (Pure \<I> \<diamond> x)"
+  | itrm_comp: "pre_equiv (g \<diamond> (f \<diamond> x)) (Pure \<B> \<diamond> g \<diamond> f \<diamond> x)"
+  | itrm_hom: "pre_equiv (Pure f \<diamond> Pure x) (Pure (f \<degree> x))"
+  | itrm_xchng: "pre_equiv (f \<diamond> Pure x) (Pure (\<T> \<degree> x) \<diamond> f)"
+
+abbreviation itrm_equiv :: "itrm \<Rightarrow> itrm \<Rightarrow> bool" (infixl "\<simeq>" 50)
+where
+  "x \<simeq> y \<equiv> itrm_cong pre_equiv x y"
+
+lemma pre_equiv_into_equiv: "pre_equiv x y \<Longrightarrow> x \<simeq> y" ..
+
+lemmas itrm_id' = itrm_id[THEN pre_equiv_into_equiv]
+lemmas itrm_comp' = itrm_comp[THEN pre_equiv_into_equiv]
+lemmas itrm_hom' = itrm_hom[THEN pre_equiv_into_equiv]
+lemmas itrm_xchng' = itrm_xchng[THEN pre_equiv_into_equiv]
+
+lemma similar_equiv: "x \<cong> y \<Longrightarrow> x \<simeq> y"
+by (induction pred: itrm_cong) (auto intro: itrm_cong.intros)
 
 
 subsubsection \<open>Structural analysis\<close>
@@ -167,62 +242,101 @@ by (induction n) auto
 lemma wrap_abs_equiv: "s \<leftrightarrow> t \<Longrightarrow> wrap_abs s n \<leftrightarrow> wrap_abs t n"
 by (induction n) auto
 
+lemma list_equiv_refl[simp]: "listrelp (op \<leftrightarrow>) x x"
+by (induction x) (auto intro: listrelp.intros)
+
+lemma list_equiv_suffix: "listrelp (op \<leftrightarrow>) x y \<Longrightarrow> listrelp (op \<leftrightarrow>) (x @ z) (y @ z)"
+by (induction pred: listrelp) (auto intro: listrelp.intros)
+
+lemma list_equiv_prefix: "listrelp (op \<leftrightarrow>) x y \<Longrightarrow> listrelp (op \<leftrightarrow>) (z @ x) (z @ y)"
+by (induction z) (auto intro: listrelp.intros)
+
 
 lemma opaque_equiv:
   assumes "x \<simeq> y"
-    shows "opaque x = opaque y"
-using assms by induction auto
+    shows "listrelp (op \<leftrightarrow>) (opaque x) (opaque y)"
+using assms proof induction
+  case (base_cong x y)
+  thus ?case by induction auto
+next
+  case term_subst
+  thus ?case by (auto intro: listrelp.intros)
+next
+  case ap_congL
+  thus ?case by (auto intro: list_equiv_suffix)
+next
+  case ap_congR
+  thus ?case by (auto intro: list_equiv_prefix)
+next
+  case itrm_sym
+  thus ?case
+    using listrel_sym[to_pred] term_sym unfolding symp_def by blast
+next
+  case itrm_trans
+  thus ?case
+    using listrel_trans[to_pred] term_trans unfolding transp_def by blast
+qed simp_all
+
+lemma iorder_equiv:
+  assumes "x \<simeq> y"
+  shows "iorder x = iorder y"
+using assms opaque_equiv listrel_eq_len[to_pred] by blast
 
 lemma unlift'_equiv:
   assumes "x \<simeq> y"
     shows "unlift' n x i \<leftrightarrow> unlift' n y i"
 using assms proof (induction arbitrary: n i)
-  case (itrm_id x)
-  show ?case
-    unfolding unlift_ap using I_equiv[symmetric] by simp
+  case (base_cong x y) thus ?case proof induction
+    case (itrm_id x)
+    show ?case
+      unfolding unlift_ap using I_equiv[symmetric] by simp
+  next
+    case (itrm_comp g f x)
+    let ?G = "unlift' n g (i + iorder f + iorder x)"
+    let ?F = "unlift' n f (i + iorder x)"
+    let ?X = "unlift' n x i"
+    have "unlift' n (g \<diamond> (f \<diamond> x)) i = ?G \<degree> (?F \<degree> ?X)"
+      unfolding unlift_ap by (simp add: add.assoc)
+    moreover have "unlift' n (Pure \<B> \<diamond> g \<diamond> f \<diamond> x) i = \<B> \<degree> ?G \<degree> ?F \<degree> ?X"
+      unfolding unlift_ap by (simp add: add.commute add.left_commute)
+    moreover have "?G \<degree> (?F \<degree> ?X) \<leftrightarrow> \<B> \<degree> ?G \<degree> ?F \<degree> ?X" using B_equiv[symmetric] .
+    ultimately show ?case by simp
+  next
+    case (itrm_hom f x)
+    show ?case by auto
+  next
+    case (itrm_xchng f x)
+    let ?F = "unlift' n f i"
+    let ?X = "liftn n x 0"
+    have "unlift' n (f \<diamond> Pure x) i = ?F \<degree> ?X"
+      unfolding unlift_ap by simp
+    moreover have "unlift' n (Pure (\<T> \<degree> x) \<diamond> f) i = \<T> \<degree> ?X \<degree> ?F"
+      unfolding unlift_ap by simp
+    moreover have "?F \<degree> ?X \<leftrightarrow> \<T> \<degree> ?X \<degree> ?F" using T_equiv[symmetric] .
+    ultimately show ?case by simp
+  qed
 next
-  case (itrm_comp g f x)
-  let ?G = "unlift' n g (i + iorder f + iorder x)"
-  let ?F = "unlift' n f (i + iorder x)"
-  let ?X = "unlift' n x i"
-  have "unlift' n (g \<diamond> (f \<diamond> x)) i = ?G \<degree> (?F \<degree> ?X)"
-    unfolding unlift_ap by (simp add: add.assoc)
-  moreover have "unlift' n (Pure \<B> \<diamond> g \<diamond> f \<diamond> x) i = \<B> \<degree> ?G \<degree> ?F \<degree> ?X"
-    unfolding unlift_ap by (simp add: add.commute add.left_commute)
-  moreover have "?G \<degree> (?F \<degree> ?X) \<leftrightarrow> \<B> \<degree> ?G \<degree> ?F \<degree> ?X" using B_equiv[symmetric] .
-  ultimately show ?case by simp
+  case term_subst
+  thus ?case by simp
 next
-  case (itrm_hom f x)
-  show ?case by auto
+  case pure_subst
+  thus ?case by (auto intro: equiv_liftn)
 next
-  case (itrm_xchng f x)
-  let ?F = "unlift' n f i"
-  let ?X = "liftn n x 0"
-  have "unlift' n (f \<diamond> Pure x) i = ?F \<degree> ?X"
-    unfolding unlift_ap by simp
-  moreover have "unlift' n (Pure (\<A>' \<degree> x) \<diamond> f) i = \<A>' \<degree> ?X \<degree> ?F"
-    unfolding unlift_ap by simp
-  moreover have "?F \<degree> ?X \<leftrightarrow> \<A>' \<degree> ?X \<degree> ?F" using A'_equiv[symmetric] .
-  ultimately show ?case by simp
-next
-  case (itrm_apL f f' x)
+  case (ap_congL f f' x)
   have "unlift' n (f \<diamond> x) i = unlift' n f (i + iorder x) \<degree> unlift' n x i"
     unfolding unlift_ap by simp
   moreover have "unlift' n (f' \<diamond> x) i = unlift' n f' (i + iorder x) \<degree> unlift' n x i"
     unfolding unlift_ap by simp
-  ultimately show ?case using itrm_apL.IH equiv_appL by auto
+  ultimately show ?case using ap_congL.IH equiv_appL by auto
 next
-  case (itrm_apR x x' f)
-  from itrm_apR.hyps have order_eq: "iorder x = iorder x'"
-    using opaque_equiv by auto
+  case (ap_congR x x' f)
+  from ap_congR.hyps have order_eq: "iorder x = iorder x'"
+    using opaque_equiv listrel_eq_len[to_pred] by blast
   have "unlift' n (f \<diamond> x) i = unlift' n f (i + iorder x) \<degree> unlift' n x i"
     unfolding unlift_ap by simp
   moreover have "unlift' n (f \<diamond> x') i = unlift' n f (i + iorder x) \<degree> unlift' n x' i"
     unfolding unlift_ap order_eq by simp
-  ultimately show ?case using itrm_apR.IH equiv_appR by auto
-next
-  case itrm_refl
-  show ?case ..
+  ultimately show ?case using ap_congR.IH equiv_appR by auto
 next
   case itrm_sym
   thus ?case using term_sym by simp
@@ -234,58 +348,87 @@ qed
 lemma unlift_equiv:
   assumes "x \<simeq> y"
     shows "unlift x \<leftrightarrow> unlift y"
-using assms unlift'_equiv wrap_abs_equiv opaque_equiv
+using assms unlift'_equiv wrap_abs_equiv iorder_equiv
 by simp
 
 
-subsection \<open>Normal form\<close>
+subsection \<open>Canonical forms\<close>
 
-inductive_set NF :: "itrm set"
+inductive_set CF :: "itrm set"
 where
-    pure_nf[simp,intro]: "Pure x \<in> NF"
-  | ap_nf[intro]:   "f \<in> NF \<Longrightarrow> f \<diamond> Term x \<in> NF"
+    pure_cf[simp,intro]: "Pure x \<in> CF"
+  | ap_cf[intro]:   "f \<in> CF \<Longrightarrow> f \<diamond> Term x \<in> CF"
 
-fun NF_head :: "itrm \<Rightarrow> dB"
+fun CF_head :: "itrm \<Rightarrow> dB"
 where
-    "NF_head (Pure x) = x"
-  | "NF_head (f \<diamond> x) = NF_head f"
+    "CF_head (Pure x) = x"
+  | "CF_head (f \<diamond> x) = CF_head f"
 
-lemma ap_nfD1[dest]: "f \<diamond> x \<in> NF \<Longrightarrow> f \<in> NF"
-by (rule NF.cases) auto
+lemma ap_cfD1[dest]: "f \<diamond> x \<in> CF \<Longrightarrow> f \<in> CF"
+by (rule CF.cases) auto
 
-lemma ap_nfD2[dest]: "f \<diamond> x \<in> NF \<Longrightarrow> \<exists>x'. x = Term x'"
-by (rule NF.cases) auto
+lemma ap_cfD2[dest]: "f \<diamond> x \<in> CF \<Longrightarrow> \<exists>x'. x = Term x'"
+by (rule CF.cases) auto
 
-lemma term_not_nf[dest]: "Term x \<in> NF \<Longrightarrow> False"
-by (rule NF.cases) auto
+lemma term_not_cf[dest]: "Term x \<in> CF \<Longrightarrow> False"
+by (rule CF.cases) auto
 
-lemma nf_cong:
-  assumes "n \<in> NF" "n' \<in> NF"
-      and "opaque n = opaque n'"
-      and "NF_head n \<leftrightarrow> NF_head n'"
-    shows "n \<cong> n'"
-using assms proof (induction arbitrary: n')
-  case (pure_nf x)
-    then obtain y where "n' = Pure y" by cases auto
-    with pure_nf.prems show ?case by (auto intro: itrm_cong.intros)
+lemma listrelpE1:
+  assumes "listrelp p (x1 @ x2) z"
+  obtains z1 z2
+    where "z = z1 @ z2" and "listrelp p x1 z1" and "listrelp p x2 z2"
+using assms proof (induction x1 arbitrary: z thesis)
+  case Nil
+  thus ?case by (auto intro: listrelp.Nil)
 next
-  case (ap_nf f x)
-    note `n' \<in> NF` and `opaque (f \<diamond> Term x) = opaque n'`
-    then obtain g y where n'_split: "n' = g \<diamond> Term y" "g \<in> NF"
-      by cases auto
-    with ap_nf.prems have "opaque f = opaque g" "NF_head f \<leftrightarrow> NF_head g" by auto
-    with ap_nf.IH `g \<in> NF` have "f \<cong> g" by simp
-    with ap_nf.prems n'_split show ?case by (auto intro: itrm_cong.intros)
+  case (Cons x xs)
+  from `listrelp p ((x # xs) @ x2) z`
+  obtain z' zs where "z = z' # zs" and "p x z'" and "listrelp p (xs @ x2) zs"
+    by cases auto
+  with Cons.IH obtain z1 z2 where "zs = z1 @ z2" and "listrelp p xs z1" and "listrelp p x2 z2"
+    by blast
+  with `z = z' # zs` have "z = (z' # z1) @ z2" by simp
+  from `p x z'` and `listrelp p xs z1` have "listrelp p (x # xs) (z' # z1)"
+    by (rule listrelp.Cons)
+  with `listrelp p x2 z2` `z = (z' # z1) @ z2` show ?case using Cons.prems by blast
 qed
 
-lemma nf_unlift:
-  assumes "n \<in> NF"
-    shows "NF_head n \<leftrightarrow> unlift n"
-using assms proof (induction set: NF)
-  case (pure_nf x)
+lemma cf_similarI:
+  assumes "x \<in> CF" "y \<in> CF"
+      and "listrelp (op \<leftrightarrow>) (opaque x) (opaque y)"
+      and "CF_head x \<leftrightarrow> CF_head y"
+    shows "x \<cong> y"
+using assms proof (induction arbitrary: y)
+  case (pure_cf x)
+    hence "listrelp (op \<leftrightarrow>) [] (opaque y)" by simp
+    hence "opaque y = []" by cases auto
+    with `y \<in> CF` obtain y' where "y = Pure y'" by cases auto
+    with pure_cf.prems show ?case by (auto intro: itrm_cong.intros)
+next
+  case (ap_cf f x)
+    from `listrelp (op \<leftrightarrow>) (opaque (f \<diamond> Term x)) (opaque y)`
+    obtain y1 y2 :: "dB list"
+      where "opaque y = y1 @ y2" and "listrelp (op \<leftrightarrow>) (opaque f) y1" and "listrelp (op \<leftrightarrow>) [x] y2"
+      by (auto elim: listrelpE1)
+    from `listrelp (op \<leftrightarrow>) [x] y2` obtain y' where "y2 = [y']" and "x \<leftrightarrow> y'"
+      by (blast elim: listrelp.cases)
+    with `y \<in> CF` and `opaque y = y1 @ y2` obtain g
+      where "opaque g = y1" and y_split: "y = g \<diamond> Term y'" "g \<in> CF"
+      by cases auto
+    with ap_cf.prems `listrelp (op \<leftrightarrow>) (opaque f) y1`
+      have "listrelp (op \<leftrightarrow>) (opaque f) (opaque g)" "CF_head f \<leftrightarrow> CF_head g" by auto
+    with ap_cf.IH `g \<in> CF` have "f \<cong> g" by simp
+    with ap_cf.prems y_split `x \<leftrightarrow> y'` show ?case by (auto intro: itrm_cong.intros ap_cong)
+qed
+
+lemma cf_unlift:
+  assumes "x \<in> CF"
+    shows "CF_head x \<leftrightarrow> unlift x"
+using assms proof (induction set: CF)
+  case (pure_cf x)
   show ?case by simp
 next
-  case (ap_nf f x)
+  case (ap_cf f x)
   let ?n = "iorder f + 1"
   have "unlift (f \<diamond> Term x) = wrap_abs (unlift' ?n f 1 \<degree> Var 0) ?n"
     unfolding unlift_ap by simp
@@ -300,18 +443,29 @@ next
       by (simp add: r_into_rtranclp wrap_abs_equiv red_into_equiv)
   qed
   finally show ?case
-    using NF_head.simps ap_nf.IH term_sym term_trans by metis
+    using CF_head.simps ap_cf.IH term_sym term_trans by metis
 qed
 
-lemma nf_unique:
-  assumes in_nf: "n \<in> NF" "n' \<in> NF"
-      and equiv: "n \<simeq> n'"
-    shows "n \<cong> n'"
-using in_nf proof (rule nf_cong)
-  from equiv show "opaque n = opaque n'" by (rule opaque_equiv)
-  from equiv have "unlift n \<leftrightarrow> unlift n'" by (rule unlift_equiv)
-  thus "NF_head n \<leftrightarrow> NF_head n'"
-    using nf_unlift[OF in_nf(1)] nf_unlift[OF in_nf(2)]
+lemma cf_similarD:
+  assumes in_cf: "x \<in> CF" "y \<in> CF"
+      and similar: "x \<cong> y"
+    shows "CF_head x \<leftrightarrow> CF_head y \<and> listrelp (op \<leftrightarrow>) (opaque x) (opaque y)"
+using assms
+by (blast intro!: similar_equiv opaque_equiv cf_unlift unlift_equiv intro: term_trans term_sym)
+
+text \<open>Equivalent idiomatic terms in canonical form are similar. This justifies speaking of a
+  normal form.\<close>
+
+lemma cf_unique:
+  assumes in_cf: "x \<in> CF" "y \<in> CF"
+      and equiv: "x \<simeq> y"
+    shows "x \<cong> y"
+using in_cf proof (rule cf_similarI)
+  from equiv show "listrelp (op \<leftrightarrow>) (opaque x) (opaque y)" by (rule opaque_equiv)
+next
+  from equiv have "unlift x \<leftrightarrow> unlift y" by (rule unlift_equiv)
+  thus "CF_head x \<leftrightarrow> CF_head y"
+    using cf_unlift[OF in_cf(1)] cf_unlift[OF in_cf(2)]
     using term_sym term_trans
     by metis
 qed
@@ -324,105 +478,105 @@ where
     "rsize (x \<diamond> y) = size y"
   | "rsize _ = 0"
 
-function (sequential) normalize_pure_nf :: "itrm \<Rightarrow> itrm"
+function (sequential) normalize_pure_cf :: "itrm \<Rightarrow> itrm"
 where
-    "normalize_pure_nf (Pure g \<diamond> (f \<diamond> x)) = normalize_pure_nf (Pure (\<B> \<degree> g) \<diamond> f) \<diamond> x"
-  | "normalize_pure_nf (Pure f \<diamond> Pure x) = Pure (f \<degree> x)"
-  | "normalize_pure_nf x = x"
+    "normalize_pure_cf (Pure g \<diamond> (f \<diamond> x)) = normalize_pure_cf (Pure (\<B> \<degree> g) \<diamond> f) \<diamond> x"
+  | "normalize_pure_cf (Pure f \<diamond> Pure x) = Pure (f \<degree> x)"
+  | "normalize_pure_cf x = x"
 by pat_completeness auto
 termination by (relation "measure rsize") auto
 
-fun normalize_nf_pure :: "itrm \<Rightarrow> itrm"
+fun normalize_cf_pure :: "itrm \<Rightarrow> itrm"
 where
-    "normalize_nf_pure (f \<diamond> Pure x) = normalize_pure_nf (Pure (\<A>' \<degree> x) \<diamond> f)"
-  | "normalize_nf_pure x = x"
+    "normalize_cf_pure (f \<diamond> Pure x) = normalize_pure_cf (Pure (\<T> \<degree> x) \<diamond> f)"
+  | "normalize_cf_pure x = x"
 
-function (sequential) normalize_nf_nf :: "itrm \<Rightarrow> itrm"
+function (sequential) normalize_cf_cf :: "itrm \<Rightarrow> itrm"
 where
-    "normalize_nf_nf (g \<diamond> (f \<diamond> x)) = normalize_nf_nf (normalize_pure_nf (Pure \<B> \<diamond> g) \<diamond> f) \<diamond> x"
-  | "normalize_nf_nf x = normalize_nf_pure x"
+    "normalize_cf_cf (g \<diamond> (f \<diamond> x)) = normalize_cf_cf (normalize_pure_cf (Pure \<B> \<diamond> g) \<diamond> f) \<diamond> x"
+  | "normalize_cf_cf x = normalize_cf_pure x"
 by pat_completeness auto
 termination by (relation "measure rsize") auto
 
 fun normalize :: "itrm \<Rightarrow> itrm"
 where
     "normalize (Pure x) = Pure x"
-  | "normalize (Term x)  = Pure \<I> \<diamond> Term x"
-  | "normalize (x \<diamond> y)  = normalize_nf_nf (normalize x \<diamond> normalize y)"
+  | "normalize (Term x) = Pure \<I> \<diamond> Term x"
+  | "normalize (x \<diamond> y)  = normalize_cf_cf (normalize x \<diamond> normalize y)"
 
 
-lemma pure_nf_in_nf:
-  assumes "x \<in> NF"
-    shows "normalize_pure_nf (Pure f \<diamond> x) \<in> NF"
+lemma pure_cf_in_cf:
+  assumes "x \<in> CF"
+    shows "normalize_pure_cf (Pure f \<diamond> x) \<in> CF"
 using assms
-by (induction arbitrary: f rule: NF.induct) auto
+by (induction arbitrary: f rule: CF.induct) auto
 
-lemma pure_nf_equiv: "normalize_pure_nf x \<simeq> x"
-proof (induction rule: normalize_pure_nf.induct)
+lemma pure_cf_equiv: "normalize_pure_cf x \<simeq> x"
+proof (induction rule: normalize_pure_cf.induct)
   case (1 g f x)
-  have "normalize_pure_nf (Pure g \<diamond> (f \<diamond> x)) \<simeq> normalize_pure_nf (Pure (\<B> \<degree> g) \<diamond> f) \<diamond> x" by simp
-  also from "1.IH" have "... \<simeq> Pure (\<B> \<degree> g) \<diamond> f \<diamond> x" by (rule itrm_apL)
-  also have "... \<simeq> Pure \<B> \<diamond> Pure g \<diamond> f \<diamond> x" by (blast intro: itrm_hom[symmetric] itrm_apL)
-  also have "... \<simeq> Pure g \<diamond> (f \<diamond> x)" by (rule itrm_comp[symmetric])
+  have "normalize_pure_cf (Pure g \<diamond> (f \<diamond> x)) \<simeq> normalize_pure_cf (Pure (\<B> \<degree> g) \<diamond> f) \<diamond> x" by simp
+  also from "1.IH" have "... \<simeq> Pure (\<B> \<degree> g) \<diamond> f \<diamond> x" by (rule ap_congL)
+  also have "... \<simeq> Pure \<B> \<diamond> Pure g \<diamond> f \<diamond> x" by (blast intro: itrm_hom'[symmetric] ap_congL)
+  also have "... \<simeq> Pure g \<diamond> (f \<diamond> x)" by (rule itrm_comp'[symmetric])
   finally show ?case .
 next
   case (2 f x)
-  have "normalize_pure_nf (Pure f \<diamond> Pure x) \<simeq> Pure (f \<degree> x)" by simp
-  also have "... \<simeq> Pure f \<diamond> Pure x" by (rule itrm_hom[symmetric])
+  have "normalize_pure_cf (Pure f \<diamond> Pure x) \<simeq> Pure (f \<degree> x)" by simp
+  also have "... \<simeq> Pure f \<diamond> Pure x" by (rule itrm_hom'[symmetric])
   finally show ?case .
 qed auto
 
-lemma nf_pure_in_nf:
-  assumes "f \<in> NF"
-    shows "normalize_nf_pure (f \<diamond> Pure x) \<in> NF"
+lemma cf_pure_in_cf:
+  assumes "f \<in> CF"
+    shows "normalize_cf_pure (f \<diamond> Pure x) \<in> CF"
 using assms
-by (auto intro: pure_nf_in_nf)
+by (auto intro: pure_cf_in_cf)
 
-lemma nf_pure_equiv: "normalize_nf_pure x \<simeq> x"
-proof (induction rule: normalize_nf_pure.induct)
+lemma cf_pure_equiv: "normalize_cf_pure x \<simeq> x"
+proof (induction rule: normalize_cf_pure.induct)
   case (1 f x)
-  have "normalize_nf_pure (f \<diamond> Pure x) \<simeq> normalize_pure_nf (Pure (\<A>' \<degree> x) \<diamond> f)" by simp
-  also have "... \<simeq> Pure (\<A>' \<degree> x) \<diamond> f" by (rule pure_nf_equiv)
-  also have "... \<simeq> f \<diamond> Pure x" by (rule itrm_xchng[symmetric])
+  have "normalize_cf_pure (f \<diamond> Pure x) \<simeq> normalize_pure_cf (Pure (\<T> \<degree> x) \<diamond> f)" by simp
+  also have "... \<simeq> Pure (\<T> \<degree> x) \<diamond> f" by (rule pure_cf_equiv)
+  also have "... \<simeq> f \<diamond> Pure x" by (rule itrm_xchng'[symmetric])
   finally show ?case .
 qed auto
 
-lemma nf_nf_in_nf:
-  assumes "x \<in> NF" and "f \<in> NF"
-    shows "normalize_nf_nf (f \<diamond> x) \<in> NF"
+lemma cf_cf_in_cf:
+  assumes "x \<in> CF" and "f \<in> CF"
+    shows "normalize_cf_cf (f \<diamond> x) \<in> CF"
 using assms
-by (induction arbitrary: f rule: NF.induct) (auto intro: pure_nf_in_nf)
+by (induction arbitrary: f rule: CF.induct) (auto intro: pure_cf_in_cf)
 
-lemma nf_nf_equiv: "normalize_nf_nf x \<simeq> x"
-proof (induction rule: normalize_nf_nf.induct)
+lemma cf_cf_equiv: "normalize_cf_cf x \<simeq> x"
+proof (induction rule: normalize_cf_cf.induct)
   case (1 g f x)
-  have "normalize_nf_nf (g \<diamond> (f \<diamond> x)) \<simeq> normalize_nf_nf (normalize_pure_nf (Pure \<B> \<diamond> g) \<diamond> f) \<diamond> x"
+  have "normalize_cf_cf (g \<diamond> (f \<diamond> x)) \<simeq> normalize_cf_cf (normalize_pure_cf (Pure \<B> \<diamond> g) \<diamond> f) \<diamond> x"
     by simp
-  also from "1.IH" have "... \<simeq> normalize_pure_nf (Pure \<B> \<diamond> g) \<diamond> f \<diamond> x" by (rule itrm_apL)
-  also have "... \<simeq> Pure \<B> \<diamond> g \<diamond> f \<diamond> x" by (blast intro: pure_nf_equiv itrm_apL)
-  also have "... \<simeq> g \<diamond> (f \<diamond> x)" by (rule itrm_comp[symmetric])
+  also from "1.IH" have "... \<simeq> normalize_pure_cf (Pure \<B> \<diamond> g) \<diamond> f \<diamond> x" by (rule ap_congL)
+  also have "... \<simeq> Pure \<B> \<diamond> g \<diamond> f \<diamond> x" by (blast intro: pure_cf_equiv ap_congL)
+  also have "... \<simeq> g \<diamond> (f \<diamond> x)" by (rule itrm_comp'[symmetric])
   finally show ?case .
-qed (auto simp del: normalize_nf_pure.simps intro: nf_pure_equiv)
+qed (auto simp del: normalize_cf_pure.simps intro: cf_pure_equiv)
 
-lemma normalize_in_nf: "normalize x \<in> NF"
-by (induction x rule: normalize.induct) (auto intro: nf_nf_in_nf)
+lemma normalize_in_cf: "normalize x \<in> CF"
+by (induction x rule: normalize.induct) (auto intro: cf_cf_in_cf)
 
 lemma normalize_equiv: "normalize x \<simeq> x"
 proof (induction rule: normalize.induct)
   case (2 x)
   have "normalize (Term x) \<simeq> Pure \<I> \<diamond> Term x" by simp
-  also have "... \<simeq> Term x" by (rule itrm_id[symmetric])
+  also have "... \<simeq> Term x" by (rule itrm_id'[symmetric])
   finally show ?case .
 next
   case (3 x y)
-  have "normalize (x \<diamond> y) \<simeq> normalize_nf_nf (normalize x \<diamond> normalize y)" by simp
-  also have "... \<simeq> normalize x \<diamond> normalize y" by (rule nf_nf_equiv)
-  also from "3.IH" have "... \<simeq> x \<diamond> normalize y" by (blast intro: itrm_apL)
-  also from "3.IH" have "... \<simeq> x \<diamond> y" by (blast intro: itrm_apR)
+  have "normalize (x \<diamond> y) \<simeq> normalize_cf_cf (normalize x \<diamond> normalize y)" by simp
+  also have "... \<simeq> normalize x \<diamond> normalize y" by (rule cf_cf_equiv)
+  also from "3.IH" have "... \<simeq> x \<diamond> normalize y" by (blast intro: ap_congL)
+  also from "3.IH" have "... \<simeq> x \<diamond> y" by (blast intro: ap_congR)
   finally show ?case .
 qed auto
 
-lemma normal_form: obtains n where "n \<simeq> x" and "n \<in> NF"
-using normalize_equiv normalize_in_nf ..
+lemma normal_form: obtains n where "n \<simeq> x" and "n \<in> CF"
+using normalize_equiv normalize_in_cf ..
 
 end
