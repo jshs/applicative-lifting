@@ -21,6 +21,8 @@
 \newlist{prfcases}{enumerate}{1}
 \setlist[prfcases,1]{label={\it Case \arabic*.},align=left,leftmargin=\parindent,itemindent=*}
 
+\newenvironment{isabelle}{\list{}{}\item\relax}{\endlist}
+
 \usepackage{algorithm}
 
 \usepackage{tikz}
@@ -40,7 +42,7 @@
 	style=numeric,
 	sorting=none,
 	doi=false,
-	urldate=iso8601,
+	urldate=long,
 ]{biblatex}
 \addbibresource{bibliography.bib}
 

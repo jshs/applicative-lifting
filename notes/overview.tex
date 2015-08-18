@@ -4,7 +4,6 @@
 
 Our primary goal is to implement an Isabelle/HOL proof method which reduces
 lifted equations to their base form.
-% FIXME restriction to Isabelle/HOL?
 Here, lifting refers to a transition from operations on base types to related
 operations on some structure.
 Hinze~\cite{hinze10} studied the conditions under which lifting preserves the
@@ -72,8 +71,27 @@ applicative functor laws.
 We want to automate this step with a proof method.
 
 Not all equations can be lifted in all idioms, though.
-In certain cases stronger conditions are required.
-\todo{}
+Stronger conditions are required if the list of quantified variables is
+different for each side of the equation.
+(The left-to-right order is relevant, but not the nesting within the terms.)
+These conditions must basically ensure that the functor does not add ``too many
+effects'' which go beyond the simple embedding of a base type.
+Such effects may be evoked if a variable takes an impure value, i.e., a value
+which is not equal to $\pure x$ for any $x$.
+
+\begin{example}\label{exmp:set-counterexmp}
+We try to lift the fact that zero is a left absorbing element for
+multiplication of integers, $\all{x \oftype \mathit{int}}{0 \cdot x = 0}$,
+to sets.
+Note that the variable $x$ occurs only on the left.
+But the lifted equation does not hold: If $x$, now generalized to
+$\mathit{int}\,\mathit{set}$, is instantiated with the empty set, then
+\[ \pure{(\cdot)} \ap \pure 0 \ap \{\} = \{\} \ne \pure 0. \]
+Here the effect of $\{\}$ is that it cancels out everything else if it occurs
+somewhere in an idiomatic expression.
+This makes it impossible to lift any equation with a variable occuring only on
+one side to $\mathit{set}$.
+\end{example}
 
 \subsection{User Interface}\label{subsec:interface}
 
@@ -101,24 +119,52 @@ arbitrary terms.
 However, the method actually proves the fully universally quantified form---%
 for every subterm not matching $\pure_f{\_}$ or $\_ \ap_f \_$, a new, locally
 quantified variable is introduced.
+We call these subterms \emph{opaque}.
 The method attempts to transform the first subgoal to the base form of the
 equation, in other words, its identity functor interpretation.
 Variable names shall be preserved, if possible.
 Finally, it is desirable to have some kind of debugging facility for tracing
 intermediate steps.
+This may be especially useful if the proof fails because additional laws are
+required.
 
 \begin{example}\label{exmp:set-usage}
 Continuing with the set idiom from Example~\ref{exmp:set-intro}, assume that
-the user wants to prove an instantiation of the associativity law for $\oplus$,
-\[ (X \oplus Y) \oplus F a = X \oplus (Y \oplus F a), \]
-as part of a larger proof, where $X$, $Y$ and $F$ are fixed variables, and
-$a$ is a constant.
-The system has been informed of $\mathit{set}$ and $\oplus$.
+the user wants to prove an instantiation of the associativity law for $\oplus$
+as part of a larger proof.
+$\mathit{set}$ and $\oplus$ have been declared to the enclosing theory.
+The current Isabelle goal state is
+\[ 1. \quad (X \oplus Y) \oplus f Z = X \oplus (Y \oplus f Z). \]
+The variables $X$, $Y$ and $Z$ have been fixed in the proof context, and $f$ is
+some constant, all of appropriate type.
+This illustrates how we allow a larger variety of propositions, making it
+easier to apply the method without too much preparation.
 After applying the proof method, the new proof obligation reads
-\[ \All{x y u}{(x + y) + u = x + (y + u)}. \qedhere \]
+\[ 1. \quad \All{x y u}{(x + y) + u = x + (y + u)}, \]
+which is easily discharged.
+The corresponding Isabelle/Isar fragment could be
+\begin{isabelle}
+	\textbf{fix} $X$ $Y$ $Z$ \\
+	\dots \\
+	\textbf{have} "$(X \oplus Y) \oplus f Z = X \oplus (Y \oplus f Z)$"
+		\textbf{by} \textit{af\_lifting} \textit{algebra}
+\end{isabelle}
+\textit{af\_lifting} is our new proof method, and the standard \textit{algebra}
+method completes the subproof.
+% TODO check with final implementation
 \end{example}
 
 \subsection{Proof Strategy}\label{subsec:proof-strategy}
+
+%At its core, Isabelle provides an infrastructure for deduction of logical
+%content within flexible contexts.
+%The logical system exposed to the user is not fixed.
+%Instead, the Pure meta-logic is the basis for inference rules and derive from
+%them \cite{paulson90}.
+%On top of that, one defines the actual object logic in terms of declarations
+%and additional axioms.
+%We are working with the standard HOL theory, Isabelle's version of higher-order
+%logic. % TODO citation
 
 The proof method starts with testing the first subgoal for the expected
 structure.
@@ -127,19 +173,15 @@ relevant theorems can be accessed subsequently.
 We then rewrite the subgoal using the declared rules for lifted constants.
 Only those related to $f$ are used, the reason being that overeager, unwanted
 unfolding may be difficult to reverse.
-All following steps depend on which additional properties of $f$ have been
-provided.
+% TODO might not be true in the final version
+The result of this preparation is a subgoal which is simple equation of two
+idiomatic expressions.
 
-If there are none, we normalize both sides of the equation.
-Hinze's Normal Form Lemma~\cite[7]{hinze10} asserts the existence of a certain
-normal form for idiomatic expressions where each variable occurs only once.
-As it turns out, we can compute this normal form for arbitrary terms.
-This is convenient because opaque parts are handled implicitly.
-The details of the normalization algorithm are described in Section~\ref{sec:normal-form}.
-The normalized equation is
-\[ \pure{g} \ap t_1 \ap \cdots \ap t_m = \pure{h} \ap s_1 \ap \cdots \ap s_n, \]
-where $g$ and $h$ are new terms, and $\vec t$ and $\vec s$ are the opaque
-subterms of the original equation.
+The following step depends on which additional properties of $f$ have been
+provided.
+All approaches have in common that both expressions are replaced by others in
+\emph{canonical form}:
+\[ \pure{g} \ap s_1 \ap \cdots \ap s_m = \pure{h} \ap t_1 \ap \cdots \ap t_n, \]
 If either $m \ne n$ or $t_i \ne s_i$ for some $i$ (as terms modulo
 $\alpha\beta\eta$-conversion), the proof method fails.
 Otherwise, we apply appropriate congruence rules until the subgoal is reduced
@@ -147,10 +189,32 @@ to $g = h$.
 Since $g$ and $h$ are at least $n$-ary functions, we can further apply
 extensionality, reaching the subgoal
 \[ \All{x_1 \dots x_n}{g x_1 \cdots x_n = h x_1 \cdots x_n}. \]
-The normal form has the interesting property that this is exactly the
-generalized base form of the original equation.
+This is the transformed proof state presented to the user.
 
-\todo
+Hinze's Normal Form Lemma~\cite[7]{hinze10} asserts the existence of a certain
+normal form for idiomatic expressions where each variable occurs only once.
+This normal form has the desired structure.
+As it turns out, we can compute it for arbitrary terms.
+This is convenient because opaque parts are handled implicitly.
+However, the result might be too general and unprovable, so we will use the
+normal form only if no other properties are available.
+The details of the normalization algorithm are described in
+Section~\ref{sec:normal-form}.
+There we will also show that the transformed equation is exactly the generalized
+base form of the original equation.
+
+Hinze then explored under what circumstances a larger variety of equations can
+be lifted.
+He found that sufficient conditions can be expressed in terms of combinators
+as known from combinatory logic.
+We take this idea and adapt it our framework in Section~\ref{sec:combinators}.
+In contrast to the normal form approach, we gain flexibility regarding the
+opaque terms in the canonical form.
+This means that the algorithm must determine the sequence $\vec t = \vec s$
+of opaque terms prior to the transformations.
+The set of available combinators further limits the admissible sequences.
+Because this relationship cannot be generalized easily, we restrict ourselves
+to certain combinator sets.
 
 \subsection{Choice of Embedding}\label{subsec:embedding}
 
