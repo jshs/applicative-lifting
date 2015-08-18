@@ -579,4 +579,34 @@ qed auto
 lemma normal_form: obtains n where "n \<simeq> x" and "n \<in> CF"
 using normalize_equiv normalize_in_cf ..
 
+
+subsection \<open>Proving lifted equations\<close>
+
+theorem nf_lifting:
+  assumes opaque: "listrelp (op \<leftrightarrow>) (opaque x) (opaque y)"
+      and base_eq: "unlift x \<leftrightarrow> unlift y"
+    shows "x \<simeq> y"
+proof -
+  obtain n where "n \<simeq> x" and "n \<in> CF" by (rule normal_form)
+  hence n_head: "CF_head n \<leftrightarrow> unlift x"
+    using cf_unlift unlift_equiv by (blast intro: term_trans)
+  from `n \<simeq> x` have n_opaque: "listrelp (op \<leftrightarrow>) (opaque n) (opaque x)"
+    by (rule opaque_equiv)
+  obtain n' where "n' \<simeq> y" and "n' \<in> CF" by (rule normal_form)
+  hence n'_head: "CF_head n' \<leftrightarrow> unlift y"
+    using cf_unlift unlift_equiv by (blast intro: term_trans)
+  from `n' \<simeq> y` have n'_opaque: "listrelp (op \<leftrightarrow>) (opaque n') (opaque y)"
+    by (rule opaque_equiv)
+  from n_head n'_head base_eq have "CF_head n \<leftrightarrow> CF_head n'"
+    by (blast intro: term_sym term_trans)
+  moreover from n_opaque n'_opaque opaque have "listrelp (op \<leftrightarrow>) (opaque n) (opaque n')"
+    using listrel_sym[to_pred] term_sym listrel_trans[to_pred] term_trans
+    unfolding symp_def transp_def
+    by metis
+  moreover note `n \<in> CF` `n' \<in> CF`
+  ultimately have "n \<cong> n'" by (blast intro: cf_similarI)
+  hence "n \<simeq> n'" by (rule similar_equiv)
+  with `n \<simeq> x` `n' \<simeq> y` show "x \<simeq> y" by (blast intro: itrm_sym itrm_trans)
+qed
+
 end
