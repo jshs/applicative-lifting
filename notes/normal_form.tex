@@ -3,15 +3,27 @@
 McBride and Paterson~\cite{mcbride08} noted that idiomatic expressions can
 be transformed into an application of a pure function to a sequence of impure
 arguments.
-Hinze~\cite{hinze10} gave an explicit construction of this normal form for the
-monoidal variant of applicative functors.
-The normal form is useful for our purpose because the pure part reflects the
-term that was lifted.
-Its construction can be performed using only the applicative laws, so this is
-the most general approach regarding instances (but not regarding lifted
+They called this the \emph{canonical form} of the expression.
+Hinze~\cite[Section~3.3]{hinze10} gave an explicit construction based on the
+monoidal variant of applicative functors.  % TODO define somewhere
+Transforming the terms in this way is useful for our purpose, because the
+arguments of the remaining $\pure$ terms reflect the equation that was lifted.
+The soundness of the algorithm depends only on the applicative laws, making it
+the most general approach regarding functors (but not regarding lifted
 equalities).
+We will later show that all transformations based on the applicative laws yield
+a unique canonical form, modulo $\alpha\beta\eta$-conversion.
+Therefore, we follow Hinze and denote by \emph{normal form} this particular
+canonical form.
+The distinction is necessary, as we will consider other canonical forms in
+Section~\ref{sec:combinators}, which are justified by additional laws.
+
 In the following, we define lifting and normalization formally, based on a
 syntactic representation of idiomatic terms.
+While this presentation is more abstract than what is actually happening in
+Isabelle, it makes it easier to demonstrate correctness and some other
+properties.
+Unlike Hinze, we use the $\pure$/$\ap$ formalism.
 Then we describe the implementation of the normalization procedure in
 Isabelle/ML.
 
@@ -29,11 +41,14 @@ This is primarily useful for variables ranging over lifted types, but as
 demonstrated in Example~\ref{exmp:set-usage}, more complex terms may occur too.
 Therefore it makes sense to refer to general lambda terms in both cases;
 then we can define semantics consistently.
-However, types are ignored for simplicity.
+Types are ignored here for simplicity.
+However, all results are compatible with the restrictions of simply typed
+lambda calculus.
 
 \begin{definition}[Untyped lambda terms]
 Let $\mathcal{V}$ be an infinite set of variable symbols.
-We assume that $f$, $g$, $x$, $y$ are disjoint variables.
+We assume that $f$, $g$, $x$, $y$ are disjoint variables in the following
+formulas.
 The set of untyped lambda terms is defined as
 \begin{equation}
 	\mathcal{T} ::= \mathcal{V} \mid (\mathcal{T} \sapp \mathcal{T}) \mid
@@ -51,17 +66,21 @@ The set of idiomatic terms is defined as
 	\mathcal{I} ::= \sterm \mathcal{T} \mid \spure \mathcal{T} \mid
 		\mathcal{I} \sap \mathcal{I}.
 \end{equation}
-$\sap$ associates to the left.
+By convention, the binary operator $\sap$ associates to the left.
 An $\mathcal{I}$-congruence is an equivalence relation closed under $\sap$.
-The congruence $\simeq$ is induced by the rules
+We overload notation and reuse $\termeq$ for idiomatic terms, where it stands
+for structural equality modulo substitution of $\termeq$-equivalent lambda
+terms.
+The $\mathcal{I}$-congruence $\simeq$ is induced by the rules
 \begin{align}
 	x &\simeq \spure{(\sabs{x}{x})} \sap x \label{eq:iterm-id}\\
 	g \sap (f \sap x) &\simeq \spure \mathbf{B} \sap g \sap f \sap x \label{eq:iterm-comp}\\
-	\spure f \sap \spure x &\simeq \spure (f \sapp x) \label{eq:iterm-morph}\\
-	f \sap \spure x &\simeq \spure{((\sabs{x}\sabs{f}{f \sapp x}) \sapp x)} \sap f \label{eq:iterm-xchng}
+	\spure f \sap \spure x &\simeq \spure{(f \sapp x)} \label{eq:iterm-morph}\\
+	f \sap \spure x &\simeq \spure{((\sabs{x}\sabs{f}{f \sapp x}) \sapp x)} \sap f \label{eq:iterm-xchng}\\
+	s \termeq t \implies s &\simeq t \label{eq:termeq-lift}
 \end{align}
 where $\mathbf{B}$ abbreviates
-$\mathbf{B} = \sabs{g}{\sabs{f}{\sabs{x}{g \sapp (f \sapp x)}}}$.
+$\mathbf{B} \equiv \sabs{g}{\sabs{f}{\sabs{x}{g \sapp (f \sapp x)}}}$.
 \end{definition}
 
 $\sterm$ represents arbitrary values in the lifted domain, whereas $\spure$
@@ -100,7 +119,7 @@ substitution along \eqref{eq:iterm-morph} on the right-hand side.
 	    edge from parent [abbrv]
 	} child { node[term] {$x_n$} };
 \end{tikzpicture}
-\caption{A term in normal form.}
+\caption{A term in canonical form.}
 \label{fig:iterm-nf-ex}
 \end{minipage}
 \end{figure}
@@ -111,17 +130,17 @@ Figure~\ref{fig:iterm-ex} shows the conventions:
 Inner nodes correspond to $\sap$, leaves are either pure terms (boxes) or
 opaque terms (circles).
 Whole subterms may be abbreviated by a triangle.
-A term has normal form if it consists of a single pure node to which a number
+A term has canonical form if it consists of a single pure node to which a number
 of opaque terms (or none) are applied in sequence.
 Figure~\ref{fig:iterm-nf-ex} gives a general example.
 A formal construction follows:
 
-\begin{definition}[Normal form]
-The set $\mathcal{N} \subset \mathcal{I}$ of idiomatic terms in normal form is
-defined inductively as
+\begin{definition}[Canonical form]
+The set $\mathcal{C} \subset \mathcal{I}$ of idiomatic terms in canonical form
+is defined inductively as
 \begin{gather}
-	\spure x \in \mathcal{N}, \label{eq:nf-base}\\
-	t \in \mathcal{N} \implies t \sap \sterm s \in \mathcal{N}. \label{eq:nf-step}
+	\spure x \in \mathcal{C}, \label{eq:cf-base}\\
+	t \in \mathcal{C} \implies t \sap \sterm s \in \mathcal{C}. \label{eq:cf-step}
 \end{gather}
 \end{definition}
 
@@ -149,10 +168,12 @@ defined inductively as
 \label{fig:pure-rotate}
 \end{figure}
 
-It is not entirely obvious how the normal form can be derived from equations
+It is not entirely obvious how a canonical form can be derived from equations
 \eqref{eq:iterm-id}--\eqref{eq:iterm-xchng}.
 Rewriting blindly with these is prone to infinite recursion.
 Therefore we need a more controlled algorithm.
+As we have said before, we use \emph{normal form} to refer to the particular
+canonical form derived from those equations.
 Consider an idiomatic term $t$.
 If $t$ is a single pure term, then it is already in normal form.
 The case $t = \sterm x$ is also easy:
@@ -161,7 +182,7 @@ which is in normal form.
 But in the case of $t = u \sap v$, various steps could be performed,
 depending on the subterms.
 We simplify the situation by normalizing each subterm recursively, so we get
-an equivalent term $u' \sap v'$ where $u',v' \in \mathcal{N}$.
+an equivalent term $u' \sap v'$ where $u',v' \in \mathcal{C}$.
 
 Now let us assume that $u'$ is just $\spure g$.
 If $v'$ is also a pure term, they can be combined along \eqref{eq:iterm-morph}.
@@ -178,32 +199,32 @@ In pattern-matching style, the transformation `pure-nf' reads
 	\operatorname{pure-nf}(\spure f \sap \spure x) &= \spure{(f x)}
 \end{align}
 \begin{lemma}\label{thm:pure-nf}
-For all $g \in \mathcal{T}$ and $t \in \mathcal{N}$,
+For all $g \in \mathcal{T}$ and $t \in \mathcal{C}$,
 $\operatorname{pure-nf}(\spure g \sap t)$ is well-defined, and%
 \/\footnote{$a \in S \simeq b$ abbreviates ``$a \in S$ and $a \simeq b$''.}
-$\operatorname{pure-nf}(\spure g \sap t) \in \mathcal{N} \simeq \spure g \sap t$.
+$\operatorname{pure-nf}(\spure g \sap t) \in \mathcal{C} \simeq \spure g \sap t$.
 \end{lemma}
 \begin{proof}
-We prove all claims simultaneously by induction on $t \in \mathcal{N}$,
+We prove all claims simultaneously by induction on $t \in \mathcal{C}$,
 where $g$ is arbitrary.
 \begin{prfcases}
 \item Assume $t = \spure x$ for some $x \in \mathcal{T}$.
 	Only the second equation applies, so we have
 	\[ \operatorname{pure-nf}(\spure g \sap t) = \spure{(g \sapp x)}. \]
-	All pure terms are in $\mathcal{N}$, and equivalence follows from
+	All pure terms are in $\mathcal{C}$, and equivalence follows from
 	\eqref{eq:iterm-morph}.
 \item Assume $t = t' \sap \sterm x$ for some
-	$t' \in \mathcal{N}$, $x \in \mathcal{T}$, and that the hypothesis holds
+	$t' \in \mathcal{C}$, $x \in \mathcal{T}$, and that the hypothesis holds
 	for $t'$ and all $g$.
 	Only the first equation applies, so
 	\[ \operatorname{pure-nf}(\spure g \sap t) =
 		\operatorname{pure-nf}(\spure{(\mathbf{B} g)} \sap t') \sap \sterm x. \]
 	Instantiating the induction hypothesis, we find that
-	\[ \operatorname{pure-nf}(\spure{(\mathbf{B} \sapp g)} \sap t') \in \mathcal{N} \simeq
+	\[ \operatorname{pure-nf}(\spure{(\mathbf{B} \sapp g)} \sap t') \in \mathcal{C} \simeq
 		\spure{(\mathbf{B} \sapp g)} \sap t' \]
 	is well-defined.
-	$\mathcal{N}$ is closed under application to opaque terms \eqref{eq:nf-step},
-	hence $\operatorname{pure-nf}(\spure g \sap t) \in \mathcal{N}$.
+	$\mathcal{C}$ is closed under application to opaque terms \eqref{eq:cf-step},
+	hence $\operatorname{pure-nf}(\spure g \sap t) \in \mathcal{C}$.
 	Finally, we have
 	\begin{align*}
 		\operatorname{pure-nf}(\spure g \sap t) &\simeq
@@ -222,9 +243,9 @@ The case where $v'$ is pure instead can be translated to the former by
 		\operatorname{pure-nf}{(\spure{((\sabs{x}\sabs{f}{f x}) \sapp x)} \sap f)} \\
 \end{equation}
 \begin{lemma}\label{thm:nf-pure}
-For all $t \in \mathcal{N}$ and $x \in \mathcal{T}$,
+For all $t \in \mathcal{C}$ and $x \in \mathcal{T}$,
 $\operatorname{nf-pure}(t \sap \spure x)$ is well-defined, and
-$\operatorname{nf-pure}(t \sap \spure x) \in \mathcal{N} \simeq t \sap \spure x$.
+$\operatorname{nf-pure}(t \sap \spure x) \in \mathcal{C} \simeq t \sap \spure x$.
 \end{lemma}
 \begin{proof}
 Follows from Lemma~\ref{thm:pure-nf} and \eqref{eq:iterm-xchng}.
@@ -263,26 +284,26 @@ The corresponding transformation is therefore
 	\operatorname{nf-nf}(t) &= \operatorname{nf-pure}(t) \quad\text{(otherwise)}
 \end{align}
 \begin{lemma}\label{thm:nf-nf}
-For all $s,t \in \mathcal{N}$, 
+For all $s,t \in \mathcal{C}$,
 $\operatorname{nf-nf}(s \sap t)$ is well-defined, and
-$\operatorname{nf-nf}(s \sap t) \in \mathcal{N} \simeq s \sap t$.
+$\operatorname{nf-nf}(s \sap t) \in \mathcal{C} \simeq s \sap t$.
 \end{lemma}
 \begin{proof}
 The proof is similar to the one of Lemma~\ref{thm:pure-nf}, by induction on
-$t \in \mathcal{N}$ and arbitrary $s \in \mathcal{N}$.
+$t \in \mathcal{C}$ and arbitrary $s \in \mathcal{C}$.
 \begin{prfcases}
 \item Assume $t = \spure x$ for some $x \in \mathcal{T}$.
 	The second equation applies, so we have
 	\[ \operatorname{nf-nf}(s \sap t) = \operatorname{nf-pure}(s \sap \spure x). \]
-	Since $s \in \mathcal{N}$, the claim follows directly from Lemma~\ref{thm:nf-pure}.
+	Since $s \in \mathcal{C}$, the claim follows directly from Lemma~\ref{thm:nf-pure}.
 \item Assume $t = t' \sap \sterm x$ for some
-	$t' \in \mathcal{N}$, $x \in \mathcal{T}$, and that the hypothesis holds
-	for $t'$ and all $s \in \mathcal{N}$.
+	$t' \in \mathcal{C}$, $x \in \mathcal{T}$, and that the hypothesis holds
+	for $t'$ and all $s \in \mathcal{C}$.
 	Only the first equation applies,
 	\[ \operatorname{nf-nf}(s \sap t) =
 		\operatorname{nf-nf} (\operatorname{pure-nf}(\spure \mathbf{B} \sap s) \sap t') \sap \sterm x. \]
 	We have
-	$\operatorname{pure-nf}(\spure \mathbf{B} \sap s) \in \mathcal{N} \simeq \spure \mathbf{B} \sap s$
+	$\operatorname{pure-nf}(\spure \mathbf{B} \sap s) \in \mathcal{C} \simeq \spure \mathbf{B} \sap s$
 	from Lemma~\ref{thm:pure-nf}.
 	Thus we can instantiate the induction hypothesis, and the transformed term
 	is indeed in normal form.
@@ -331,89 +352,143 @@ straightforward induction.
 
 \begin{lemma}\label{thm:normalize}
 For all $t \in \mathcal{I}$, $\operatorname{normalize} t$ is well-defined, and
-$\operatorname{normalize} t \in \mathcal{N} \simeq t$.
+$\operatorname{normalize} t \in \mathcal{C} \simeq t$.
 \end{lemma}
 \begin{proof}
 By induction on $t$, Lemma~\ref{thm:nf-nf}, and equation \eqref{eq:iterm-id}.
 \end{proof}
 
-Until now, we only have considered the syntactic structure of idiomatic terms
-together with the artificial relation $\simeq$, which is also based on syntax.
-In order to define the semantics of idiomatic terms, we assume that we operate
-in an equational theory $\Omega$ based on $\mathcal{T}$-terms, where
-$=_\Omega\,\supseteq\,\termeq$ is an equivalence relation.
+At this point, we know that it is always possible to obtain a certain canonical
+form.
+This is not sufficient to setup the complete proving process, though.
+We need to learn a bit more about the structure of idiomatic terms and how it
+relates to lifting.
 
-\begin{definition}[Idiomatic interpretation]\label{def:iterm-interp}
-Let $\iota = \langle p, a \rangle$ with $p,a \in \mathcal{T}$.
-The interpretation $\ldb t \rdb_\iota$ of the idiomatic term $t$ w.r.t. $\iota$
-is defined as
-\begin{align}
-	\ldb \sterm t \rdb_\iota &= t, \\
-	\ldb \spure t \rdb_\iota &= p \sapp t, \\
-	\ldb s \sap t \rdb_\iota &= (a \sapp \ldb s \rdb_\iota) \sapp \ldb t \rdb_\iota.
-\end{align}
-$\iota$ is an idiomatic structure (in $\Omega$) iff
-\begin{equation}
-	\all{q r}{q \simeq r \implies \ldb q \rdb_\iota =_\Omega \ldb r \rdb_\iota}.
-\end{equation}
-\end{definition}
-
-\begin{definition}\label{def:id-structure}
-\begin{equation}
-	\iota_\mathrm{id} = \langle \sabs{x}{x}, \sabs{f}{\sabs{x}{f \sapp x}} \rangle
-\end{equation}
-is the identity structure.
-\end{definition}
-
-% TODO lift \termeq to I
-
-\begin{lemma}\label{thm:normal-form}
-For all $t \in \mathcal{I}$, there is a unique term $t' \in \mathcal{N}$ such
-that $t \simeq t'$.
-\end{lemma}
-\begin{proof}
-Existence of the normal form is a corollary of Lemma~\ref{thm:normalize}.
-In order to show that it is unique, we construct a relation
-$R \subseteq \mathcal{I}\times\mathcal{I}$, such that
-\begin{itemize}
-\item for all idiomatic terms $s$ and $t$, $s \simeq t \implies (s,t) \in R$, and
-\item for all terms in normal form $n$ and $n'$, $(n,n') \in R \implies n \termeq n'$.
-\end{itemize}
-$R$ is defined in two steps.
-The first deals with the sequence of opaque terms,
+\begin{definition}[Opaque subterms]\label{def:opaque-seq}
+The sequence of opaque subterms of an idiomatic term is defined by the
+recursive function
 \[
 	\operatorname{opaq}(\spure x) = [], \quad
 	\operatorname{opaq}(\sterm x) = [x], \quad
-	\operatorname{opaq}(s \sap t) = \operatorname{opaq}(s) @ \operatorname{opaq}(t).
+	\operatorname{opaq}(s \sap t) = \operatorname{opaq} s @ \operatorname{opaq} t.
 \]
-Let $(s,t) \in R'$ if and only if $\operatorname{opaq}(s) = \operatorname{opaq}(t)$.
-Now assume $(s,t) \in R'$.
-We can modify both terms such that all opaque terms are replaced by new pure
-variables, say $\spure v_1,\dots,\spure v_n$.
-The mapping is the same for both terms, i.e., the variable is determined by
-the position in $\operatorname{opaq}(\_)$.
-Let $s'$, $t'$ be these modified terms.
-Then $(s,t) \in R$ if and only if
-$\ldb s' \rdb_{\iota_\mathrm{id}} \termeq \ldb t' \rdb_{\iota_\mathrm{id}}$.
-
-It remains to show that $R$ satisfies both properties.
-\todo
-\end{proof}
-
-\begin{lemma}
-\todo\ Every encoding of an applicative functor in $\Omega$ is an idiomatic
-structure.
-Especially $\iota_\mathrm{id}$ is an idiomatic structure.
-\end{lemma}
-
-\begin{definition}[Lifted terms]
-$q \in \mathcal{I}$ is a lifting of $t \in \mathcal{T}$ if 
-$\ldb q \rdb_{\iota_\mathrm{id}} =_\Omega t$.
+$@$ denotes concatenation of lists.
 \end{definition}
 
-\begin{lemma}
-Let $q$ be a lifting of $t$. The normal form $q'$ of $q$ can be written as
-\[ q' = ( \cdots ((\spure t' \sap \sterm a_1) \sap \sterm a_2) \cdots ) \sap \sterm a_n. \]
-Then $t' \sapp \vec a =_\Omega t$.
+\begin{definition}[Unlifting]\label{def:unlifting}
+Let $t$ be some idiomatic term, and $n = |\operatorname{opaq} t|$.
+Let $v_{i \in \{1..n\}}$ be new variable symbols that do not occur anywhere in
+$t$.
+The ``unlifted'' lambda term corresponding to $t$ is defined as
+\[ \unlift{t} = \sabs{v_1} \cdots \sabs{v_n}{\operatorname{vary}_1 t}, \]
+where
+\begin{align}
+	\operatorname{vary}_i (\spure x) &= x, \\
+	\operatorname{vary}_i (\sterm x) &= v_i, \\
+	\operatorname{vary}_i (s \sap t) &=
+		(\operatorname{vary}_i s) \sapp (\operatorname{vary}_{i + |\operatorname{opaq} s|} t).
+\end{align}
+\end{definition}
+
+\begin{example}\label{exmp:unlift}
+The definition of $\downarrow$ may need some explanation.
+Consider the idiomatic term
+\[ t \equiv \spure{f} \sap x \sap (\spure{g} \sap y \sap z). \]
+Its unlifted term is
+\[ \unlift{t} = \sabs{a}\sabs{b}\sabs{c}{f \sapp a \sapp (g \sapp b \sapp c)}. \]
+The applicative structure is the same, but all opaque terms have been
+substituted for new bound variables, which are assigned from left to right.
+We do not define lifting formally here, but it should be clear that this is
+some sort of inverse operation, given that variables appear only once.
+\end{example}
+
+The interesting properties about these two concepts is that they are preserved
+by the equivalence relation $\simeq$, and can be directly read from the
+canonical form.
+Furthermore, we can leverage them to show the uniqueness of the normal form.
+
+\begin{lemma}\label{thm:unlift-equiv}
+For equivalent terms $s \simeq t$, the sequences of opaque terms are equivalent
+w.r.t $\termeq$, and $\unlift{s} \termeq \unlift{t}$.
 \end{lemma}
-\todo
+\begin{proof} (Sketch.)
+By induction on the relation $s \simeq t$, where we show
+$\operatorname{vary}_i s \termeq \operatorname{vary}_i t$ instead.
+The index $i$ is arbitrary.
+The part regarding opaque terms is shown easily for each case:
+We note that in \eqref{eq:iterm-id}--\eqref{eq:iterm-xchng}, the opaque terms
+are identical for both sides.
+By the induction hypothesis, this is also true for the necessary closure rules
+for symmetry, transitivity, and substitution.
+It is obvious that \eqref{eq:termeq-lift} also preserves opaque terms.
+Regarding unlifted terms, we have
+\begin{prfcases}
+\item \eqref{eq:iterm-id}
+	\[ \operatorname{vary}_i (\spure{(\sabs{x}{x})} \sap x) =
+		(\sabs{x}{x}) \sapp (\operatorname{vary}_i x) \termeq \operatorname{vary}_i x. \]
+\item \eqref{eq:iterm-comp}
+	Let $j = i + |\operatorname{opaq} g|$ and $k = j + |\operatorname{opaq} f|$.
+	\begin{align*}
+		\operatorname{vary}_i (\spure \mathbf{B} \sap g \sap f \sap x) &=
+		\mathbf{B} \sapp (\operatorname{vary}_i g) \sapp (\operatorname{vary}_j f) \sapp (\operatorname{vary}_k g) \\
+		&\termeq (\operatorname{vary}_i g) \sapp ((\operatorname{vary}_j f) \sapp (\operatorname{vary}_k g)) \\
+		&= \operatorname{vary}_i (g \sap (f \sap x)).
+	\end{align*}
+\item \eqref{eq:iterm-morph} and \eqref{eq:iterm-xchng} are similar.
+\item \eqref{eq:termeq-lift} By induction.
+\item Symmetry, transitivity, and substitution: These follow from the induction
+	hypothesis and the corresponding properties of $\termeq$.
+\end{prfcases}
+\end{proof}
+
+\begin{lemma}\label{thm:unlift-head}
+Let $\spure f$ be the single pure term in $t \in \mathcal{C}$.
+Then $f \termeq \unlift{t}$.
+\end{lemma}
+\begin{proof}
+By induction on $\mathcal{C}$.
+The base case is trivial.
+For the step case, we need to prove that
+\[ f' \termeq \unlift{(g \sap \sterm x)} =
+	\sabs{v_1} \dots \sabs{v_n} \sabs{v_{n+1}}{(\operatorname{vary}_1 g) \sapp v_{n+1}}, \]
+where $\spure f'$ is the single pure term in $g$, $n = |\operatorname{opaq} g|$,
+and $v_i$ are new variables.
+The right-hand side can be eta-reduced to
+\[ \sabs{v_1} \dots \sabs{v_n}{(\operatorname{vary}_1 g)} = \unlift{g}. \]
+From the induction hypothesis we get $f' \termeq \unlift{g}$, which
+concludes the proof.
+\end{proof}
+
+This lemma is why we need eta-equivalence and not just use $=_{\alpha\beta}$.
+In fact, we can find a counterexample of equivalent canonical forms that do
+not agree in the pure function if $\to_\eta$ is not available:
+\[ \spure{(\sabs{x}{x})} \sap (\spure f \sap x) \simeq
+	\spure f \sap x \simeq \spure{(\sabs{x}{f \sapp x})} \sap x. \]
+The middle term is derived from \eqref{eq:iterm-id}, the latter from
+\eqref{eq:iterm-comp}.
+
+\begin{corollary}\label{thm:nf-unique}
+The normal form is structurally unique.
+Formally, if $s,t \in \mathcal{C}$ and $s \simeq t$, then $s \termeq t$.
+\end{corollary}
+
+Now we have all tools ready to complete the picture.
+The following theorem shows that (limited) lifting is possible with just
+the applicative laws.
+Its proof hints towards the implementation in Isabelle, which is of course
+based on the normal form:
+Under the condition that the opaque terms are equivalent, normalizing two
+idiomatic terms reduces the problem to the ``unlifted'' terms.
+
+\begin{theorem}\label{thm:nf-lifting}
+Let $s,t \in \mathcal{I}$ with $\operatorname{opaq} s \termeq \operatorname{opaq} t$.
+If $\unlift{s} \termeq \unlift{t}$ (the base equation), then $s \simeq t$.
+\end{theorem}
+\begin{proof}
+From Lemma~\ref{thm:normalize} we obtain normal forms $s' \simeq s$ and
+$t' \simeq t$.
+With the base equation and Lemma~\ref{thm:unlift-equiv} we get
+$\unlift{s'} \termeq \unlift{t'}$.
+By Lemma~\ref{thm:unlift-head} and the condition on the opaque subterms, it
+follows that $s' \termeq t'$ and further $s \simeq t$.
+\end{proof}
