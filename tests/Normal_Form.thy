@@ -234,6 +234,7 @@ by general_lifting linarith
 
 lemma "(x::int stream) * (y + z) = x * y + x * z"
 unfolding stream_plus_def stream_times_def
-by general_lifting algebra
+apply general_lifting
+by algebra
 
 end

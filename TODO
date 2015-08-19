@@ -1,6 +1,5 @@
 - restructure notes
 
-- generalized lifting: attempt to preserve variable order
 - forbid beta redexes
 - allow additional fixed (type) variables
 - add registration command

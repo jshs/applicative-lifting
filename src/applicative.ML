@@ -405,7 +405,7 @@ fun consolidate ctxt af ((tt1, tt2), insts) =
           then (v1 @ v2, d1) :: same (xs, ys)
           else mismatch (d1, d2);
     val vars = (cons_tterm_vars tt1 [], cons_tterm_vars tt2 [])
-        |> has_rule #C af ? apply2 (sort (fn ((_, a), (_, b)) => int_ord (a, b)))
+        |> has_rule #C af ? apply2 (sort (fn ((_, a), (_, b)) => int_ord (b, a)))
         |> apply2 (if has_rule #W af then merge_adjacent ([], 0) else map (apfst single))
         |> (if has_rule #K af then merge else same);
   in vars end;
