@@ -11,7 +11,9 @@
 \usepackage{mathtools}
 \usepackage{amsthm}
 \usepackage{thmtools}
+\declaretheorem{theorem}
 \declaretheorem{lemma}
+\declaretheorem{corollary}
 \declaretheorem[style=definition,qed=$\blacktriangle$]{example}
 \declaretheorem[style=definition,qed=$\blacktriangle$]{definition}
 \numberwithin{equation}{section}
@@ -20,6 +22,8 @@
 \setlist[enumerate,1]{label=\alph*)}
 \newlist{prfcases}{enumerate}{1}
 \setlist[prfcases,1]{label={\it Case \arabic*.},align=left,leftmargin=\parindent,itemindent=*}
+
+\newenvironment{isabelle}{\list{}{}\item\relax}{\endlist}
 
 \usepackage{algorithm}
 
@@ -40,7 +44,7 @@
 	style=numeric,
 	sorting=none,
 	doi=false,
-	urldate=iso8601,
+	urldate=long,
 ]{biblatex}
 \addbibresource{bibliography.bib}
 
@@ -66,6 +70,7 @@
 \newcommand{\sapp}{\>}
 \newcommand{\sabs}[2]{{\boldsymbol\lambda} #1.\>#2}
 \newcommand{\termeq}{=_{\alpha\beta\eta}}
+\newcommand{\unlift}[1]{\left\downarrow #1\right.}
 
 
 \title{Applicative Functors in Isabelle/HOL: Notes}
