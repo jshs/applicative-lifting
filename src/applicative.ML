@@ -284,8 +284,8 @@ fun auto_afun_conv cvs ctxt af (ct1, ct2) =
   in cvs ctxt af' (ct1, ct2) end;
 
 (* ignores local premises *)
-fun auto_afun_eq_tac cvs ctxt af = CONVERSION (Conv.params_conv ~1 (fn ctxt =>
-  Conv.concl_conv ~1 (eq_par_conv (auto_afun_conv cvs ctxt af))) ctxt);
+fun auto_afun_eq_tac cvs ctxt af = Subgoal.FOCUS (fn {context, ...} =>
+  CONVERSION (eq_par_conv (auto_afun_conv cvs context af)) 1) ctxt;
 
 fun head_cong_tac ctxt = TRY o (REPEAT_ALL_NEW (rtac refl ORELSE' cong_tac ctxt) THEN'
   REPEAT o rtac ext);

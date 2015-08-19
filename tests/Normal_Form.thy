@@ -51,6 +51,10 @@ next
 end
 (* TODO automatic test for names of new variables *)
 
+lemma "\<And>f x. f \<diamond> x = x"
+apply lifting_nf
+oops
+
 
 subsection {* Example: Sets *}
 

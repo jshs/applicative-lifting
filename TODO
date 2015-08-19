@@ -1,6 +1,5 @@
 - restructure notes
 
-- fix variable names if explicitly quantified in goal
 - generalized lifting: attempt to preserve variable order
 - forbid beta redexes
 - allow additional fixed (type) variables
