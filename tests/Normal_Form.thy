@@ -6,24 +6,13 @@ section {* Normal form conversion *}
 
 subsection {* Example: Abstract functor *}
 
-lemma af_identity': "pure (\<lambda>x. x) \<diamond> x = x"
-using af_identity unfolding id_def .
-
-lemma af_composition': "pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x = g \<diamond> (f \<diamond> x)"
-using af_composition unfolding comp_def[THEN ext, THEN ext] .
-
-setup {*
-  let
-    val abstract_sign = Applicative.mk_sign @{context} (@{term "pure"}, @{term "op \<diamond>"});
-    val abstract_laws =
-     {identity = @{thm af_identity'},
-      composition = @{thm af_composition'},
-      homomorphism = @{thm af_homomorphism},
-      interchange = @{thm af_interchange},
-      flip = NONE, const = NONE, duplicate = NONE};
-    val abstract_af = Applicative.mk_afun @{context} (abstract_sign, abstract_laws);
-  in Applicative.add_global abstract_af end
-*}
+applicative af
+for
+  pure: pure
+  ap: "op \<diamond>"
+using af_identity af_composition af_homomorphism af_interchange
+unfolding id_def comp_def[THEN ext, THEN ext]
+.
 
 notepad
 begin
@@ -65,39 +54,12 @@ definition single :: "'a \<Rightarrow> 'a set"
 definition set_ap :: "('a \<Rightarrow> 'b) set \<Rightarrow> 'a set \<Rightarrow> 'b set" (infixl "\<otimes>" 60)
   where "F \<otimes> X = {f x | f x. f \<in> F \<and> x \<in> X}"
 
-lemma set_identity: "single (\<lambda>x. x) \<otimes> X = X"
+applicative set (C)
+for
+  pure: single
+  ap: "op \<otimes>"
 unfolding single_def set_ap_def
-by simp
-
-lemma set_homomorphism: "single f \<otimes> single x = single (f x)"
-unfolding single_def set_ap_def
-by simp
-
-lemma set_composition: "single (\<lambda>g f x. g (f x)) \<otimes> G \<otimes> F \<otimes> X = G \<otimes> (F \<otimes> X)"
-unfolding single_def set_ap_def
-by fastforce
-
-lemma set_interchange: "F \<otimes> single x = single (\<lambda>g. g x) \<otimes> F"
-unfolding single_def set_ap_def
-by simp
-
-lemma set_flip: "single (\<lambda>f x y. f y x) \<otimes> F \<otimes> X \<otimes> Y = F \<otimes> Y \<otimes> X"
-unfolding single_def set_ap_def
-by fastforce
-
-setup {*
-  let
-    val set_sign = Applicative.mk_sign @{context} (@{term "single"}, @{term "op \<otimes>"});
-    val set_laws =
-     {identity = @{thm set_identity},
-      composition = @{thm set_composition},
-      homomorphism = @{thm set_homomorphism},
-      interchange = @{thm set_interchange},
-      flip = SOME @{thm set_flip},
-      const = NONE, duplicate = NONE};
-    val set_af = Applicative.mk_afun @{context} (set_sign, set_laws);
-  in Applicative.add_global set_af end
-*}
+by fastforce+
 
 instantiation set :: (plus) plus
 begin
@@ -134,34 +96,27 @@ where
   | "Inl f \<oplus> Inr e = Inr e"
   | "Inl f \<oplus> Inl x = Inl (f x)"
 
-lemma inl_identity: "Inl (\<lambda>x. x) \<oplus> x = x"
-by (cases x) simp_all
+(* FIXME naming of polymorphic type variables is somewhat relevant when proving in Isar style *)
 
-lemma inl_homomorphism: "Inl f \<oplus> Inl x = Inl (f x)"
-by simp
-
-lemma inl_composition: "Inl (\<lambda>g f x. g (f x)) \<oplus> g \<oplus> f \<oplus> x = g \<oplus> (f \<oplus> x)"
-by (cases g, cases f, cases x) simp_all
-
-lemma inl_interchange: "f \<oplus> Inl x = Inl (\<lambda>f. f x) \<oplus> f"
-by (cases f) simp_all
-
-lemma inl_duplicate: "Inl (\<lambda>f x. f x x) \<oplus> f \<oplus> x = f \<oplus> x \<oplus> x"
-by (cases f, cases x) simp_all
-
-setup {*
-  let
-    val inl_sign = Applicative.mk_sign @{context} (@{term "Inl::'a \<Rightarrow> 'a + nat"}, @{term "op \<oplus>"});
-    val inl_laws =
-     {identity = @{thm inl_identity},
-      composition = @{thm inl_composition},
-      homomorphism = @{thm inl_homomorphism},
-      interchange = @{thm inl_interchange},
-      flip = NONE, const = NONE,
-      duplicate = SOME @{thm inl_duplicate}};
-    val inl_af = Applicative.mk_afun @{context} (inl_sign, inl_laws);
-  in Applicative.add_global inl_af end
-*}
+applicative either (W)
+for
+  pure: "Inl :: 'a \<Rightarrow> 'a + nat"
+  ap: do_with
+proof -
+  fix g f x
+  show "Inl (\<lambda>x. x) \<oplus> x = x" by (cases x) simp_all
+  show "Inl (\<lambda>g f x. g (f x)) \<oplus> g \<oplus> f \<oplus> x = g \<oplus> (f \<oplus> x)"
+    by (cases g, cases f, cases x) simp_all
+next
+  fix f x
+  show "Inl f \<oplus> Inl x = Inl (f x)" by simp
+next
+  fix f x
+  show "f \<oplus> Inl x = Inl (\<lambda>f. f x) \<oplus> f" by (cases f) simp_all
+next
+  fix f x
+  show "Inl (\<lambda>f x. f x x) \<oplus> f \<oplus> x = f \<oplus> x \<oplus> x" by (cases f, cases x) simp_all
+qed
 
 lemma "Inl plus \<oplus> (x :: nat + nat) \<oplus> x = Inl (\<lambda>x. 2 * x) \<oplus> x"
 by general_lifting linarith
@@ -173,48 +128,46 @@ definition stream_ap :: "('a \<Rightarrow> 'b) stream \<Rightarrow> 'a stream \<
 where
   "stream_ap f x = smap (\<lambda>(f, x). f x) (szip f x)"
 
-lemma stream_identity: "sconst (\<lambda>x. x) <.> x = x"
-unfolding stream_ap_def
-by (coinduction arbitrary: x) simp
-
-lemma stream_homomorphism: "sconst f <.> sconst x = sconst (f x)"
-unfolding stream_ap_def
-by coinduction simp
-
-lemma stream_composition: "sconst (\<lambda>g f x. g (f x)) <.> g <.> f <.> x = g <.> (f <.> x)"
-unfolding stream_ap_def
-by (coinduction arbitrary: g f x) auto
-
-lemma stream_interchange: "f <.> sconst x = sconst (\<lambda>f. f x) <.> f"
-unfolding stream_ap_def
-by (coinduction arbitrary: f) auto
-
-lemma stream_flip: "sconst (\<lambda>f x y. f y x) <.> f <.> x <.> y = f <.> y <.> x"
-unfolding stream_ap_def
-by (coinduction arbitrary: f x y) auto
-
-lemma stream_const: "sconst (\<lambda>x y. x) <.> x <.> y = x"
-unfolding stream_ap_def
-by (coinduction arbitrary: x y) auto
-
-lemma stream_duplicate: "sconst (\<lambda>f x. f x x) <.> f <.> x = f <.> x <.> x"
-unfolding stream_ap_def
-by (coinduction arbitrary: f x) auto
-
-setup {*
-  let
-    val stream_sign = Applicative.mk_sign @{context} (@{term "sconst"}, @{term "op <.>"});
-    val stream_laws =
-     {identity = @{thm stream_identity},
-      composition = @{thm stream_composition},
-      homomorphism = @{thm stream_homomorphism},
-      interchange = @{thm stream_interchange},
-      flip = SOME @{thm stream_flip},
-      const = SOME @{thm stream_const},
-      duplicate = SOME @{thm stream_duplicate}};
-    val stream_af = Applicative.mk_afun @{context} (stream_sign, stream_laws);
-  in Applicative.add_global stream_af end
-*}
+applicative stream (C, K, W)
+for
+  pure: sconst
+  ap: stream_ap
+proof -
+  fix x
+  show "sconst (\<lambda>x. x) <.> x = x"
+    unfolding stream_ap_def
+    by (coinduction arbitrary: x) simp
+next
+  fix f x
+  show "sconst f <.> sconst x = sconst (f x)"
+    unfolding stream_ap_def
+    by coinduction simp
+next
+  fix g f x
+  show "sconst (\<lambda>g f x. g (f x)) <.> g <.> f <.> x = g <.> (f <.> x)"
+    unfolding stream_ap_def
+    by (coinduction arbitrary: g f x) auto
+next
+  fix f x
+  show "f <.> sconst x = sconst (\<lambda>f. f x) <.> f"
+    unfolding stream_ap_def
+    by (coinduction arbitrary: f) auto
+next
+  fix f x y
+  show "sconst (\<lambda>f x y. f y x) <.> f <.> x <.> y = f <.> y <.> x"
+    unfolding stream_ap_def
+    by (coinduction arbitrary: f x y) auto
+next
+  fix x y
+  show "sconst (\<lambda>x y. x) <.> x <.> y = x"
+    unfolding stream_ap_def
+    by (coinduction arbitrary: x y) auto
+next
+  fix f x
+  show "sconst (\<lambda>f x. f x x) <.> f <.> x = f <.> x <.> x"
+    unfolding stream_ap_def
+    by (coinduction arbitrary: f x) auto
+qed
 
 instantiation stream :: (plus) plus
 begin

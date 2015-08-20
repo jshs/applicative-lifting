@@ -2,7 +2,8 @@
 
 - forbid beta redexes
 - allow additional fixed (type) variables
-- add registration command
+- registration command: note theorems, extensibility, improve goal state
+- unfolding of lifted constants
 - provide rewrite wrapper for normalform_conv
 - proper user interface with debugging
 

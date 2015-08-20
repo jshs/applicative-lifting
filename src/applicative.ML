@@ -21,6 +21,7 @@ sig
   val add_generic: afun -> Context.generic -> Context.generic
   val add_global: afun -> theory -> theory
   val get: Context.generic -> term -> afun
+  val applicative_cmd: string -> string -> string -> string list -> local_theory -> Proof.state
 
   val liftT: afun -> typ -> typ
   val pure: afun -> typ -> term
@@ -244,6 +245,108 @@ fun get context t =
   in case find_first matches (Data.get context) of
       SOME af => af
     | NONE => raise TERM ("Applicative.get", [t]) end;
+
+fun mk_comb_prop comb sign ctxt =
+  let
+    val sort = #sort sign;
+    val Tfrees = Term.add_tfrees comb [];
+    val (Tvars, ctxt') = Variable.variant_fixes (map fst Tfrees) ctxt;
+    val Ts = map (fn var => TFree (var, sort)) Tvars;
+    val comb' = Term.subst_atomic_types (map TFree Tfrees ~~ Ts) comb;
+    val (bound_vars, bound_Ts) = split_list (Term.strip_abs_vars comb');
+    val (var_names, _) = Variable.variant_fixes bound_vars ctxt';
+    val vars = map (fn (var, T) => Free (var, liftT_sign sign T)) (var_names ~~ bound_Ts);
+    val lift_mapT = rev bound_Ts;
+    val lift_map = rev vars;
+
+    fun ap_list t _ [] = t
+      | ap_list t T (arg::args) =
+          let val (argT, resT) = Term.dest_funT T
+          in ap_list (ap_sign sign (argT, resT) $ t $ arg) resT args end;
+
+    fun lift (Bound i) = nth lift_map i
+      | lift (s $ t) = ap_sign sign (Term.dest_funT (Term.fastype_of1 (lift_mapT, s))) $
+          lift s $ lift t
+      | lift t = raise TERM ("mk_comb_prop", [t]);
+
+    val lhs = ap_list (lift_sign sign comb') (Term.fastype_of comb') vars;
+    val rhs = lift (Term.strip_abs_body comb');
+    val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
+  in fold Logic.all lift_map prop end;
+
+val mk_id_prop = mk_comb_prop @{term "\<lambda>x. x"};
+val mk_comp_prop = mk_comb_prop @{term "\<lambda>g f x. g (f x)"};
+val mk_flip_prop = mk_comb_prop @{term "\<lambda>f x y. f y x"};
+val mk_const_prop = mk_comb_prop @{term "\<lambda>x y. x"};
+val mk_duplicate_prop = mk_comb_prop @{term "\<lambda>f x. f x x"};
+
+fun mk_homomorphism_prop sign ctxt =
+  let
+    val ([a, b, fvar, xvar], ctxt') = Variable.variant_fixes ["'a", "'b", "f", "x"] ctxt;
+    val T1 = TFree (a, #sort sign);
+    val T2 = TFree (b, #sort sign);
+    val f = Free (fvar, T1 --> T2);
+    val x = Free (xvar, T1);
+    val lhs = ap_sign sign (T1, T2) $ lift_sign sign f $ lift_sign sign x;
+    val rhs = lift_sign sign (f $ x);
+    val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
+  in Logic.all f (Logic.all x prop) end;
+
+fun mk_interchange_prop sign ctxt =
+  let
+    val ([a, b, fvar, xvar], ctxt') = Variable.variant_fixes ["'a", "'b", "f", "x"] ctxt;
+    val T1 = TFree (a, #sort sign);
+    val T2 = TFree (b, #sort sign);
+    val f = Free (fvar, liftT_sign sign (T1 --> T2));
+    val x = Free (xvar, T1);
+    val lhs = ap_sign sign (T1, T2) $ f $ lift_sign sign x;
+    val comb = Abs ("f", T1 --> T2, Bound 0 $ x);
+    val rhs = ap_sign sign (T1 --> T2, T2) $ lift_sign sign comb $ f;
+    val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
+  in Logic.all f (Logic.all x prop) end;
+
+fun applicative_cmd name pure ap combs lthy =
+  let
+    (* FIXME *)
+    val (C, K, W) = fold (fn ident => fn (C, K, W) =>
+      if ident = "C" then (true, K, W)
+      else if ident = "K" then (C, true, W)
+      else if ident = "W" then (C, K, true)
+      else error ("Unknown combinator " ^ ident)) combs (false, false, false);
+    val raw_pure = Syntax.read_term lthy pure;
+    val raw_ap = Syntax.read_term lthy ap;
+
+    fun mk_declaration thms phi context =
+      let
+        (* FIXME check whether this is an acceptable approach vs. morphing sign/af *)
+        val ctxt = Context.proof_of context;
+        val raw_pure = Morphism.term phi raw_pure;
+        val raw_ap = Morphism.term phi raw_ap;
+        val sign = mk_sign ctxt (raw_pure, raw_ap);
+
+        fun opt_thms [] [] = []
+          | opt_thms (f::fs) thms = if f
+              then let val ([th]::ths) = thms in SOME th :: opt_thms fs ths end
+              else NONE :: opt_thms fs thms;
+        val ([id_thm]::[comp_thm]::[hom_thm]::[interchange_thm]::extra_thms) = thms;
+        val [flip_thm, const_thm, duplicate_thm] = opt_thms [C, K, W] extra_thms;
+        val axioms = {identity = id_thm, composition = comp_thm, homomorphism = hom_thm,
+          interchange = interchange_thm, flip = flip_thm, const = const_thm,
+          duplicate = duplicate_thm};
+        val af = mk_afun ctxt (sign, axioms);
+      in add_generic af context end;
+
+    fun after_qed thms = Local_Theory.declaration {syntax = false, pervasive = false}
+      (mk_declaration thms);
+
+    fun flagged [] = []
+      | flagged ((flag, x)::xs) = if flag then x :: flagged xs else flagged xs;
+
+    val sign = mk_sign lthy (raw_pure, raw_ap);
+    val basic_props = [mk_id_prop, mk_comp_prop, mk_homomorphism_prop, mk_interchange_prop];
+    val extra_props = flagged [(C, mk_flip_prop), (K, mk_const_prop), (W, mk_duplicate_prop)];
+    val props = map (fn gen => gen sign lthy) (basic_props @ extra_props);
+  in Proof.theorem NONE after_qed (map (fn t => [(t, [])]) props) lthy end;
 
 
 (* Reasoning with applicative functors *)
