@@ -1,12 +1,12 @@
 signature APPLICATIVE =
 sig
   type afun
-  val by_name_generic: Context.generic -> string -> afun option
-  val by_name: Proof.context -> string -> afun option
-  val by_name_global: theory -> string -> afun option
-  val by_term_generic: Context.generic -> term -> afun list
-  val by_term: Proof.context -> term -> afun list
-  val by_term_global: theory -> term -> afun list
+  val afun_of_name_generic: Context.generic -> string -> afun option
+  val afun_of_name: Proof.context -> string -> afun option
+  val afun_of_name_global: theory -> string -> afun option
+  val afun_of_term_generic: Context.generic -> term -> afun list
+  val afun_of_term: Proof.context -> term -> afun list
+  val afun_of_term_global: theory -> term -> afun list
   val applicative_cmd: binding -> string -> string -> string list -> local_theory -> Proof.state
 
   val name_of_afun: afun -> binding
@@ -30,6 +30,26 @@ end;
 
 structure Applicative : APPLICATIVE =
 struct
+
+(** General utilities **)
+
+fun filter_flag [] = []
+  | filter_flag ((flag, x)::xs) = if flag then x :: filter_flag xs else filter_flag xs;
+
+fun pick (x::xs) = (x, xs)
+  | pick _ = raise List.Empty;
+
+fun pick_if false xs = (NONE, xs)
+  | pick_if true (x::xs) = (SOME x, xs)
+  | pick_if true _ = raise List.Empty;
+
+fun mk_TFrees n sort ctxt = Variable.invent_types (replicate n sort) ctxt |>> map TFree;
+
+fun mk_Free name typ ctxt = Variable.variant_fixes [name] ctxt
+  |>> (fn name' => Free (name', typ)) o the_single;
+
+
+(** Signature, axioms, and derived facts **)
 
 type sign =
  {pure: term,
@@ -101,7 +121,7 @@ fun morph_afun phi =
 val transfer_afun = morph_afun o Morphism.transfer_morphism;
 
 
-(* Term construction and destruction *)
+(** Term construction and destruction **)
 
 fun lift_type_sign {T = (var, tycon), ...} baseT = Term.typ_subst_atomic [(var, baseT)] tycon;
 
@@ -171,36 +191,31 @@ fun dest_comb ctxt af t =
   in apply2 (the o Envir.lookup1 env) vars end;
 
 
-(* Registration *)
+(** Context data and registration **)
 
 structure Data = Generic_Data
 (
   type T = afun Symtab.table * afun Item_Net.T;
   val empty = (Symtab.empty, Item_Net.init afun_eq patterns_of_afun);
   val extend = I;
-  val merge = fn ((t1, n1), (t2, n2)) => (Symtab.merge (K true) (t1, t2), Item_Net.merge (n1, n2));
+  val merge = fn ((a1, b1), (a2, b2)) => (Symtab.merge (K true) (a1, a2), Item_Net.merge (b1, b2));
 );
 
-fun by_name_generic context = Symtab.lookup (#1 (Data.get context))
+fun afun_of_name_generic context = Symtab.lookup (#1 (Data.get context))
   #> Option.map (transfer_afun (Context.theory_of context));
-val by_name = by_name_generic o Context.Proof;
-val by_name_global = by_name_generic o Context.Theory;
+val afun_of_name = afun_of_name_generic o Context.Proof;
+val afun_of_name_global = afun_of_name_generic o Context.Theory;
 
-fun by_term_generic context = Item_Net.retrieve_matching (#2 (Data.get context))
+fun afun_of_term_generic context = Item_Net.retrieve_matching (#2 (Data.get context))
   #> map (transfer_afun (Context.theory_of context));
-val by_term = by_term_generic o Context.Proof;
-val by_term_global = by_term_generic o Context.Theory;
+val afun_of_term = afun_of_term_generic o Context.Proof;
+val afun_of_term_global = afun_of_term_generic o Context.Theory;
 
 (* FIXME pervasive? *)
-fun register key af = Local_Theory.declaration {syntax = false, pervasive = false}
+fun register_afun key af = Local_Theory.declaration {syntax = false, pervasive = false}
   (fn phi =>
     let val af' = morph_afun phi af;
-    in Data.map (fn (t, n) => (Symtab.update (key, af') t, Item_Net.update af' n)) end);
-
-fun mk_TFrees n sort ctxt = Variable.invent_types (replicate n sort) ctxt |>> map TFree;
-
-fun mk_Free name typ ctxt = Variable.variant_fixes [name] ctxt
-  |>> (fn name' => Free (name', typ)) o the_single;
+    in Data.map (fn (a, b) => (Symtab.update (key, af') a, Item_Net.update af' b)) end);
 
 fun mk_sign ctxt (raw_pure, raw_ap) =
   let
@@ -330,16 +345,6 @@ fun mk_interchange_prop sign ctxt =
     val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
   in Logic.all f (Logic.all x prop) end;
 
-fun flagged [] = []
-  | flagged ((flag, x)::xs) = if flag then x :: flagged xs else flagged xs;
-
-fun pick (x::xs) = (x, xs)
-  | pick _ = raise List.Empty;
-
-fun pick_if false xs = (NONE, xs)
-  | pick_if true (x::xs) = (SOME x, xs)
-  | pick_if true _ = raise List.Empty;
-
 fun applicative_cmd name pure ap flags lthy =
   let
     (* FIXME *)
@@ -354,7 +359,7 @@ fun applicative_cmd name pure ap flags lthy =
     val sign = mk_sign lthy (raw_pure, raw_ap);
     (* FIXME fix variables here, then reuse in each mk_*_prop (à la BNF_Def) *)
     val basic_props = [mk_id_prop, mk_comp_prop, mk_homomorphism_prop, mk_interchange_prop];
-    val extra_props = flagged [(C, mk_flip_prop), (K, mk_const_prop), (W, mk_duplicate_prop)];
+    val extra_props = filter_flag [(C, mk_flip_prop), (K, mk_const_prop), (W, mk_duplicate_prop)];
     val props = map (fn mk_prop => mk_prop sign lthy) (basic_props @ extra_props);
 
     fun after_qed thmss lthy =
@@ -373,15 +378,16 @@ fun applicative_cmd name pure ap flags lthy =
           interchange = interchange_thm, flip = flip_thm, const = const_thm,
           duplicate = duplicate_thm};
         val af = mk_afun lthy (name, sign, axioms);
-      in register (Local_Theory.full_name lthy name) af lthy end;
+      in register_afun (Local_Theory.full_name lthy name) af lthy end;
+      (* TODO default name from type *)
   in Proof.theorem NONE after_qed (map (fn t => [(t, [])]) props) lthy
     |> Proof.refine (Method.primitive_text (Library.K I))
     |> Seq.hd end;
 
 
-(* Reasoning with applicative functors *)
+(** Reasoning with applicative functors **)
 
-(** Utilities **)
+(* Utilities *)
 
 val clean_name = perhaps (perhaps_apply [try Name.dest_skolem, try Name.dest_internal]);
 
@@ -389,42 +395,39 @@ val clean_name = perhaps (perhaps_apply [try Name.dest_skolem, try Name.dest_int
 fun term_to_vname (Const (x, _)) = Long_Name.base_name x
   | term_to_vname (Free (x, _)) = clean_name x
   | term_to_vname (Var ((x, _), _)) = clean_name x
-  | term_to_vname _ = Name.uu;
+  | term_to_vname _ = "x";
 
-fun binop_par_conv cvs ct =
+fun binop_par_conv cv ct =
   let
     val ((binop, arg1), arg2) = Thm.dest_comb ct |>> Thm.dest_comb;
-    val (th1, th2) = cvs (arg1, arg2);
+    val (th1, th2) = cv (arg1, arg2);
   in Drule.binop_cong_rule binop th1 th2 end;
 
-(* TODO handle HOL equalities only, due to head_cong_tac -- user can invoke atomize if needed *)
-fun any_eq_conv cv ct = case Thm.term_of ct of
-    Const (@{const_name Pure.eq}, _) $ _ $ _ => cv ct
-  | Const (@{const_name HOL.Trueprop}, _) $ (Const (@{const_name HOL.eq}, _) $ _ $ _) =>
-      HOLogic.Trueprop_conv cv ct
-  | _ => raise CTERM ("any_eq_conv", [ct]);
+fun hol_eq_par_conv cv ct = case Thm.term_of ct of
+    Const (@{const_name HOL.eq}, _) $ _ $ _ => binop_par_conv cv ct
+  | _ => raise CTERM ("hol_eq_par_conv", [ct]);
 
-val eq_par_conv = any_eq_conv o binop_par_conv;
-
-fun auto_afun_conv cvs ctxt af (ct1, ct2) =
+fun auto_afun_conv cv ctxt af (ct1, ct2) =
   let val af' = case af of
       SOME x => x
-    | NONE => (case by_term ctxt (Thm.term_of ct1) of
+    | NONE => (case afun_of_term ctxt (Thm.term_of ct1) of
           (x::_) => x
-        | [] => (case by_term ctxt (Thm.term_of ct2) of
+        | [] => (case afun_of_term ctxt (Thm.term_of ct2) of
               (x::_) => x
             | [] => raise CTERM ("auto_afun_conv", [ct1, ct2])));
-  in cvs ctxt af' (ct1, ct2) end;
+  in cv ctxt af' (ct1, ct2) end;
 
 (* ignores local premises *)
-fun auto_afun_eq_tac cvs ctxt af = Subgoal.FOCUS (fn {context, ...} =>
-  CONVERSION (eq_par_conv (auto_afun_conv cvs context af)) 1) ctxt;
+fun auto_afun_eq_tac cv ctxt af = Subgoal.FOCUS (fn {context, ...} =>
+  CONVERSION (auto_afun_conv cv context af
+    |> hol_eq_par_conv
+    |> HOLogic.Trueprop_conv) 1) ctxt;
 
 fun head_cong_tac ctxt = TRY o (REPEAT_ALL_NEW (rtac refl ORELSE' cong_tac ctxt) THEN'
   REPEAT o rtac ext);
 
 
-(** Normal form conversion **)
+(* Normal form conversion *)
 
 fun rename_rewr_conv mk_map rule ct =
   let val rule' = Drule.rename_bvars (mk_map (Thm.term_of ct)) rule
@@ -470,7 +473,7 @@ val normalize_eq_tac =
 fun lifting_nf_tac ctxt af = normalize_eq_tac ctxt af THEN' head_cong_tac ctxt;
 
 
-(** Generalized unlifting **)
+(* Generalized unlifting *)
 
 datatype tterm = Atom of term | Var of int * int * term | App of tterm * tterm;
 
