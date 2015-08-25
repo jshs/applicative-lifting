@@ -88,19 +88,17 @@ end
 
 subsection {* Example: Sum type (a.k.a. either) *}
 
-(* TODO support parametric functors to generalize the other type *)
-
-fun do_with :: "('a \<Rightarrow> 'b) + nat \<Rightarrow> 'a + nat \<Rightarrow> 'b + nat" (infixl "\<oplus>" 60)
+fun do_with :: "('a \<Rightarrow> 'b) + 'e \<Rightarrow> 'a + 'e \<Rightarrow> 'b + 'e" (infixl "\<oplus>" 60)
 where
     "Inr e \<oplus> _ = Inr e"
   | "Inl f \<oplus> Inr e = Inr e"
   | "Inl f \<oplus> Inl x = Inl (f x)"
 
-(* FIXME naming of polymorphic type variables is somewhat relevant when proving in Isar style *)
+(* FIXME names of type variables in proof obligations are visible to user *)
 
 applicative either (W)
 for
-  pure: "Inl :: 'a \<Rightarrow> 'a + nat"
+  pure: "Inl :: 'a \<Rightarrow> 'a + 'e"
   ap: do_with
 proof -
   fix g f x
@@ -118,7 +116,7 @@ next
   show "Inl (\<lambda>f x. f x x) \<oplus> f \<oplus> x = f \<oplus> x \<oplus> x" by (cases f, cases x) simp_all
 qed
 
-lemma "Inl plus \<oplus> (x :: nat + nat) \<oplus> x = Inl (\<lambda>x. 2 * x) \<oplus> x"
+lemma "Inl plus \<oplus> (x :: nat + 'e list) \<oplus> x = Inl (\<lambda>x. 2 * x) \<oplus> x"
 by general_lifting linarith
 
 

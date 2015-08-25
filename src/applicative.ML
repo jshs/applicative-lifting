@@ -11,12 +11,12 @@ sig
 
   val name_of_afun: afun -> binding
   val terms_of_afun: afun -> term * term
-  val lift_type: afun -> typ -> typ
-  val pure: afun -> typ -> term
-  val lift: afun -> term -> term
+  val lift_type: afun -> typ list -> typ -> typ
+  val pure: afun -> typ list -> typ -> term
+  val lift: afun -> typ list -> term -> term
   val ap: Proof.context -> afun -> typ -> term
   val lift_comb: Proof.context -> afun -> term * term -> term
-  val dest_type: Proof.context -> afun -> typ -> typ
+  val dest_type: Proof.context -> afun -> typ -> typ * typ list
   val dest_pure: Proof.context -> afun -> term -> term
   val dest_comb: Proof.context -> afun -> term -> term * term
 
@@ -43,7 +43,9 @@ fun pick_if false xs = (NONE, xs)
   | pick_if true (x::xs) = (SOME x, xs)
   | pick_if true _ = raise List.Empty;
 
-fun mk_TFrees n sort ctxt = Variable.invent_types (replicate n sort) ctxt |>> map TFree;
+fun mk_TFrees Ss ctxt = Variable.invent_types Ss ctxt |>> map TFree;
+val mk_TFrees' = mk_TFrees oo replicate;
+val mk_TFrees_of_vars = mk_TFrees o map (#2 o Term.dest_TVar);
 
 fun mk_Free name typ ctxt = Variable.variant_fixes [name] ctxt
   |>> (fn name' => Free (name', typ)) o the_single;
@@ -55,12 +57,14 @@ type sign =
  {pure: term,
   ap: term,
   T: typ * typ,  (* variable, type pattern *)
+  params: typ list,
   sort: sort};
 
-fun map_sign f1 f2 f3 f4 {pure, ap, T, sort} =
-  {pure = f1 pure, ap = f2 ap, T = f3 T, sort = f4 sort};
+fun map_sign f1 f2 f3 f4 f5 {pure, ap, T, params, sort} =
+  {pure = f1 pure, ap = f2 ap, T = f3 T, params = f4 params, sort = f5 sort};
 
-fun morph_sign phi = map_sign (Morphism.term phi) (Morphism.term phi) (apply2 (Morphism.typ phi)) I;
+fun morph_sign phi = map_sign (Morphism.term phi) (Morphism.term phi) (apply2 (Morphism.typ phi))
+  (map (Morphism.typ phi)) I;
 
 type axioms =
  {identity: thm,
@@ -123,13 +127,14 @@ val transfer_afun = morph_afun o Morphism.transfer_morphism;
 
 (** Term construction and destruction **)
 
-fun lift_type_sign {T = (var, tycon), ...} baseT = Term.typ_subst_atomic [(var, baseT)] tycon;
+fun lift_type_sign {T = (var, tycon), params, ...} insts baseT =
+  Term.typ_subst_atomic ((var, baseT) :: (params ~~ insts)) tycon;
 
-fun pure_sign {pure, ...} baseT =
+fun pure_sign {pure, params, ...} insts baseT =
   let val (var, _) = Term.fastype_of pure |> Term.dest_funT;
-  in Term.subst_atomic_types [(var, baseT)] pure end;
+  in Term.subst_atomic_types ((var, baseT) :: (params ~~ insts)) pure end;
 
-fun lift_sign sign t = Term.betapply (pure_sign sign (Term.fastype_of t), t);
+fun lift_sign sign insts t = Term.betapply (pure_sign sign insts (Term.fastype_of t), t);
 
 fun ap_sign ctxt {ap, ...} funT =
   let
@@ -169,10 +174,11 @@ fun patterns_of_afun af = [#1 (pure_pattern af), #1 (ap_pattern af)];
 fun dest_type ctxt af T =
   let
     val thy = Proof_Context.theory_of ctxt;
-    val {T = (var, tycon), ...} = sign_of_afun af;
+    val {T = (var, tycon), params, ...} = sign_of_afun af;
     val tyenv = Sign.typ_match thy (tycon, T) Vartab.empty
       handle Type.TYPE_MATCH => raise TYPE ("dest_type", [T, tycon], []);
-  in the (Type.lookup tyenv (Term.dest_TVar var)) end;
+  in (the (Type.lookup tyenv (Term.dest_TVar var)),
+    map (the o Type.lookup tyenv o Term.dest_TVar) params) end;
 
 fun dest_pure ctxt af t =
   let
@@ -236,11 +242,10 @@ fun mk_sign ctxt (raw_pure, raw_ap) =
     val pure = closed_poly_term raw_pure;
     val (var as (_, pure_sort), tycon) = Term.fastype_of pure |> Term.dest_funT |>> Term.dest_TVar
       handle TYPE _ => bad_types ();
-    val _ = null (subtract (op =) (Term.add_tvars pure []) [var]) orelse
-      error ("Locally free type variables in term " ^ show_term raw_pure);
+    val params = subtract (op =) [var] (Term.add_tvars pure []);
 
     val ap = closed_poly_term raw_ap;
-    val i = Term.maxidx_of_term ap;
+    val i = Term.maxidx_of_term pure;
     val ap_var1 = ((Name.uu, i + 1), []);
     val ap_var2 = ((Name.uu, i + 2), []);
     fun lift T = Term_Subst.instantiateT [(var, T)] tycon;
@@ -250,16 +255,18 @@ fun mk_sign ctxt (raw_pure, raw_ap) =
       handle Type.TYPE_MATCH => bad_types ();
     val ((ap_var1', ap_sort1), (ap_var2', ap_sort2)) =
       apply2 (Term.dest_TVar o the o Type.lookup tyenv) (ap_var1, ap_var2)
-      handle Option.Option => bad_types ()
+      handle
+          Option.Option => bad_types ()
         | TYPE _ => bad_types ();
     val _ = ap_var1' <> ap_var2' orelse bad_types ();
+    (* FIXME check additional type params *)
 
     val sort = foldl1 (Sign.inter_sort thy) [pure_sort, ap_sort1, ap_sort2];
     val _ = Sign.of_sort thy (Term.aT sort --> Term.aT sort, sort) orelse
       error ("Sort constraint " ^ quote (Syntax.string_of_sort ctxt sort) ^
         " not closed under function types");
   in
-   {pure = pure, ap = ap, T = (TVar var, tycon), sort = sort}
+   {pure = pure, ap = ap, T = (TVar var, tycon), params = map TVar params, sort = sort}
   end;
 
 fun mk_afun ctxt (name, sign, axioms) =
@@ -268,15 +275,17 @@ fun mk_afun ctxt (name, sign, axioms) =
     val B_intro = comb_intro (#composition axioms);
     val merge_rule = #homomorphism axioms RS eq_reflection;
 
-    val ([T1, T2, T3], ctxt') = mk_TFrees 3 (#sort sign) ctxt;
+    val (([T1, T2, T3], Ts), ctxt') = ctxt
+      |> mk_TFrees' 3 (#sort sign)
+      ||>> mk_TFrees_of_vars (#params sign);
     val (((g, f), x), ctxt'') = ctxt'
       |> mk_Free "g" (T2 --> T3)
-      ||>> mk_Free "f" (lift_type_sign sign (T1 --> T2))
-      ||>> mk_Free "x" (lift_type_sign sign T1);
+      ||>> mk_Free "f" (lift_type_sign sign Ts (T1 --> T2))
+      ||>> mk_Free "x" (lift_type_sign sign Ts T1);
     val comb = comb_sign ctxt'' sign;
-    val lhs = comb (lift_sign sign g, comb (f, x));
+    val lhs = comb (lift_sign sign Ts g, comb (f, x));
     val B_g = Abs ("f", T1 --> T2, Abs ("x", T1, Term.betapply (g, Bound 1 $ Bound 0)));
-    val rhs = comb (comb (lift_sign sign B_g, f), x);
+    val rhs = comb (comb (lift_sign sign Ts B_g, f), x);
     val prop = Logic.mk_equals (lhs, rhs);
     val B_pure_tac = HEADGOAL (Raw_Simplifier.rewrite_goal_tac ctxt'' [B_intro, merge_rule] THEN'
       rtac reflexive_thm);
@@ -297,11 +306,13 @@ fun mk_afun ctxt (name, sign, axioms) =
 fun mk_comb_prop comb sign ctxt =
   let
     val comb_tfrees = Term.add_tfrees comb [];
-    val (Ts, ctxt') = mk_TFrees (length comb_tfrees) (#sort sign) ctxt;
+    val ((Ts, Us), ctxt') = ctxt
+      |> mk_TFrees' (length comb_tfrees) (#sort sign)
+      ||>> mk_TFrees_of_vars (#params sign);
     val comb' = Term.subst_atomic_types (map TFree comb_tfrees ~~ Ts) comb;
     val (bound_names, bound_Ts) = split_list (Term.strip_abs_vars comb');
     val (var_names, ctxt'') = Variable.variant_fixes bound_names ctxt';
-    val vars = map (fn (var, T) => Free (var, lift_type_sign sign T)) (var_names ~~ bound_Ts);
+    val vars = map (fn (var, T) => Free (var, lift_type_sign sign Us T)) (var_names ~~ bound_Ts);
     val lift_map = rev vars;
 
     fun list_comb t [] = t
@@ -311,7 +322,7 @@ fun mk_comb_prop comb sign ctxt =
       | lift_term (s $ t) = comb_sign ctxt'' sign (lift_term s, lift_term t)
       | lift_term t = raise TERM ("mk_comb_prop", [t]);
 
-    val lhs = list_comb (lift_sign sign comb') vars;
+    val lhs = list_comb (lift_sign sign Us comb') vars;
     val rhs = lift_term (Term.strip_abs_body comb');
     val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
   in fold Logic.all lift_map prop end;
@@ -324,24 +335,28 @@ val mk_duplicate_prop = mk_comb_prop @{term "\<lambda>f x. f x x"};
 
 fun mk_homomorphism_prop sign ctxt =
   let
-    val ([T1, T2], ctxt') = mk_TFrees 2 (#sort sign) ctxt;
+    val (([T1, T2], Us), ctxt') = ctxt
+      |> mk_TFrees' 2 (#sort sign)
+      ||>> mk_TFrees_of_vars (#params sign);
     val ((f, x), ctxt'') = ctxt'
       |> mk_Free "f" (T1 --> T2)
       ||>> mk_Free "x" T1;
-    val lhs = comb_sign ctxt'' sign (lift_sign sign f, lift_sign sign x);
-    val rhs = lift_sign sign (f $ x);
+    val lhs = comb_sign ctxt'' sign (lift_sign sign Us f, lift_sign sign Us x);
+    val rhs = lift_sign sign Us (f $ x);
     val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
   in Logic.all f (Logic.all x prop) end;
 
 fun mk_interchange_prop sign ctxt =
   let
-    val ([T1, T2], ctxt') = mk_TFrees 2 (#sort sign) ctxt;
+    val (([T1, T2], Us), ctxt') = ctxt
+      |> mk_TFrees' 2 (#sort sign)
+      ||>> mk_TFrees_of_vars (#params sign);
     val ((f, x), ctxt'') = ctxt'
-      |> mk_Free "f" (lift_type_sign sign (T1 --> T2))
+      |> mk_Free "f" (lift_type_sign sign Us (T1 --> T2))
       ||>> mk_Free "x" T1;
-    val lhs = comb_sign ctxt'' sign (f, lift_sign sign x);
+    val lhs = comb_sign ctxt'' sign (f, lift_sign sign Us x);
     val T_x = Abs ("f", T1 --> T2, Bound 0 $ x);
-    val rhs = comb_sign ctxt'' sign (lift_sign sign T_x, f);
+    val rhs = comb_sign ctxt'' sign (lift_sign sign Us T_x, f);
     val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
   in Logic.all f (Logic.all x prop) end;
 
@@ -608,7 +623,7 @@ fun eliminate ctxt af tt (v, v_tm) =
     fun K_step tt tm =
       let
         val ct = Thm.cterm_of ctxt tm;
-        val T = Term.fastype_of tm |> dest_type ctxt af |> Thm.ctyp_of ctxt;
+        val T = Term.fastype_of tm |> dest_type ctxt af |> #1 |> Thm.ctyp_of ctxt;
         val thm = Drule.instantiate' [SOME T] [SOME ct]
           (Conv.rewr_conv (#K_intro rules |> the) (term_of_tterm mk_ap tt |> Thm.cterm_of ctxt))
       in (App (extract_comb 2 thm, tt), thm) end;
