@@ -226,8 +226,8 @@ fun mk_sign ctxt (raw_pure, raw_ap) =
 
     val ap = closed_poly_term raw_ap;
     val i = Term.maxidx_of_term ap;
-    val ap_var1 = ((Name.uu, i + 1), pure_sort);
-    val ap_var2 = ((Name.uu, i + 2), pure_sort);
+    val ap_var1 = ((Name.uu, i + 1), []);
+    val ap_var2 = ((Name.uu, i + 2), []);
     fun lift T = Term_Subst.instantiateT [(var, T)] tycon;
     val ap_pat = lift (TVar ap_var1 --> TVar ap_var2) --> lift (TVar ap_var1) -->
       lift (TVar ap_var2);
@@ -240,6 +240,9 @@ fun mk_sign ctxt (raw_pure, raw_ap) =
     val _ = ap_var1' <> ap_var2' orelse bad_types ();
 
     val sort = foldl1 (Sign.inter_sort thy) [pure_sort, ap_sort1, ap_sort2];
+    val _ = Sign.of_sort thy (Term.aT sort --> Term.aT sort, sort) orelse
+      error ("Sort constraint " ^ quote (Syntax.string_of_sort ctxt sort) ^
+        " not closed under function types");
   in
    {pure = pure, ap = ap, T = (TVar var, tycon), sort = sort}
   end;
