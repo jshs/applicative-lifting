@@ -279,24 +279,24 @@ fun mk_afun ctxt (name, sign, axioms) =
 fun mk_comb_prop comb sign ctxt =
   let
     val comb_tfrees = Term.add_tfrees comb [];
-    val (Ts, ctxt_with_types) = mk_TFrees (length comb_tfrees) (#sort sign) ctxt;
+    val (Ts, ctxt') = mk_TFrees (length comb_tfrees) (#sort sign) ctxt;
     val comb' = Term.subst_atomic_types (map TFree comb_tfrees ~~ Ts) comb;
     val (bound_names, bound_Ts) = split_list (Term.strip_abs_vars comb');
-    val (var_names, ctxt') = Variable.variant_fixes bound_names ctxt_with_types;
+    val (var_names, ctxt'') = Variable.variant_fixes bound_names ctxt';
     val vars = map (fn (var, T) => Free (var, lift_type_sign sign T)) (var_names ~~ bound_Ts);
     val lift_map = rev vars;
 
     fun list_comb t [] = t
-      | list_comb t (x::xs) = list_comb (comb_sign ctxt' sign (t, x)) xs;
+      | list_comb t (x::xs) = list_comb (comb_sign ctxt'' sign (t, x)) xs;
 
     fun lift_term (Bound i) = nth lift_map i
-      | lift_term (s $ t) = comb_sign ctxt' sign (lift_term s, lift_term t)
+      | lift_term (s $ t) = comb_sign ctxt'' sign (lift_term s, lift_term t)
       | lift_term t = raise TERM ("mk_comb_prop", [t]);
 
     val lhs = list_comb (lift_sign sign comb') vars;
     val rhs = lift_term (Term.strip_abs_body comb');
     val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
-  in (fold Logic.all lift_map prop, ctxt_with_types) end;
+  in fold Logic.all lift_map prop end;
 
 val mk_id_prop = mk_comb_prop @{term "\<lambda>x. x"};
 val mk_comp_prop = mk_comb_prop @{term "\<lambda>g f x. g (f x)"};
@@ -306,26 +306,26 @@ val mk_duplicate_prop = mk_comb_prop @{term "\<lambda>f x. f x x"};
 
 fun mk_homomorphism_prop sign ctxt =
   let
-    val ([T1, T2], ctxt_with_types) = mk_TFrees 2 (#sort sign) ctxt;
-    val ((f, x), ctxt') = ctxt_with_types
+    val ([T1, T2], ctxt') = mk_TFrees 2 (#sort sign) ctxt;
+    val ((f, x), ctxt'') = ctxt'
       |> mk_Free "f" (T1 --> T2)
       ||>> mk_Free "x" T1;
-    val lhs = comb_sign ctxt' sign (lift_sign sign f, lift_sign sign x);
+    val lhs = comb_sign ctxt'' sign (lift_sign sign f, lift_sign sign x);
     val rhs = lift_sign sign (f $ x);
     val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
-  in (Logic.all f (Logic.all x prop), ctxt_with_types) end;
+  in Logic.all f (Logic.all x prop) end;
 
 fun mk_interchange_prop sign ctxt =
   let
-    val ([T1, T2], ctxt_with_types) = mk_TFrees 2 (#sort sign) ctxt;
-    val ((f, x), ctxt') = ctxt_with_types
+    val ([T1, T2], ctxt') = mk_TFrees 2 (#sort sign) ctxt;
+    val ((f, x), ctxt'') = ctxt'
       |> mk_Free "f" (lift_type_sign sign (T1 --> T2))
       ||>> mk_Free "x" T1;
-    val lhs = comb_sign ctxt' sign (f, lift_sign sign x);
+    val lhs = comb_sign ctxt'' sign (f, lift_sign sign x);
     val T_x = Abs ("f", T1 --> T2, Bound 0 $ x);
-    val rhs = comb_sign ctxt' sign (lift_sign sign T_x, f);
+    val rhs = comb_sign ctxt'' sign (lift_sign sign T_x, f);
     val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
-  in (Logic.all f (Logic.all x prop), ctxt_with_types) end;
+  in Logic.all f (Logic.all x prop) end;
 
 fun flagged [] = []
   | flagged ((flag, x)::xs) = if flag then x :: flagged xs else flagged xs;
@@ -352,14 +352,11 @@ fun applicative_cmd name pure ap flags lthy =
     (* FIXME fix variables here, then reuse in each mk_*_prop (à la BNF_Def) *)
     val basic_props = [mk_id_prop, mk_comp_prop, mk_homomorphism_prop, mk_interchange_prop];
     val extra_props = flagged [(C, mk_flip_prop), (K, mk_const_prop), (W, mk_duplicate_prop)];
-    val (props, ctxt_with_types) = fold_map (fn mk_prop => fn ctxt => mk_prop sign ctxt)
-      (basic_props @ extra_props) lthy;
+    val props = map (fn mk_prop => mk_prop sign lthy) (basic_props @ extra_props);
 
-    (* FIXME context discipline -- where should type variables be generalized? *)
-    fun after_qed thms lthy =
+    fun after_qed thmss lthy =
       let
-        val thms' = Variable.export ctxt_with_types lthy (flat thms);
-        val ((((id_thm, comp_thm), hom_thm), interchange_thm), extra_thms) = thms'
+        val ((((id_thm, comp_thm), hom_thm), interchange_thm), extra_thms) = flat thmss
           |> pick
           ||>> pick
           ||>> pick
