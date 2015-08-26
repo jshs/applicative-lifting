@@ -16,32 +16,32 @@ unfolding id_def comp_def[THEN ext, THEN ext]
 
 notepad
 begin
-  have "\<And>x. x = pure (\<lambda>x. x) \<diamond> x" by lifting_nf
-  have "\<And>x. pure x = pure x" by lifting_nf
-  have "\<And>f x. pure f \<diamond> x = pure f \<diamond> x" by lifting_nf
-  have "\<And>f x y. pure f \<diamond> x \<diamond> y = pure f \<diamond> x \<diamond> y" by lifting_nf
-  have "\<And>g f x. pure g \<diamond> (f \<diamond> x) = pure (\<lambda>f x. g (f x)) \<diamond> f \<diamond> x" by lifting_nf
-  have "\<And>f x y. f \<diamond> x \<diamond> y = pure (\<lambda>f x y. f x y) \<diamond> f \<diamond> x \<diamond> y" by lifting_nf
-  have "\<And>g f x. g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by lifting_nf
-  have "\<And>f x. f \<diamond> pure x = pure (\<lambda>f. f x) \<diamond> f" by lifting_nf
-  have "\<And>x y. pure x \<diamond> pure y = pure (x y)" by lifting_nf
-  have "\<And>f x y. f \<diamond> x \<diamond> pure y = pure (\<lambda>f x. f x y) \<diamond> f \<diamond> x" by lifting_nf
-  have "\<And>f x y. pure f \<diamond> x \<diamond> pure y = pure (\<lambda>x. f x y) \<diamond> x" by lifting_nf
-  have "\<And>f x y z. pure f \<diamond> x \<diamond> pure y \<diamond> z = pure (\<lambda>x z. f x y z) \<diamond> x \<diamond> z" by lifting_nf
-  have "\<And>f x g y. pure f \<diamond> x \<diamond> (pure g \<diamond> y) = pure (\<lambda>x y. f x (g y)) \<diamond> x \<diamond> y" by lifting_nf
-  have "\<And>f g x y. f \<diamond> (g \<diamond> x) \<diamond> y = pure (\<lambda>f g x y. f (g x) y) \<diamond> f \<diamond> g \<diamond> x \<diamond> y" by lifting_nf
-  have "\<And>f g x y z. f \<diamond> (g \<diamond> x \<diamond> y) \<diamond> z = pure (\<lambda>f g x y z. f (g x y) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> y \<diamond> z" by lifting_nf
-  have "\<And>f g x y z. f \<diamond> (g \<diamond> (x \<diamond> pure y)) \<diamond> z = pure (\<lambda>f g x z. f (g (x y)) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> z" by lifting_nf
-  have "\<And>f g x. f \<diamond> (g \<diamond> x \<diamond> x) = pure (\<lambda>f g x x'. f (g x x')) \<diamond> f \<diamond> g \<diamond> x \<diamond> x" by lifting_nf
-  have "\<And>f x y. f x \<diamond> y = pure (\<lambda>f x. f x) \<diamond> f x \<diamond> y" by lifting_nf
+  have "\<And>x. x = pure (\<lambda>x. x) \<diamond> x" by applicative_nf
+  have "\<And>x. pure x = pure x" by applicative_nf
+  have "\<And>f x. pure f \<diamond> x = pure f \<diamond> x" by applicative_nf
+  have "\<And>f x y. pure f \<diamond> x \<diamond> y = pure f \<diamond> x \<diamond> y" by applicative_nf
+  have "\<And>g f x. pure g \<diamond> (f \<diamond> x) = pure (\<lambda>f x. g (f x)) \<diamond> f \<diamond> x" by applicative_nf
+  have "\<And>f x y. f \<diamond> x \<diamond> y = pure (\<lambda>f x y. f x y) \<diamond> f \<diamond> x \<diamond> y" by applicative_nf
+  have "\<And>g f x. g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by applicative_nf
+  have "\<And>f x. f \<diamond> pure x = pure (\<lambda>f. f x) \<diamond> f" by applicative_nf
+  have "\<And>x y. pure x \<diamond> pure y = pure (x y)" by applicative_nf
+  have "\<And>f x y. f \<diamond> x \<diamond> pure y = pure (\<lambda>f x. f x y) \<diamond> f \<diamond> x" by applicative_nf
+  have "\<And>f x y. pure f \<diamond> x \<diamond> pure y = pure (\<lambda>x. f x y) \<diamond> x" by applicative_nf
+  have "\<And>f x y z. pure f \<diamond> x \<diamond> pure y \<diamond> z = pure (\<lambda>x z. f x y z) \<diamond> x \<diamond> z" by applicative_nf
+  have "\<And>f x g y. pure f \<diamond> x \<diamond> (pure g \<diamond> y) = pure (\<lambda>x y. f x (g y)) \<diamond> x \<diamond> y" by applicative_nf
+  have "\<And>f g x y. f \<diamond> (g \<diamond> x) \<diamond> y = pure (\<lambda>f g x y. f (g x) y) \<diamond> f \<diamond> g \<diamond> x \<diamond> y" by applicative_nf
+  have "\<And>f g x y z. f \<diamond> (g \<diamond> x \<diamond> y) \<diamond> z = pure (\<lambda>f g x y z. f (g x y) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> y \<diamond> z" by applicative_nf
+  have "\<And>f g x y z. f \<diamond> (g \<diamond> (x \<diamond> pure y)) \<diamond> z = pure (\<lambda>f g x z. f (g (x y)) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> z" by applicative_nf
+  have "\<And>f g x. f \<diamond> (g \<diamond> x \<diamond> x) = pure (\<lambda>f g x x'. f (g x x')) \<diamond> f \<diamond> g \<diamond> x \<diamond> x" by applicative_nf
+  have "\<And>f x y. f x \<diamond> y = pure (\<lambda>f x. f x) \<diamond> f x \<diamond> y" by applicative_nf
 next
   fix f :: "('a \<Rightarrow> 'b) af" and g :: "('b \<Rightarrow> 'c) af" and x
-  have "g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by lifting_nf
+  have "g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by applicative_nf
 end
 (* TODO automatic test for names of new variables *)
 
 lemma "\<And>f x. f \<diamond> x = x"
-apply lifting_nf
+apply applicative_nf
 oops
 
 
@@ -63,7 +63,7 @@ by fastforce+
 
 instantiation set :: (plus) plus
 begin
-  definition set_plus_def: "X + Y = single plus \<otimes> X \<otimes> Y"
+  definition set_plus_def[applicative_unfold]: "X + Y = single plus \<otimes> X \<otimes> Y"
   instance ..
 end
 
@@ -72,7 +72,7 @@ begin
   instance proof
     fix X Y Z :: "'a set"
     from add.assoc
-    show "X + Y + Z = X + (Y + Z)" unfolding set_plus_def by general_lifting
+    show "X + Y + Z = X + (Y + Z)" by applicative_lifting
    qed
 end
 
@@ -81,7 +81,7 @@ begin
   instance proof
     fix X Y :: "'a set"
     from add.commute
-    show "X + Y = Y + X" unfolding set_plus_def by general_lifting
+    show "X + Y = Y + X" by applicative_lifting
   qed
 end
 
@@ -117,10 +117,16 @@ next
 qed
 
 lemma "Inl plus \<oplus> (x :: nat + 'e list) \<oplus> x = Inl (\<lambda>x. 2 * x) \<oplus> x"
-by general_lifting linarith
+by applicative_lifting linarith
 
 
 subsection {* Example: Streams *}
+
+(*
+  FIXME "sconst" is just an abbreviation containing "id", which causes problems with simplifier
+  rule id_apply
+*)
+definition "spure = sconst"
 
 definition stream_ap :: "('a \<Rightarrow> 'b) stream \<Rightarrow> 'a stream \<Rightarrow> 'b stream" (infixl "<.>" 60)
 where
@@ -128,64 +134,132 @@ where
 
 applicative stream (C, K, W)
 for
-  pure: sconst
+  pure: spure
   ap: stream_ap
 proof -
   fix x
-  show "sconst (\<lambda>x. x) <.> x = x"
-    unfolding stream_ap_def
+  show "spure (\<lambda>x. x) <.> x = x"
+    unfolding spure_def stream_ap_def
     by (coinduction arbitrary: x) simp
 next
   fix f x
-  show "sconst f <.> sconst x = sconst (f x)"
-    unfolding stream_ap_def
+  show "spure f <.> spure x = spure (f x)"
+    unfolding spure_def stream_ap_def
     by coinduction simp
 next
   fix g f x
-  show "sconst (\<lambda>g f x. g (f x)) <.> g <.> f <.> x = g <.> (f <.> x)"
-    unfolding stream_ap_def
+  show "spure (\<lambda>g f x. g (f x)) <.> g <.> f <.> x = g <.> (f <.> x)"
+    unfolding spure_def stream_ap_def
     by (coinduction arbitrary: g f x) auto
 next
   fix f x
-  show "f <.> sconst x = sconst (\<lambda>f. f x) <.> f"
-    unfolding stream_ap_def
+  show "f <.> spure x = spure (\<lambda>f. f x) <.> f"
+    unfolding spure_def stream_ap_def
     by (coinduction arbitrary: f) auto
 next
   fix f x y
-  show "sconst (\<lambda>f x y. f y x) <.> f <.> x <.> y = f <.> y <.> x"
-    unfolding stream_ap_def
+  show "spure (\<lambda>f x y. f y x) <.> f <.> x <.> y = f <.> y <.> x"
+    unfolding spure_def stream_ap_def
     by (coinduction arbitrary: f x y) auto
 next
   fix x y
-  show "sconst (\<lambda>x y. x) <.> x <.> y = x"
-    unfolding stream_ap_def
+  show "spure (\<lambda>x y. x) <.> x <.> y = x"
+    unfolding spure_def stream_ap_def
     by (coinduction arbitrary: x y) auto
 next
   fix f x
-  show "sconst (\<lambda>f x. f x x) <.> f <.> x = f <.> x <.> x"
-    unfolding stream_ap_def
+  show "spure (\<lambda>f x. f x x) <.> f <.> x = f <.> x <.> x"
+    unfolding spure_def stream_ap_def
     by (coinduction arbitrary: f x) auto
 qed
 
+lemma smap_applicative[applicative_unfold]: "smap f x = spure f <.> x"
+unfolding spure_def stream_ap_def
+by (coinduction arbitrary: x) auto
+
+lemma smap2_applicative[applicative_unfold]: "smap2 f x y = spure f <.> x <.> y"
+unfolding spure_def stream_ap_def
+by (coinduction arbitrary: x y) auto
+
 instantiation stream :: (plus) plus
 begin
-  definition stream_plus_def: "x + y = sconst plus <.> x <.> y"
+  definition stream_plus_def[applicative_unfold]: "x + y = spure plus <.> x <.> y"
   instance ..
 end
 
 instantiation stream :: (times) times
 begin
-  definition stream_times_def: "x * y = sconst times <.> x <.> y"
+  definition stream_times_def[applicative_unfold]: "x * y = spure times <.> x <.> y"
   instance ..
 end
 
-lemma "(x::int stream) * sconst 0 = sconst 0"
-unfolding stream_times_def
-by general_lifting linarith
+lemma "(x::int stream) * spure 0 = spure 0"
+by applicative_lifting linarith
 
 lemma "(x::int stream) * (y + z) = x * y + x * z"
-unfolding stream_plus_def stream_times_def
-apply general_lifting
+apply applicative_lifting
 by algebra
+
+
+definition "lift_streams xs = foldr (smap2 Cons) xs (spure [])"
+
+lemma lift_streams_Nil[applicative_unfold]: "lift_streams [] = spure []"
+unfolding lift_streams_def
+by simp
+
+lemma lift_streams_Cons[applicative_unfold]:
+  "lift_streams (x # xs) = smap2 Cons x (lift_streams xs)"
+unfolding lift_streams_def
+by (simp add: smap2_applicative)
+
+lemma stream_append_Cons: "smap2 append (smap2 Cons x ys) zs = smap2 Cons x (smap2 append ys zs)"
+by applicative_lifting simp
+
+lemma lift_streams_append[applicative_unfold]:
+  "lift_streams (xs @ ys) = smap2 append (lift_streams xs) (lift_streams ys)"
+proof (induction xs)
+  case Nil
+  (*
+    case could be proved directly if "lift_streams ([] @ ys) = lift_streams ys" is solved
+    in head_cong_tac (invoke simplifier?) -- but only with applicative_nf
+  *)
+  have "lift_streams ys = spure append <.> lift_streams [] <.> lift_streams ys"
+    by applicative_lifting simp
+  (* FIXME generalize applicative_unfold to facts/premises *)
+  thus ?case by (simp add: smap2_applicative)
+next
+  case (Cons x xs)
+  with stream_append_Cons  (* the actual lifted fact *)
+  show ?case
+    apply (simp add: smap_applicative smap2_applicative lift_streams_Cons)
+    (* this is really weird ... *)
+    apply (rule sym)
+    apply assumption
+    done
+qed
+
+(* There seems to be a pattern! *)
+
+lemma "lift_streams (rev x) = smap rev (lift_streams x)"
+proof (induction x)
+  case Nil
+  have "lift_streams [] = smap rev (lift_streams [])"
+    by applicative_lifting simp
+  thus ?case by simp
+next
+  case (Cons x xs)
+  have "\<And>y ys. rev ys @ [y] = rev (y # ys)" by simp
+  hence "\<And>y ys. smap2 append (smap rev ys) (smap2 Cons y (spure [])) = smap rev (smap2 Cons y ys)"
+    by applicative_lifting
+  with Cons.IH show ?case
+    apply (simp add: smap_applicative smap2_applicative lift_streams_append lift_streams_Cons lift_streams_Nil)
+    apply assumption
+    done
+qed
+
+definition [applicative_unfold]: "sconcat xs = smap concat xs"
+
+lemma "sconcat (lift_streams [spure ''Hello '', spure ''world!'']) = spure ''Hello world!''"
+by applicative_lifting simp
 
 end
