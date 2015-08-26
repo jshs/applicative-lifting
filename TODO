@@ -1,16 +1,19 @@
 - restructure notes
 
-- forbid beta redexes
-- allow additional fixed (type) variables
-- registration command: note theorems, extensibility, improve goal state
-- unfolding of lifted constants
-- provide rewrite wrapper for normalform_conv
-- proper user interface with debugging
+- check behavior around beta redexes again
+- del variant for applicative_unfold attribute
+- unfold facts/premises too (see examples)
+- do name binding properly
+- registration command: note theorems
+- rewrite wrapper for normalform_conv without congruence solver
+- proper user interface with debugging (list of functors etc.)
+- use of adhoc overloading?
+
+- restructure tests & examples
 
 - document lifting lemma approach
 - investigate combinator subsets (intuitive meaning?)
 - document implementation
 - comparison with related tools
-- examples & tests
 
 - other logical operators -> relators
