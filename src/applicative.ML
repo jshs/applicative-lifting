@@ -730,9 +730,13 @@ val general_normalize_eq_tac = hol_eq_conv_tac oo general_normalform_conv;
 (* High-level tactics *)
 
 (* ignores local premises, detects functor instance if not given *)
-fun WRAPPER tac ctxt af = Subgoal.FOCUS (fn {context, ...} =>
-  AUTO_AFUN context af (tac context) 1) ctxt;
+fun WRAPPER tac ctxt af =
+  REPEAT o rtac @{thm HOL.allI} THEN'
+  Subgoal.FOCUS (fn {context, ...} =>
+    AUTO_AFUN context af (tac context) 1) ctxt THEN'
+  TRY o Raw_Simplifier.rewrite_goal_tac ctxt [Drule.triv_forall_equality];
 
+(* FIXME should use a different wrapper *)
 val unfold_wrapper_tac = WRAPPER applicative_unfold_tac;
 
 val normalize_wrapper_tac = WRAPPER (fn ctxt => fn af =>
