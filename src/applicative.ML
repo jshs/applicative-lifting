@@ -324,7 +324,7 @@ fun mk_afun ctxt (name, sign, axioms) =
     val rhs = comb (comb (lift_sign sign Ts B_g, f), x);
     val prop = Logic.mk_equals (lhs, rhs);
     val B_pure_tac = HEADGOAL (Raw_Simplifier.rewrite_goal_tac ctxt'' [B_intro, merge_rule] THEN'
-      rtac reflexive_thm);
+      resolve_tac ctxt'' [reflexive_thm]);
     val B_pure = singleton (Variable.export ctxt'' ctxt)
       (Goal.prove ctxt'' [] [] prop (K B_pure_tac));
 
@@ -493,8 +493,9 @@ fun hol_eq_par_conv cv ct = case Thm.term_of ct of
 
 fun hol_eq_conv_tac cv = CONVERSION (HOLogic.Trueprop_conv (hol_eq_par_conv cv));
 
-fun head_cong_tac ctxt = TRY o (REPEAT_ALL_NEW (rtac refl ORELSE' cong_tac ctxt)) THEN'
-  REPEAT o rtac ext;
+fun head_cong_tac ctxt =
+  TRY o (REPEAT_ALL_NEW (resolve_tac ctxt [refl] ORELSE' cong_tac ctxt)) THEN'
+  REPEAT o resolve_tac ctxt [ext];
 
 
 (* Unfolding of lifted constants *)
@@ -731,7 +732,7 @@ val general_normalize_eq_tac = hol_eq_conv_tac oo general_normalform_conv;
 
 (* ignores local premises, detects functor instance if not given *)
 fun WRAPPER tac ctxt af =
-  REPEAT o rtac @{thm HOL.allI} THEN'
+  REPEAT o resolve_tac ctxt [@{thm HOL.allI}] THEN'
   Subgoal.FOCUS (fn {context, ...} =>
     AUTO_AFUN context af (tac context) 1) ctxt THEN'
   TRY o Raw_Simplifier.rewrite_goal_tac ctxt [Drule.triv_forall_equality];
