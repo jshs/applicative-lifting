@@ -47,23 +47,19 @@ oops
 
 subsection {* Example: Sets *}
 
-(* TODO fix normalform_conv such that it works with {x} directly, if possible *)
-definition single :: "'a \<Rightarrow> 'a set"
-  where "single x = {x}"
-
 definition set_ap :: "('a \<Rightarrow> 'b) set \<Rightarrow> 'a set \<Rightarrow> 'b set" (infixl "\<otimes>" 60)
   where "F \<otimes> X = {f x | f x. f \<in> F \<and> x \<in> X}"
 
 applicative set (C)
 for
-  pure: single
+  pure: "\<lambda>x. {x}"
   ap: "op \<otimes>"
 unfolding single_def set_ap_def
 by fastforce+
 
 instantiation set :: (plus) plus
 begin
-  definition set_plus_def[applicative_unfold]: "X + Y = single plus \<otimes> X \<otimes> Y"
+  definition set_plus_def[applicative_unfold]: "X + Y = {plus} \<otimes> X \<otimes> Y"
   instance ..
 end
 

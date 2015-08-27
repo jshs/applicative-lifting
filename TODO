@@ -1,6 +1,5 @@
 - restructure notes
 
-- check behavior around beta redexes again
 - del variant for applicative_unfold attribute
 - unfold facts/premises too (see examples)
 - do name binding properly
