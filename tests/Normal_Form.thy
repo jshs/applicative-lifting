@@ -118,78 +118,72 @@ by applicative_lifting
 
 subsection {* Example: Streams *}
 
-(*
-  FIXME "sconst" is just an abbreviation containing "id", which causes problems with simplifier
-  rule id_apply
-*)
-definition "spure = sconst"
-
 definition stream_ap :: "('a \<Rightarrow> 'b) stream \<Rightarrow> 'a stream \<Rightarrow> 'b stream" (infixl "<.>" 60)
 where
   "stream_ap f x = smap (\<lambda>(f, x). f x) (szip f x)"
 
 applicative stream (C, K, W)
 for
-  pure: spure
+  pure: sconst
   ap: stream_ap
 proof -
   fix x
-  show "spure (\<lambda>x. x) <.> x = x"
-    unfolding spure_def stream_ap_def
+  show "sconst (\<lambda>x. x) <.> x = x"
+    unfolding stream_ap_def
     by (coinduction arbitrary: x) simp
 next
   fix f x
-  show "spure f <.> spure x = spure (f x)"
-    unfolding spure_def stream_ap_def
+  show "sconst f <.> sconst x = sconst (f x)"
+    unfolding stream_ap_def
     by coinduction simp
 next
   fix g f x
-  show "spure (\<lambda>g f x. g (f x)) <.> g <.> f <.> x = g <.> (f <.> x)"
-    unfolding spure_def stream_ap_def
+  show "sconst (\<lambda>g f x. g (f x)) <.> g <.> f <.> x = g <.> (f <.> x)"
+    unfolding stream_ap_def
     by (coinduction arbitrary: g f x) auto
 next
   fix f x
-  show "f <.> spure x = spure (\<lambda>f. f x) <.> f"
-    unfolding spure_def stream_ap_def
+  show "f <.> sconst x = sconst (\<lambda>f. f x) <.> f"
+    unfolding stream_ap_def
     by (coinduction arbitrary: f) auto
 next
   fix f x y
-  show "spure (\<lambda>f x y. f y x) <.> f <.> x <.> y = f <.> y <.> x"
-    unfolding spure_def stream_ap_def
+  show "sconst (\<lambda>f x y. f y x) <.> f <.> x <.> y = f <.> y <.> x"
+    unfolding stream_ap_def
     by (coinduction arbitrary: f x y) auto
 next
   fix x y
-  show "spure (\<lambda>x y. x) <.> x <.> y = x"
-    unfolding spure_def stream_ap_def
+  show "sconst (\<lambda>x y. x) <.> x <.> y = x"
+    unfolding stream_ap_def
     by (coinduction arbitrary: x y) auto
 next
   fix f x
-  show "spure (\<lambda>f x. f x x) <.> f <.> x = f <.> x <.> x"
-    unfolding spure_def stream_ap_def
+  show "sconst (\<lambda>f x. f x x) <.> f <.> x = f <.> x <.> x"
+    unfolding stream_ap_def
     by (coinduction arbitrary: f x) auto
 qed
 
-lemma smap_applicative[applicative_unfold]: "smap f x = spure f <.> x"
-unfolding spure_def stream_ap_def
+lemma smap_applicative[applicative_unfold]: "smap f x = sconst f <.> x"
+unfolding stream_ap_def
 by (coinduction arbitrary: x) auto
 
-lemma smap2_applicative[applicative_unfold]: "smap2 f x y = spure f <.> x <.> y"
-unfolding spure_def stream_ap_def
+lemma smap2_applicative[applicative_unfold]: "smap2 f x y = sconst f <.> x <.> y"
+unfolding stream_ap_def
 by (coinduction arbitrary: x y) auto
 
 instantiation stream :: (plus) plus
 begin
-  definition stream_plus_def[applicative_unfold]: "x + y = spure plus <.> x <.> y"
+  definition stream_plus_def[applicative_unfold]: "x + y = sconst plus <.> x <.> y"
   instance ..
 end
 
 instantiation stream :: (times) times
 begin
-  definition stream_times_def[applicative_unfold]: "x * y = spure times <.> x <.> y"
+  definition stream_times_def[applicative_unfold]: "x * y = sconst times <.> x <.> y"
   instance ..
 end
 
-lemma "(x::int stream) * spure 0 = spure 0"
+lemma "(x::int stream) * sconst 0 = sconst 0"
 by applicative_lifting
 
 lemma "(x::int stream) * (y + z) = x * y + x * z"
@@ -197,9 +191,9 @@ apply applicative_lifting
 by algebra
 
 
-definition "lift_streams xs = foldr (smap2 Cons) xs (spure [])"
+definition "lift_streams xs = foldr (smap2 Cons) xs (sconst [])"
 
-lemma lift_streams_Nil[applicative_unfold]: "lift_streams [] = spure []"
+lemma lift_streams_Nil[applicative_unfold]: "lift_streams [] = sconst []"
 unfolding lift_streams_def
 by simp
 
@@ -219,7 +213,7 @@ proof (induction xs)
     case could be proved directly if "lift_streams ([] @ ys) = lift_streams ys" is solved
     in head_cong_tac (invoke simplifier?) -- but only with applicative_nf
   *)
-  have "lift_streams ys = spure append <.> lift_streams [] <.> lift_streams ys"
+  have "lift_streams ys = sconst append <.> lift_streams [] <.> lift_streams ys"
     by applicative_lifting
   thus ?case by applicative_unfold
 next
@@ -239,14 +233,14 @@ proof (induction x)
 next
   case (Cons x xs)
   have "\<forall>y ys. rev ys @ [y] = rev (y # ys)" by simp
-  hence "\<forall>y ys. smap2 append (smap rev ys) (smap2 Cons y (spure [])) = smap rev (smap2 Cons y ys)"
+  hence "\<forall>y ys. smap2 append (smap rev ys) (smap2 Cons y (sconst [])) = smap rev (smap2 Cons y ys)"
     by applicative_lifting
   with Cons.IH show ?case by applicative_unfold blast
 qed
 
 definition [applicative_unfold]: "sconcat xs = smap concat xs"
 
-lemma "sconcat (lift_streams [spure ''Hello '', spure ''world!'']) = spure ''Hello world!''"
+lemma "sconcat (lift_streams [sconst ''Hello '', sconst ''world!'']) = sconst ''Hello world!''"
 by applicative_lifting
 
 end
