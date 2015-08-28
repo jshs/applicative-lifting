@@ -711,13 +711,19 @@ fun eliminate ctxt af tt (v, v_tm) =
     else K_step tt v_tm
   end;
 
-fun rename_boundvars vs insts thm =
+fun rename_boundvars ctxt af vs insts thm =
   let
     fun rename [] t = t
       | rename (v::vs) (Abs (_, T, t)) = Abs (term_to_vname (nth insts v), T, rename vs t)
       | rename _ t = t;
-    fun rename_pure t = Term.dest_comb t ||> rename (rev vs) |> (op $);
-    val prop' = Thm.prop_of thm |> Logic.dest_equals ||> rename_pure |> Logic.mk_equals;
+    fun rename_pure t = t
+      |> dest_pure ctxt af
+      |> rename (rev vs)
+      |> lift af (Term.fastype_of t |> dest_type ctxt af |> #2);
+    val prop' = Thm.prop_of thm
+      |> Logic.dest_equals
+      ||> rename_pure
+      |> Logic.mk_equals;
   in Thm.renamed_prop prop' thm end;
 
 fun general_normalform_conv ctxt af cts =
@@ -725,7 +731,7 @@ fun general_normalform_conv ctxt af cts =
     val ts = apply2 Thm.term_of cts;
     val (tts, insts) = analyze_terms ctxt af ts;
     val vs = consolidate ctxt af (tts, insts);
-    fun elim_all tt [] = squash_atoms ctxt af tt |> the |> rename_boundvars (map #2 vs) insts
+    fun elim_all tt [] = squash_atoms ctxt af tt |> the |> rename_boundvars ctxt af (map #2 vs) insts
       | elim_all tt ((v, d)::vs) =
           let
             val (tt', rule1) = eliminate ctxt af tt (v, nth insts d);
