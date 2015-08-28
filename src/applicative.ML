@@ -22,12 +22,15 @@ sig
   val dest_pure: Proof.context -> afun -> term -> term
   val dest_comb: Proof.context -> afun -> term -> term * term
 
-  val applicative_unfold_tac: Proof.context -> afun -> int -> tactic
+  val afun_unfold_tac: Proof.context -> afun -> int -> tactic
+  val afun_fold_tac: Proof.context -> afun -> int -> tactic
+  val unfold_all_tac: Proof.context -> int -> tactic
   val normalform_conv: Proof.context -> afun -> conv
   val normalize_eq_tac: Proof.context -> afun -> int -> tactic
   val general_normalform_conv: Proof.context -> afun -> cterm * cterm -> thm * thm
   val general_normalize_eq_tac: Proof.context -> afun -> int -> tactic
   val unfold_wrapper_tac: Proof.context -> afun option -> int -> tactic
+  val fold_wrapper_tac: Proof.context -> afun option -> int -> tactic
   val normalize_wrapper_tac: Proof.context -> afun option -> int -> tactic
   val lifting_wrapper_tac: Proof.context -> afun option -> int -> tactic
 end;
@@ -246,6 +249,10 @@ val afuns_of_term = afuns_of_term_generic o Context.Proof;
 fun afuns_of_typ_generic context = afuns_of_term_generic context o Net.encode_type;
 val afuns_of_typ = afuns_of_typ_generic o Context.Proof;
 
+fun all_unfolds_of_generic context =
+  Symtab.fold (fn (_, af) => append (unfolds_of_afun af)) (#1 (Data.get context)) [];
+val all_unfolds_of = all_unfolds_of_generic o Context.Proof;
+
 (* FIXME pervasive? *)
 fun register_afun name af =
   let fun decl phi = Data.map (fn (afuns, net) =>
@@ -311,22 +318,24 @@ fun mk_afun ctxt (name, sign, axioms) =
     val B_intro = comb_intro (#composition axioms);
     val merge_rule = #homomorphism axioms RS eq_reflection;
 
-    val (([T1, T2, T3], Ts), ctxt') = ctxt
-      |> mk_TFrees' 3 (#sort sign)
-      ||>> mk_TFrees_of_vars (#params sign);
-    val (((g, f), x), ctxt'') = ctxt'
-      |> mk_Free "g" (T2 --> T3)
-      ||>> mk_Free "f" (lift_type_sign sign Ts (T1 --> T2))
-      ||>> mk_Free "x" (lift_type_sign sign Ts T1);
-    val comb = comb_sign ctxt'' sign;
-    val lhs = comb (lift_sign sign Ts g, comb (f, x));
-    val B_g = Abs ("f", T1 --> T2, Abs ("x", T1, Term.betapply (g, Bound 1 $ Bound 0)));
-    val rhs = comb (comb (lift_sign sign Ts B_g, f), x);
-    val prop = Logic.mk_equals (lhs, rhs);
-    val B_pure_tac = HEADGOAL (Raw_Simplifier.rewrite_goal_tac ctxt'' [B_intro, merge_rule] THEN'
-      resolve_tac ctxt'' [reflexive_thm]);
-    val B_pure = singleton (Variable.export ctxt'' ctxt)
-      (Goal.prove ctxt'' [] [] prop (K B_pure_tac));
+    val B_pure =
+      let
+        val (([T1, T2, T3], Ts), ctxt') = ctxt
+          |> mk_TFrees' 3 (#sort sign)
+          ||>> mk_TFrees_of_vars (#params sign);
+        val (((g, f), x), ctxt'') = ctxt'
+          |> mk_Free "g" (T2 --> T3)
+          ||>> mk_Free "f" (lift_type_sign sign Ts (T1 --> T2))
+          ||>> mk_Free "x" (lift_type_sign sign Ts T1);
+        val comb = comb_sign ctxt'' sign;
+        val lhs = comb (lift_sign sign Ts g, comb (f, x));
+        val B_g = Abs ("f", T1 --> T2, Abs ("x", T1, Term.betapply (g, Bound 1 $ Bound 0)));
+        val rhs = comb (comb (lift_sign sign Ts B_g, f), x);
+        val prop = Logic.mk_equals (lhs, rhs);
+        val tac =
+          HEADGOAL (Raw_Simplifier.rewrite_goal_tac ctxt'' [B_intro, merge_rule] THEN'
+          resolve_tac ctxt'' [reflexive_thm]);
+      in singleton (Variable.export ctxt'' ctxt) (Goal.prove ctxt'' [] [] prop (K tac)) end;
 
     val facts =
      {I_intro = comb_intro (#identity axioms),
@@ -476,8 +485,8 @@ fun afun_of_eq ctxt t =
       (af::_) => af
     | [] => raise TERM ("afun_of_eq", [t])) end;
 
-fun AUTO_AFUN ctxt af tac i st = case af of
-    SOME af' => tac af' i st
+fun AUTO_AFUN ctxt opt_af tac i st = case opt_af of
+    SOME af => tac af i st
   | NONE => tac (afun_of_eq ctxt (Logic.nth_prem (i, Thm.prop_of st))) i st
       handle TERM _ => Seq.empty;
 
@@ -493,14 +502,15 @@ fun hol_eq_par_conv cv ct = case Thm.term_of ct of
 
 fun hol_eq_conv_tac cv = CONVERSION (HOLogic.Trueprop_conv (hol_eq_par_conv cv));
 
-fun head_cong_tac ctxt =
-  TRY o (REPEAT_ALL_NEW (resolve_tac ctxt [refl] ORELSE' cong_tac ctxt)) THEN'
-  REPEAT o resolve_tac ctxt [ext];
+val fold_goal_tac = SELECT_GOAL oo Raw_Simplifier.fold_goals_tac;
 
 
 (* Unfolding of lifted constants *)
 
-fun applicative_unfold_tac ctxt af = Raw_Simplifier.rewrite_goal_tac ctxt (unfolds_of_afun af);
+fun afun_unfold_tac ctxt af = Raw_Simplifier.rewrite_goal_tac ctxt (unfolds_of_afun af);
+fun afun_fold_tac ctxt af = fold_goal_tac ctxt (unfolds_of_afun af);
+
+fun unfold_all_tac ctxt = Raw_Simplifier.rewrite_goal_tac ctxt (all_unfolds_of ctxt);
 
 
 (* Normal form conversion *)
@@ -728,22 +738,88 @@ fun general_normalform_conv ctxt af cts =
 val general_normalize_eq_tac = hol_eq_conv_tac oo general_normalform_conv;
 
 
+(* Reduce canonical forms to base equation *)
+
+(*
+  (pure f <> x1 <> ... <> xn = pure g <> x1 <> ... <> xn)
+    ===> !!x1 ... xn. (f x1 ... xn = g x1 ... xn)
+  This tactic tries to be as precise as possible to prevent unexpected outcomes.
+  Succeeds if partial progress can be made.
+*)
+fun head_cong_tac ctxt af = SUBGOAL (fn (goal, i) =>
+  let
+    fun reduce_ap (t, t') = case (try (dest_comb ctxt af) t, try (dest_comb ctxt af) t') of
+        (SOME (tl, tr), SOME (tl', tr')) => if tr aconv tr'
+          then reduce_ap (tl, tl') ||> cons tr
+          else ((false, (t, t')), [])
+      | (NONE, NONE) => ((true, (t, t')), [])
+      | _ => ((false, (t, t')), []);
+
+    fun reduce_pure (t, t') = case (try (dest_pure ctxt af) t, try (dest_pure ctxt af) t') of
+        (SOME ta, SOME ta') => (true, (ta, ta'))
+      | _ => (false, (t, t'));
+
+    fun ap_cong1_rule ctxt t thm =
+      let
+        val funT = thm |> Thm.lhs_of |> Thm.typ_of_cterm;
+        val ap_inst = Thm.cterm_of ctxt (ap ctxt af funT);
+      in Drule.fun_cong_rule (Drule.arg_cong_rule ap_inst thm) (Thm.cterm_of ctxt t) end;
+
+    fun pure_cong_rule ctxt Ts thm =
+      let
+        val argT = thm |> Thm.lhs_of |> Thm.typ_of_cterm;
+        val pure_inst = Thm.cterm_of ctxt (pure af Ts argT);
+      in Drule.arg_cong_rule pure_inst thm end;
+
+    val (lhs, rhs) = goal |> HOLogic.dest_Trueprop |> HOLogic.dest_eq;
+    val (_, Ts) = dest_type ctxt af (Term.fastype_of lhs);
+    val ((is_head, (lhs', rhs')), args) = reduce_ap (lhs, rhs);
+    val (is_base, (lhs'', rhs'')) = if is_head
+      then reduce_pure (lhs', rhs')
+      else (false, (lhs', rhs'));
+    val hyp = (lhs'', rhs'') |> HOLogic.mk_eq |> HOLogic.mk_Trueprop;
+    val (base_eq, ctxt') = yield_singleton Assumption.add_assumes (Thm.cterm_of ctxt hyp) ctxt;
+    val concl = (base_eq RS @{thm eq_reflection})
+      |> is_base ? pure_cong_rule ctxt' Ts
+      |> fold_rev (ap_cong1_rule ctxt') args;
+    val concl' = concl RS @{thm HOL.meta_eq_to_obj_eq};
+    val rule = Assumption.export false ctxt' ctxt concl';
+    val post_tac = if is_base
+      then REPEAT_DETERM o resolve_tac ctxt [ext]
+      else K all_tac;
+  in (resolve_tac ctxt [rule] THEN' post_tac) i end
+  handle TERM _ => no_tac | TYPE _ => no_tac);
+
+
 (* High-level tactics *)
 
-(* ignores local premises, detects functor instance if not given *)
-fun WRAPPER tac ctxt af =
-  REPEAT o resolve_tac ctxt [@{thm HOL.allI}] THEN'
-  Subgoal.FOCUS (fn {context, ...} =>
-    AUTO_AFUN context af (tac context) 1) ctxt THEN'
-  TRY o Raw_Simplifier.rewrite_goal_tac ctxt [Drule.triv_forall_equality];
+local
 
-(* FIXME should use a different wrapper *)
-val unfold_wrapper_tac = WRAPPER applicative_unfold_tac;
+fun get_unfolds ctxt opt_af = case opt_af of
+    SOME af => unfolds_of_afun af
+  | NONE => all_unfolds_of ctxt;
 
-val normalize_wrapper_tac = WRAPPER (fn ctxt => fn af =>
-  applicative_unfold_tac ctxt af THEN' normalize_eq_tac ctxt af THEN' head_cong_tac ctxt);
+in
 
-val lifting_wrapper_tac = WRAPPER (fn ctxt => fn af =>
-  applicative_unfold_tac ctxt af THEN' general_normalize_eq_tac ctxt af THEN' head_cong_tac ctxt);
+(* FIXME tweak *)
+fun unfold_wrapper_tac ctxt opt_af =
+  Simplifier.safe_asm_full_simp_tac (ctxt addsimps get_unfolds ctxt opt_af);
+
+fun fold_wrapper_tac ctxt opt_af = fold_goal_tac ctxt (get_unfolds ctxt opt_af);
+
+end;
+
+(* FIXME fine-tune final step *)
+fun WRAPPER tac ctxt opt_af =
+  REPEAT_DETERM o resolve_tac ctxt [@{thm HOL.allI}] THEN'
+  Subgoal.FOCUS (fn {context = ctxt, ...} =>
+      AUTO_AFUN ctxt opt_af (fn af =>
+        afun_unfold_tac ctxt af THEN'
+        tac ctxt af THEN'
+        head_cong_tac ctxt af) 1) ctxt THEN'
+  (TRY o Simplifier.safe_asm_simp_tac ctxt);
+
+val normalize_wrapper_tac = WRAPPER normalize_eq_tac;
+val lifting_wrapper_tac = WRAPPER general_normalize_eq_tac;
 
 end;

@@ -1,10 +1,11 @@
 - restructure notes
 
+- make afun lookup more consistent
 - del variant for applicative_unfold attribute
-- unfold facts/premises too (see examples)
 - do name binding properly
 - registration command: note theorems
 - rewrite wrapper for normalform_conv without congruence solver
+- forward lifting
 - proper user interface with debugging (list of functors etc.)
 - use of adhoc overloading?
 

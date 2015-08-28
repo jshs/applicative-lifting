@@ -113,7 +113,7 @@ next
 qed
 
 lemma "Inl plus \<oplus> (x :: nat + 'e list) \<oplus> x = Inl (\<lambda>x. 2 * x) \<oplus> x"
-by applicative_lifting linarith
+by applicative_lifting
 
 
 subsection {* Example: Streams *}
@@ -190,7 +190,7 @@ begin
 end
 
 lemma "(x::int stream) * spure 0 = spure 0"
-by applicative_lifting linarith
+by applicative_lifting
 
 lemma "(x::int stream) * (y + z) = x * y + x * z"
 apply applicative_lifting
@@ -206,10 +206,10 @@ by simp
 lemma lift_streams_Cons[applicative_unfold]:
   "lift_streams (x # xs) = smap2 Cons x (lift_streams xs)"
 unfolding lift_streams_def
-by (simp add: smap2_applicative)
+by applicative_unfold
 
 lemma stream_append_Cons: "smap2 append (smap2 Cons x ys) zs = smap2 Cons x (smap2 append ys zs)"
-by applicative_lifting simp
+by applicative_lifting
 
 lemma lift_streams_append[applicative_unfold]:
   "lift_streams (xs @ ys) = smap2 append (lift_streams xs) (lift_streams ys)"
@@ -220,18 +220,12 @@ proof (induction xs)
     in head_cong_tac (invoke simplifier?) -- but only with applicative_nf
   *)
   have "lift_streams ys = spure append <.> lift_streams [] <.> lift_streams ys"
-    by applicative_lifting simp
-  (* FIXME generalize applicative_unfold to facts/premises *)
-  thus ?case by (simp add: smap2_applicative)
+    by applicative_lifting
+  thus ?case by applicative_unfold
 next
   case (Cons x xs)
   with stream_append_Cons  (* the actual lifted fact *)
-  show ?case
-    apply (simp add: smap_applicative smap2_applicative lift_streams_Cons)
-    (* this is really weird ... *)
-    apply (rule sym)
-    apply assumption
-    done
+  show ?case by applicative_unfold (rule sym)  (* slightly weird *)
 qed
 
 (* There seems to be a pattern! *)
@@ -240,22 +234,19 @@ lemma "lift_streams (rev x) = smap rev (lift_streams x)"
 proof (induction x)
   case Nil
   have "lift_streams [] = smap rev (lift_streams [])"
-    by applicative_lifting simp
+    by applicative_lifting
   thus ?case by simp
 next
   case (Cons x xs)
   have "\<forall>y ys. rev ys @ [y] = rev (y # ys)" by simp
   hence "\<forall>y ys. smap2 append (smap rev ys) (smap2 Cons y (spure [])) = smap rev (smap2 Cons y ys)"
-    by applicative_lifting simp
-  with Cons.IH show ?case
-    apply (simp add: smap_applicative smap2_applicative lift_streams_append lift_streams_Cons lift_streams_Nil)
-    apply blast
-    done
+    by applicative_lifting
+  with Cons.IH show ?case by applicative_unfold blast
 qed
 
 definition [applicative_unfold]: "sconcat xs = smap concat xs"
 
 lemma "sconcat (lift_streams [spure ''Hello '', spure ''world!'']) = spure ''Hello world!''"
-by applicative_lifting simp
+by applicative_lifting
 
 end
