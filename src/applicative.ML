@@ -186,7 +186,7 @@ fun ap_pattern af =
   in (Term.betapplys (ap, [Var var1, Var var2]), (var1, var2)) end;
 
 fun patterns_of_afun af = [#1 (pure_pattern af), #1 (ap_pattern af),
-  (Net.encode_type o #2 o #T o sign_of_afun) af];
+  sign_of_afun af |> #T |> #2 |> Net.encode_type];
 
 fun dest_type ctxt af T =
   let
@@ -243,6 +243,7 @@ fun update_afun name f context = if Symtab.defined (#1 (Data.get context)) name
 
 fun afun_names_of context = map #1 o Item_Net.retrieve_matching (#2 (Data.get context));
 
+(* works only with terms which are combinations of pure and ap *)
 fun afuns_of_term_generic context = map (afun_of_generic context) o afun_names_of context;
 val afuns_of_term = afuns_of_term_generic o Context.Proof;
 
@@ -479,16 +480,21 @@ fun term_to_vname (Const (x, _)) = Long_Name.base_name x
   | term_to_vname (Var ((x, _), _)) = clean_name x
   | term_to_vname _ = "x";
 
-fun afun_of_eq ctxt t =
-  let val (lhs, _) = t |> HOLogic.dest_Trueprop |> HOLogic.dest_eq;
-  in (case afuns_of_typ ctxt (Term.fastype_of lhs) of
-      (af::_) => af
-    | [] => raise TERM ("afun_of_eq", [t])) end;
+fun afuns_of_eq precise ctxt t =
+  let val (lhs, rhs) = t |> HOLogic.dest_Trueprop |> HOLogic.dest_eq;
+  in if precise
+    then (case afuns_of_term ctxt lhs of
+        [] => afuns_of_term ctxt rhs
+      | afs => afs)
+    else afuns_of_typ ctxt (Term.fastype_of lhs) end;
 
-fun AUTO_AFUN ctxt opt_af tac i st = case opt_af of
-    SOME af => tac af i st
-  | NONE => tac (afun_of_eq ctxt (Logic.nth_prem (i, Thm.prop_of st))) i st
-      handle TERM _ => Seq.empty;
+fun AUTO_AFUNS precise tac ctxt opt_af = case opt_af of
+    SOME af => tac [af]
+  | NONE => SUBGOAL (fn (goal, i) => (case afuns_of_eq precise ctxt goal of
+      [] => no_tac
+    | afs => tac afs i) handle TERM _ => no_tac);
+
+fun AUTO_AFUN precise tac = AUTO_AFUNS precise (tac o hd);
 
 fun binop_par_conv cv ct =
   let
@@ -819,10 +825,11 @@ end;
 fun WRAPPER tac ctxt opt_af =
   REPEAT_DETERM o resolve_tac ctxt [@{thm HOL.allI}] THEN'
   Subgoal.FOCUS (fn {context = ctxt, ...} =>
-      AUTO_AFUN ctxt opt_af (fn af =>
+      AUTO_AFUNS false (EVERY' o map (afun_unfold_tac ctxt)) ctxt opt_af 1 THEN
+      AUTO_AFUN true (fn af =>
         afun_unfold_tac ctxt af THEN'
         tac ctxt af THEN'
-        head_cong_tac ctxt af) 1) ctxt THEN'
+        head_cong_tac ctxt af) ctxt opt_af 1) ctxt THEN'
   (TRY o Simplifier.safe_asm_simp_tac ctxt);
 
 val normalize_wrapper_tac = WRAPPER normalize_eq_tac;

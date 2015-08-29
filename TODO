@@ -1,6 +1,5 @@
 - restructure notes
 
-- make afun lookup more consistent
 - del variant for applicative_unfold attribute
 - do name binding properly
 - registration command: note theorems
