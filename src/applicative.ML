@@ -1,14 +1,14 @@
 signature APPLICATIVE =
 sig
   type afun
+  val intern: Context.generic -> xstring -> string
+  val extern: Context.generic -> string -> xstring
   val afun_of_generic: Context.generic -> string -> afun
   val afun_of: Proof.context -> string -> afun
   val afuns_of_term_generic: Context.generic -> term -> afun list
   val afuns_of_term: Proof.context -> term -> afun list
   val afuns_of_typ_generic: Context.generic -> typ -> afun list
   val afuns_of_typ: Proof.context -> typ -> afun list
-  val applicative_cmd: binding -> string -> string -> string list -> local_theory -> Proof.state
-  val add_unfold_attrib: string option -> attribute
 
   val name_of_afun: afun -> binding
   val terms_of_afun: afun -> term * term
@@ -33,6 +33,10 @@ sig
   val fold_wrapper_tac: Proof.context -> afun option -> int -> tactic
   val normalize_wrapper_tac: Proof.context -> afun option -> int -> tactic
   val lifting_wrapper_tac: Proof.context -> afun option -> int -> tactic
+
+  val applicative_cmd: binding -> string -> string -> string list -> local_theory -> Proof.state
+  val add_unfold_attrib: xstring option -> attribute
+  val parse_opt_afun: afun option context_parser
 end;
 
 structure Applicative : APPLICATIVE =
@@ -123,6 +127,9 @@ fun terms_of_afun af = let val {pure, ap, ...} = sign_of_afun af in (pure, ap) e
 
 fun has_fact f = is_some o f o facts_of_afun;
 
+fun mk_afun name sign axioms facts =
+  AFun {name = name, sign = sign, axioms = axioms, facts = facts, unfolds = []};
+
 fun map_afun f1 f2 f3 f4 f5 (AFun {name, sign, axioms, facts, unfolds}) =
   AFun {name = f1 name, sign = f2 sign, axioms = f3 axioms, facts = f4 facts,
     unfolds = f5 unfolds};
@@ -135,10 +142,6 @@ fun morph_afun phi =
 val transfer_afun = morph_afun o Morphism.transfer_morphism;
 
 fun add_unfolds thms = map_afun I I I I (union Thm.eq_thm_prop thms);
-
-fun join_afuns _ (af1, af2) = if pointer_eq (af1, af2)
-  then raise Same.SAME
-  else add_unfolds (unfolds_of_afun af2) af1;
 
 
 (** Term construction and destruction **)
@@ -221,47 +224,62 @@ fun dest_comb ctxt af t =
 (* FIXME carefully verify context storage *)
 (* FIXME needs tests, especially around theory merging *)
 
+fun join_afuns _ (af1, af2) = if pointer_eq (af1, af2)
+  then raise Change_Table.SAME
+  else add_unfolds (unfolds_of_afun af2) af1;
+
 structure Data = Generic_Data
 (
-  type T = afun Symtab.table * (string * term list) Item_Net.T;
-  val empty = (Symtab.empty, Item_Net.init (op = o apply2 #1) #2);
+  type T = afun Name_Space.table * (string * term list) Item_Net.T;
+  val empty = (Name_Space.empty_table "applicative functor", Item_Net.init (op = o apply2 #1) #2);
   val extend = I;
-  val merge = fn ((a1, b1), (a2, b2)) => (Symtab.join join_afuns (a1, a2), Item_Net.merge (b1, b2));
+  fun merge ((t1, n1), (t2, n2)) =
+    (Name_Space.join_tables join_afuns (t1, t2), Item_Net.merge (n1, n2));
 );
 
-fun undeclared name = error ("Undeclared applicative functor " ^ quote name);
+val get_afuns = #1 o Data.get;
+val get_afun_space = Name_Space.space_of_table o get_afuns;
 
-fun afun_of_generic context name = case Symtab.lookup (#1 (Data.get context)) name of
+val intern = Name_Space.intern o get_afun_space;
+fun extern context = Name_Space.extern (Context.proof_of context) (get_afun_space context);
+
+local fun undeclared name = error ("Undeclared applicative functor " ^ quote name);
+in
+
+fun afun_of_generic context name = case Name_Space.lookup (get_afuns context) name of
     SOME af => transfer_afun (Context.theory_of context) af
   | NONE => undeclared name;
 
 val afun_of = afun_of_generic o Context.Proof;
 
-fun update_afun name f context = if Symtab.defined (#1 (Data.get context)) name
-  then Data.map (apfst (Symtab.map_entry name f)) context
+fun update_afun name f context = if Name_Space.defined (get_afuns context) name
+  then Data.map (apfst (Name_Space.map_table_entry name f)) context
   else undeclared name;
 
-fun afun_names_of context = map #1 o Item_Net.retrieve_matching (#2 (Data.get context));
+end;
+
+fun match_term context = map #1 o Item_Net.retrieve_matching (#2 (Data.get context));
+fun match_typ context = match_term context o Net.encode_type;
 
 (* works only with terms which are combinations of pure and ap *)
-fun afuns_of_term_generic context = map (afun_of_generic context) o afun_names_of context;
+fun afuns_of_term_generic context = map (afun_of_generic context) o match_term context;
 val afuns_of_term = afuns_of_term_generic o Context.Proof;
 
-fun afuns_of_typ_generic context = afuns_of_term_generic context o Net.encode_type;
+fun afuns_of_typ_generic context = map (afun_of_generic context) o match_typ context;
 val afuns_of_typ = afuns_of_typ_generic o Context.Proof;
 
 fun all_unfolds_of_generic context =
-  Symtab.fold (fn (_, af) => append (unfolds_of_afun af)) (#1 (Data.get context)) [];
+  Name_Space.fold_table (fn (_, af) => append (unfolds_of_afun af)) (get_afuns context) [];
 val all_unfolds_of = all_unfolds_of_generic o Context.Proof;
 
 (* FIXME pervasive? *)
-fun register_afun name af =
-  let fun decl phi = Data.map (fn (afuns, net) =>
-    if Symtab.defined afuns name
-    then error ("Duplicate declaration of applicative functor " ^ quote name)
-    else
-      let val af' = morph_afun phi af;
-      in (Symtab.update (name, af') afuns, Item_Net.update (name, patterns_of_afun af') net) end);
+fun register_afun af =
+  let fun decl phi context = Data.map (fn (names, patterns) =>
+    let
+      val af' = morph_afun phi af;
+      val (name, names') = Name_Space.define context true (name_of_afun af, af') names;
+      val patterns' = Item_Net.update (name, patterns_of_afun af') patterns;
+    in (names', patterns') end) context;
   in Local_Theory.declaration {syntax = false, pervasive = false} decl end;
 
 
@@ -313,7 +331,7 @@ fun mk_sign ctxt (raw_pure, raw_ap) =
    {pure = pure, ap = ap, T = (TVar var, tycon), params = map TVar params, sort = sort}
   end;
 
-fun mk_afun ctxt (name, sign, axioms) =
+fun mk_facts ctxt sign axioms =
   let
     fun comb_intro thm = Thm.symmetric (thm RS eq_reflection);
     val B_intro = comb_intro (#composition axioms);
@@ -337,17 +355,16 @@ fun mk_afun ctxt (name, sign, axioms) =
           HEADGOAL (Raw_Simplifier.rewrite_goal_tac ctxt'' [B_intro, merge_rule] THEN'
           resolve_tac ctxt'' [reflexive_thm]);
       in singleton (Variable.export ctxt'' ctxt) (Goal.prove ctxt'' [] [] prop (K tac)) end;
-
-    val facts =
-     {I_intro = comb_intro (#identity axioms),
+  in
+    {I_intro = comb_intro (#identity axioms),
       B_intro = B_intro,
       C_intro = Option.map comb_intro (#flip axioms),
       K_intro = Option.map comb_intro (#const axioms),
       W_intro = Option.map comb_intro (#duplicate axioms),
       merge = merge_rule,
       swap = #interchange axioms RS eq_reflection,
-      B_pure = B_pure};
-  in AFun {name = name, sign = sign, axioms = axioms, facts = facts, unfolds = []} end;
+      B_pure = B_pure}
+  end;
 
 fun mk_comb_prop comb sign ctxt =
   let
@@ -438,9 +455,9 @@ fun applicative_cmd name pure ap flags lthy =
         val axioms = {identity = id_thm, composition = comp_thm, homomorphism = hom_thm,
           interchange = interchange_thm, flip = flip_thm, const = const_thm,
           duplicate = duplicate_thm};
-        val af = mk_afun lthy (name, sign, axioms);
-      in register_afun (Local_Theory.full_name lthy name) af lthy end;
-      (* TODO default name from type *)
+        val facts = mk_facts lthy sign axioms;
+        val af = mk_afun name sign axioms facts;
+      in register_afun af lthy end;
   in Proof.theorem NONE after_qed (map (fn t => [(t, [])]) props) lthy
     |> Proof.refine (Method.primitive_text (Library.K I))
     |> Seq.hd end;
@@ -452,16 +469,16 @@ fun add_unfold_thm name thm context =
   let
     val (lhs, _) = Thm.prop_of thm |> HOLogic.dest_Trueprop |> HOLogic.dest_eq
       handle TERM _ => error "Not an equation";
-    val name' = case name of
-        SOME n => n
-      | NONE => case afun_names_of context (Net.encode_type (Term.fastype_of lhs)) of
-          (n::_) => n
+    val names = case name of
+        SOME n => [intern context n]
+      | NONE => case match_typ context (Term.fastype_of lhs) of
+          ns as (_::_) => ns
         | [] => error "Unable to determine applicative functor instance";
-    val _ = afun_of_generic context name';
+    val _ = map (afun_of_generic context) names;
     (* TODO check equation *)
     (* FIXME could also use Local_Defs.meta_rewrite_rule or unfold_tac *)
     val thm' = thm RS @{thm eq_reflection};
-  in update_afun name' (add_unfolds [thm']) context end;
+  in fold (fn n => update_afun n (add_unfolds [thm'])) names context end;
 
 fun add_unfold_attrib name = Thm.declaration_attribute (add_unfold_thm name);
 
@@ -834,5 +851,8 @@ fun WRAPPER tac ctxt opt_af =
 
 val normalize_wrapper_tac = WRAPPER normalize_eq_tac;
 val lifting_wrapper_tac = WRAPPER general_normalize_eq_tac;
+
+val parse_opt_afun = Scan.peek (fn context =>
+  Scan.option Parse.xname >> Option.map (intern context #> afun_of_generic context));
 
 end;

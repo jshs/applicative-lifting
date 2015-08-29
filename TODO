@@ -1,7 +1,6 @@
 - restructure notes
 
 - del variant for applicative_unfold attribute
-- do name binding properly
 - registration command: note theorems
 - rewrite wrapper for normalform_conv without congruence solver
 - forward lifting

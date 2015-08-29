@@ -5,19 +5,21 @@ begin
 
 ML_file "applicative.ML"
 
-(* TODO parse optional functor name *)
+method_setup applicative_unfold ={*
+  Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
+    SIMPLE_METHOD' (Applicative.unfold_wrapper_tac ctxt opt_af)) *}
 
-method_setup applicative_unfold = {* Scan.succeed (fn ctxt =>
-  SIMPLE_METHOD' (Applicative.unfold_wrapper_tac ctxt NONE)) *}
+method_setup applicative_fold = {*
+  Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
+    SIMPLE_METHOD' (Applicative.fold_wrapper_tac ctxt opt_af)) *}
 
-method_setup applicative_fold = {* Scan.succeed (fn ctxt =>
-  SIMPLE_METHOD' (Applicative.fold_wrapper_tac ctxt NONE)) *}
+method_setup applicative_nf = {*
+  Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
+    SIMPLE_METHOD' (Applicative.normalize_wrapper_tac ctxt opt_af)) *}
 
-method_setup applicative_nf = {* Scan.succeed (fn ctxt =>
-  SIMPLE_METHOD' (Applicative.normalize_wrapper_tac ctxt NONE)) *}
-
-method_setup applicative_lifting = {* Scan.succeed (fn ctxt =>
-  SIMPLE_METHOD' (Applicative.lifting_wrapper_tac ctxt NONE)) *}
+method_setup applicative_lifting = {*
+  Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
+    SIMPLE_METHOD' (Applicative.lifting_wrapper_tac ctxt opt_af)) *}
 
 ML {* Outer_Syntax.local_theory_to_proof @{command_keyword "applicative"}
   "register applicative functors"
