@@ -1,7 +1,6 @@
 - restructure notes
 
 - del variant for applicative_unfold attribute
-- registration command: note theorems
 - rewrite wrapper for normalform_conv without congruence solver
 - forward lifting
 - proper user interface with debugging (list of functors etc.)

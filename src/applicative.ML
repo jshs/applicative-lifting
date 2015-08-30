@@ -44,6 +44,8 @@ struct
 
 (** General utilities **)
 
+fun option none some x = case x of NONE => none | SOME y => some y;
+
 fun filter_flag [] = []
   | filter_flag ((flag, x)::xs) = if flag then x :: filter_flag xs else filter_flag xs;
 
@@ -423,6 +425,23 @@ fun mk_interchange_prop sign ctxt =
     val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
   in Logic.all f (Logic.all x prop) end;
 
+fun note_afun_thms af =
+  let
+    val axioms = axioms_of_afun af;
+    val named_thms =
+      [("afun_id", #identity axioms),
+        ("afun_comp", #composition axioms),
+        ("afun_hom", #homomorphism axioms),
+        ("afun_ichng", #interchange axioms)]
+      |> option I (cons o pair "afun_flip") (#flip axioms)
+      |> option I (cons o pair "afun_const") (#const axioms)
+      |> option I (cons o pair "afun_dup") (#duplicate axioms);
+
+    val base_name = Binding.name_of (name_of_afun af);
+    fun mk_note (name, thm) =
+      ((Binding.qualify true base_name (Binding.name name), []), [([thm], [])]);
+  in Local_Theory.notes (map mk_note named_thms) #> #2 end;
+
 fun applicative_cmd name pure ap flags lthy =
   let
     (* FIXME *)
@@ -457,7 +476,10 @@ fun applicative_cmd name pure ap flags lthy =
           duplicate = duplicate_thm};
         val facts = mk_facts lthy sign axioms;
         val af = mk_afun name sign axioms facts;
-      in register_afun af lthy end;
+      in lthy
+        |> register_afun af
+        |> note_afun_thms af
+      end;
   in Proof.theorem NONE after_qed (map (fn t => [(t, [])]) props) lthy
     |> Proof.refine (Method.primitive_text (Library.K I))
     |> Seq.hd end;
