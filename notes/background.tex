@@ -1,0 +1,124 @@
+\section{Background}\label{sec:background}
+
+\subsection{Proving with Isabelle}\label{subsec:isabelle}
+
+Isabelle was originally designed as a framework for interactive theorem
+proving, without being restricted to a specific logical system~\cite{paulson90}.
+In their regular proving practice, the user then works with a particular
+\emph{object-logic}.
+In this paper, we focus on the Isabelle/HOL object-logic~\cite{npw02}.
+It implements the Higher-Order Logic from \cite{gordon93}. % TODO?
+HOL is arguably the most popular object-logic of Isabelle, as it comes with
+an extensive library of readily formalized mathematics.
+Furthermore, its functional programming characteristics make it easy to use
+in computer science applications. % TODO?
+% TODO FOL/ZF etc? concept of functor?
+
+The basis of HOL is a slightly extended simply-typed lambda calculus.
+Therefore, every object (and every term representing such an object) has a
+certain type attached to it.
+The language of types is quite simple:
+There are base types, type variables, and composite types.
+Base types are represented by their name and include fundamental types like
+the booleans $\mathit{bool}$ and the natural numbers $\mathit{nat}$.
+They can also be defined using derivation mechanisms (which are not of
+particular interest here, except for some examples).
+Type variables make the logic polymorphic---each type variable stands for an
+arbitrary type.
+In Isabelle, they are distinguished by a prefixed `\texttt{'}', e.g.
+\texttt{'a}, \texttt{'b}, \texttt{'c}.
+In this text, we will use lower-case greek letters $\alpha$, $\beta$, $\gamma$
+as meta-variables for types.
+Composite types are built up of a type constructor and a list of types.
+The type constructor determines the number of argument types.
+For example, the unary $\mathit{set}$ type constructor denotes sets with
+elements of a certain type.
+The argument is written on the left as in $\mathit{nat\,set}$, the type of
+sets of natural numbers.
+Multiple types are written in parentheses: $(\alpha, \beta) \mathit{fun}$.
+$\mathit{fun}$ is the special type constructor for (total) functions from
+$\alpha$ to $\beta$.
+As usual, we use the notation $\alpha \funT \beta \funT \gamma$ for
+$(\alpha, (\beta, \gamma) \mathit{fun}) \mathit{fun}$.
+Note that type constructors are different from types and must always be
+concrete.
+In particular, it is not possible to use a variable in place of a type
+constructor!
+
+Terms follow the syntactic rules of lambda calculus:
+Application of function $f$ to argument $x$ is written $f\,x$;
+abstraction of a term $t$ over the variable $x$ is written $\abs{x}{t}$.
+Atomic terms are constants and free variables.
+Terms must be well-typed, of course.
+Types of variables and polymorphic constants can usually be omitted, since
+they are inferred automatically.
+Explicit type constraints are denoted by $t \oftype \alpha$ and may occur
+anywhere in a term.
+While all terms are internally represented roughly as shown above, Isabelle
+comes with extensible notation.
+
+\begin{example}\label{exmp:hol-terms}
+Common arithmetic operators are available, like%
+\footnote{These functions have actually a more generic type (they are
+overloaded). We will look at this later on.}
+$\mathit{plus} \oftype \mathit{nat} \funT \mathit{nat} \funT \mathit{nat}$.
+Functions with multiple arguments are commonly curried in HOL.
+We can also use infix operators: $1 + 3 * (x \oftype \mathit{nat})$ is a
+valid expression.
+An operator can be used like a function with the syntax $\mathtt{op}\,+$.
+Sets can be specified as finite collections $\{\}$, $\{a, b, c\}$ etc., and
+using set comprehension:
+Let $P$ be a predicate $\alpha \funT \mathit{bool}$.
+Then $\{x.\; P x\}$ is the set of those values $x \oftype \alpha$ such that
+$P x$ is true, and $\set{f x}{x.\; P x}$ is the image of that set under $f$.
+
+Logical formulas are centered around truth values.
+Thus, the usual connectives like conjunction $\land$ and implication
+$\longrightarrow$ operate on type $\mathit{bool}$.
+Quantifiers work just as expected: The term
+\[ \all{(x \oftype \mathit{nat})\,y}{x + y = y + x} \]
+states that addition of natural numbers is commutative.
+Internally, quantifiers are represented as constants applied to lambda
+abstractions, which handle the variable binding.
+\end{example}
+
+In contemporary use of Isabelle, user input to the system is expressed in
+the Isar language~\cite{wenzel99,wenzel02,isar-ref}.
+It aims to encode proofs in a way that is formal, i.e. has precise semantics,
+but still resembles informal patterns of reasoning.
+The basic organization unit in Isar is a \emph{theory}.
+The body of a theory consists of a sequence of commands, which consecutively
+augment the logical context by declarations of various kinds.
+Other theories may be imported in the beginning, leading to a acyclic graph
+of theory dependencies.
+Commands constitute the so-called outer syntax of Isar.
+Terms and types occuring within them are parsed separately, according to the
+inner syntax.
+They are usually embedded in quotes `\texttt{"}\dots\texttt{"}' to disambiguate
+them.
+In certain cases, a command may put the theory state into proof mode.
+% TODO goal, subgoal, nesting
+After a proof is finished, the associated goal becomes a \emph{fact}.
+% TODO facts by assumption
+
+Some commonly used specifications are:
+\begin{itemize}
+\item The \textbf{definition} command introduces new constants by means of
+	defining equations.
+\item \todo{} \textbf{datatype}, \textbf{primrec}
+\item Facts can be given names for further use in proofs.
+	The canonical command for this is \textbf{lemma} and its variants
+	\textbf{theorem} and \textbf{corollary}.
+\item \todo{} \textbf{locale}?
+\end{itemize}
+
+Finally, there two syntactical categories which are repeatedly used in commands:
+\emph{Proof methods} denote (possibly parameterized) operations on the goal state.
+\emph{Attributes} invoke further processing steps on facts, either transforming
+them or causing additional declarations.
+
+% TODO
+% - Isar example
+% - Pure
+% - ML: Thm, tactics, conv etc.
+% - Overview figure, what is being worked with

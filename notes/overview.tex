@@ -156,16 +156,6 @@ method completes the subproof.
 
 \subsection{Proof Strategy}\label{subsec:proof-strategy}
 
-%At its core, Isabelle provides an infrastructure for deduction of logical
-%content within flexible contexts.
-%The logical system exposed to the user is not fixed.
-%Instead, the Pure meta-logic is the basis for inference rules and derive from
-%them \cite{paulson90}.
-%On top of that, one defines the actual object logic in terms of declarations
-%and additional axioms.
-%We are working with the standard HOL theory, Isabelle's version of higher-order
-%logic. % TODO citation
-
 The proof method starts with testing the first subgoal for the expected
 structure.
 If the test succeeds, the applicative functor $f$ is known, such that the
