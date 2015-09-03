@@ -6,98 +6,60 @@ section {* Normal form conversion *}
 
 subsection {* Example: Abstract functor *}
 
-lemma af_identity': "pure (\<lambda>x. x) \<diamond> x = x"
-using af_identity unfolding id_def .
-
-lemma af_composition': "pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x = g \<diamond> (f \<diamond> x)"
-using af_composition unfolding comp_def[THEN ext, THEN ext] .
-
-setup {*
-  let
-    val abstract_sign = Applicative.mk_sign @{context} (@{term "pure"}, @{term "op \<diamond>"});
-    val abstract_laws =
-     {identity = @{thm af_identity'},
-      composition = @{thm af_composition'},
-      homomorphism = @{thm af_homomorphism},
-      interchange = @{thm af_interchange},
-      flip = NONE, const = NONE, duplicate = NONE};
-    val abstract_af = Applicative.mk_afun @{context} (abstract_sign, abstract_laws);
-  in Applicative.add_global abstract_af end
-*}
+applicative af
+for
+  pure: pure
+  ap: "op \<diamond>"
+using af_identity af_composition af_homomorphism af_interchange
+unfolding id_def comp_def[THEN ext, THEN ext]
+.
 
 notepad
 begin
-  have "\<And>x. x = pure (\<lambda>x. x) \<diamond> x" by lifting_nf
-  have "\<And>x. pure x = pure x" by lifting_nf
-  have "\<And>f x. pure f \<diamond> x = pure f \<diamond> x" by lifting_nf
-  have "\<And>f x y. pure f \<diamond> x \<diamond> y = pure f \<diamond> x \<diamond> y" by lifting_nf
-  have "\<And>g f x. pure g \<diamond> (f \<diamond> x) = pure (\<lambda>f x. g (f x)) \<diamond> f \<diamond> x" by lifting_nf
-  have "\<And>f x y. f \<diamond> x \<diamond> y = pure (\<lambda>f x y. f x y) \<diamond> f \<diamond> x \<diamond> y" by lifting_nf
-  have "\<And>g f x. g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by lifting_nf
-  have "\<And>f x. f \<diamond> pure x = pure (\<lambda>f. f x) \<diamond> f" by lifting_nf
-  have "\<And>x y. pure x \<diamond> pure y = pure (x y)" by lifting_nf
-  have "\<And>f x y. f \<diamond> x \<diamond> pure y = pure (\<lambda>f x. f x y) \<diamond> f \<diamond> x" by lifting_nf
-  have "\<And>f x y. pure f \<diamond> x \<diamond> pure y = pure (\<lambda>x. f x y) \<diamond> x" by lifting_nf
-  have "\<And>f x y z. pure f \<diamond> x \<diamond> pure y \<diamond> z = pure (\<lambda>x z. f x y z) \<diamond> x \<diamond> z" by lifting_nf
-  have "\<And>f x g y. pure f \<diamond> x \<diamond> (pure g \<diamond> y) = pure (\<lambda>x y. f x (g y)) \<diamond> x \<diamond> y" by lifting_nf
-  have "\<And>f g x y. f \<diamond> (g \<diamond> x) \<diamond> y = pure (\<lambda>f g x y. f (g x) y) \<diamond> f \<diamond> g \<diamond> x \<diamond> y" by lifting_nf
-  have "\<And>f g x y z. f \<diamond> (g \<diamond> x \<diamond> y) \<diamond> z = pure (\<lambda>f g x y z. f (g x y) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> y \<diamond> z" by lifting_nf
-  have "\<And>f g x y z. f \<diamond> (g \<diamond> (x \<diamond> pure y)) \<diamond> z = pure (\<lambda>f g x z. f (g (x y)) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> z" by lifting_nf
-  have "\<And>f g x. f \<diamond> (g \<diamond> x \<diamond> x) = pure (\<lambda>f g x x'. f (g x x')) \<diamond> f \<diamond> g \<diamond> x \<diamond> x" by lifting_nf
-  have "\<And>f x y. f x \<diamond> y = pure (\<lambda>f x. f x) \<diamond> f x \<diamond> y" by lifting_nf
+  have "\<forall>x. x = pure (\<lambda>x. x) \<diamond> x" by applicative_nf
+  have "\<forall>x. pure x = pure x" by applicative_nf
+  have "\<forall>f x. pure f \<diamond> x = pure f \<diamond> x" by applicative_nf
+  have "\<forall>f x y. pure f \<diamond> x \<diamond> y = pure f \<diamond> x \<diamond> y" by applicative_nf
+  have "\<forall>g f x. pure g \<diamond> (f \<diamond> x) = pure (\<lambda>f x. g (f x)) \<diamond> f \<diamond> x" by applicative_nf
+  have "\<forall>f x y. f \<diamond> x \<diamond> y = pure (\<lambda>f x y. f x y) \<diamond> f \<diamond> x \<diamond> y" by applicative_nf
+  have "\<forall>g f x. g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by applicative_nf
+  have "\<forall>f x. f \<diamond> pure x = pure (\<lambda>f. f x) \<diamond> f" by applicative_nf
+  have "\<forall>x y. pure x \<diamond> pure y = pure (x y)" by applicative_nf
+  have "\<forall>f x y. f \<diamond> x \<diamond> pure y = pure (\<lambda>f x. f x y) \<diamond> f \<diamond> x" by applicative_nf
+  have "\<forall>f x y. pure f \<diamond> x \<diamond> pure y = pure (\<lambda>x. f x y) \<diamond> x" by applicative_nf
+  have "\<forall>f x y z. pure f \<diamond> x \<diamond> pure y \<diamond> z = pure (\<lambda>x z. f x y z) \<diamond> x \<diamond> z" by applicative_nf
+  have "\<forall>f x g y. pure f \<diamond> x \<diamond> (pure g \<diamond> y) = pure (\<lambda>x y. f x (g y)) \<diamond> x \<diamond> y" by applicative_nf
+  have "\<forall>f g x y. f \<diamond> (g \<diamond> x) \<diamond> y = pure (\<lambda>f g x y. f (g x) y) \<diamond> f \<diamond> g \<diamond> x \<diamond> y" by applicative_nf
+  have "\<forall>f g x y z. f \<diamond> (g \<diamond> x \<diamond> y) \<diamond> z = pure (\<lambda>f g x y z. f (g x y) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> y \<diamond> z" by applicative_nf
+  have "\<forall>f g x y z. f \<diamond> (g \<diamond> (x \<diamond> pure y)) \<diamond> z = pure (\<lambda>f g x z. f (g (x y)) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> z" by applicative_nf
+  have "\<forall>f g x. f \<diamond> (g \<diamond> x \<diamond> x) = pure (\<lambda>f g x x'. f (g x x')) \<diamond> f \<diamond> g \<diamond> x \<diamond> x" by applicative_nf
+  have "\<forall>f x y. f x \<diamond> y = pure (\<lambda>f x. f x) \<diamond> f x \<diamond> y" by applicative_nf
 next
   fix f :: "('a \<Rightarrow> 'b) af" and g :: "('b \<Rightarrow> 'c) af" and x
-  have "g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by lifting_nf
+  have "g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by applicative_nf
 end
 (* TODO automatic test for names of new variables *)
+
+lemma "\<And>f x. f \<diamond> x = x"
+apply applicative_nf
+oops
 
 
 subsection {* Example: Sets *}
 
-(* TODO fix normalform_conv such that it works with {x} directly, if possible *)
-definition single :: "'a \<Rightarrow> 'a set"
-  where "single x = {x}"
-
 definition set_ap :: "('a \<Rightarrow> 'b) set \<Rightarrow> 'a set \<Rightarrow> 'b set" (infixl "\<otimes>" 60)
   where "F \<otimes> X = {f x | f x. f \<in> F \<and> x \<in> X}"
 
-lemma set_identity: "single (\<lambda>x. x) \<otimes> X = X"
+applicative set (C)
+for
+  pure: "\<lambda>x. {x}"
+  ap: "op \<otimes>"
 unfolding single_def set_ap_def
-by simp
-
-lemma set_homomorphism: "single f \<otimes> single x = single (f x)"
-unfolding single_def set_ap_def
-by simp
-
-lemma set_composition: "single (\<lambda>g f x. g (f x)) \<otimes> G \<otimes> F \<otimes> X = G \<otimes> (F \<otimes> X)"
-unfolding single_def set_ap_def
-by fastforce
-
-lemma set_interchange: "F \<otimes> single x = single (\<lambda>g. g x) \<otimes> F"
-unfolding single_def set_ap_def
-by simp
-
-lemma set_flip: "single (\<lambda>f x y. f y x) \<otimes> F \<otimes> X \<otimes> Y = F \<otimes> Y \<otimes> X"
-unfolding single_def set_ap_def
-by fastforce
-
-setup {*
-  let
-    val set_sign = Applicative.mk_sign @{context} (@{term "single"}, @{term "op \<otimes>"});
-    val set_laws =
-     {identity = @{thm set_identity},
-      composition = @{thm set_composition},
-      homomorphism = @{thm set_homomorphism},
-      interchange = @{thm set_interchange},
-      flip = SOME @{thm set_flip},
-      const = NONE, duplicate = NONE};
-    val set_af = Applicative.mk_afun @{context} (set_sign, set_laws);
-  in Applicative.add_global set_af end
-*}
+by fastforce+
 
 instantiation set :: (plus) plus
 begin
-  definition set_plus_def: "X + Y = single plus \<otimes> X \<otimes> Y"
+  definition set_plus_def[applicative_unfold]: "X + Y = {plus} \<otimes> X \<otimes> Y"
   instance ..
 end
 
@@ -106,7 +68,7 @@ begin
   instance proof
     fix X Y Z :: "'a set"
     from add.assoc
-    show "X + Y + Z = X + (Y + Z)" unfolding set_plus_def by general_lifting
+    show "X + Y + Z = X + (Y + Z)" by applicative_lifting
    qed
 end
 
@@ -115,52 +77,43 @@ begin
   instance proof
     fix X Y :: "'a set"
     from add.commute
-    show "X + Y = Y + X" unfolding set_plus_def by general_lifting
+    show "X + Y = Y + X" by applicative_lifting
   qed
 end
 
 
 subsection {* Example: Sum type (a.k.a. either) *}
 
-(* TODO support parametric functors to generalize the other type *)
-
-fun do_with :: "('a \<Rightarrow> 'b) + nat \<Rightarrow> 'a + nat \<Rightarrow> 'b + nat" (infixl "\<oplus>" 60)
+fun do_with :: "('a \<Rightarrow> 'b) + 'e \<Rightarrow> 'a + 'e \<Rightarrow> 'b + 'e" (infixl "\<oplus>" 60)
 where
     "Inr e \<oplus> _ = Inr e"
   | "Inl f \<oplus> Inr e = Inr e"
   | "Inl f \<oplus> Inl x = Inl (f x)"
 
-lemma inl_identity: "Inl (\<lambda>x. x) \<oplus> x = x"
-by (cases x) simp_all
+(* FIXME names of type variables in proof obligations are visible to user *)
 
-lemma inl_homomorphism: "Inl f \<oplus> Inl x = Inl (f x)"
-by simp
+applicative either (W)
+for
+  pure: "Inl :: 'a \<Rightarrow> 'a + 'e"
+  ap: do_with
+proof -
+  fix g f x
+  show "Inl (\<lambda>x. x) \<oplus> x = x" by (cases x) simp_all
+  show "Inl (\<lambda>g f x. g (f x)) \<oplus> g \<oplus> f \<oplus> x = g \<oplus> (f \<oplus> x)"
+    by (cases g, cases f, cases x) simp_all
+next
+  fix f x
+  show "Inl f \<oplus> Inl x = Inl (f x)" by simp
+next
+  fix f x
+  show "f \<oplus> Inl x = Inl (\<lambda>f. f x) \<oplus> f" by (cases f) simp_all
+next
+  fix f x
+  show "Inl (\<lambda>f x. f x x) \<oplus> f \<oplus> x = f \<oplus> x \<oplus> x" by (cases f, cases x) simp_all
+qed
 
-lemma inl_composition: "Inl (\<lambda>g f x. g (f x)) \<oplus> g \<oplus> f \<oplus> x = g \<oplus> (f \<oplus> x)"
-by (cases g, cases f, cases x) simp_all
-
-lemma inl_interchange: "f \<oplus> Inl x = Inl (\<lambda>f. f x) \<oplus> f"
-by (cases f) simp_all
-
-lemma inl_duplicate: "Inl (\<lambda>f x. f x x) \<oplus> f \<oplus> x = f \<oplus> x \<oplus> x"
-by (cases f, cases x) simp_all
-
-setup {*
-  let
-    val inl_sign = Applicative.mk_sign @{context} (@{term "Inl::'a \<Rightarrow> 'a + nat"}, @{term "op \<oplus>"});
-    val inl_laws =
-     {identity = @{thm inl_identity},
-      composition = @{thm inl_composition},
-      homomorphism = @{thm inl_homomorphism},
-      interchange = @{thm inl_interchange},
-      flip = NONE, const = NONE,
-      duplicate = SOME @{thm inl_duplicate}};
-    val inl_af = Applicative.mk_afun @{context} (inl_sign, inl_laws);
-  in Applicative.add_global inl_af end
-*}
-
-lemma "Inl plus \<oplus> (x :: nat + nat) \<oplus> x = Inl (\<lambda>x. 2 * x) \<oplus> x"
-by general_lifting linarith
+lemma "Inl plus \<oplus> (x :: nat + 'e list) \<oplus> x = Inl (\<lambda>x. 2 * x) \<oplus> x"
+by applicative_lifting
 
 
 subsection {* Example: Streams *}
@@ -169,67 +122,125 @@ definition stream_ap :: "('a \<Rightarrow> 'b) stream \<Rightarrow> 'a stream \<
 where
   "stream_ap f x = smap (\<lambda>(f, x). f x) (szip f x)"
 
-lemma stream_identity: "sconst (\<lambda>x. x) <.> x = x"
-unfolding stream_ap_def
-by (coinduction arbitrary: x) simp
+applicative stream (C, K, W)
+for
+  pure: sconst
+  ap: stream_ap
+proof -
+  fix x
+  show "sconst (\<lambda>x. x) <.> x = x"
+    unfolding stream_ap_def
+    by (coinduction arbitrary: x) simp
+next
+  fix f x
+  show "sconst f <.> sconst x = sconst (f x)"
+    unfolding stream_ap_def
+    by coinduction simp
+next
+  fix g f x
+  show "sconst (\<lambda>g f x. g (f x)) <.> g <.> f <.> x = g <.> (f <.> x)"
+    unfolding stream_ap_def
+    by (coinduction arbitrary: g f x) auto
+next
+  fix f x
+  show "f <.> sconst x = sconst (\<lambda>f. f x) <.> f"
+    unfolding stream_ap_def
+    by (coinduction arbitrary: f) auto
+next
+  fix f x y
+  show "sconst (\<lambda>f x y. f y x) <.> f <.> x <.> y = f <.> y <.> x"
+    unfolding stream_ap_def
+    by (coinduction arbitrary: f x y) auto
+next
+  fix x y
+  show "sconst (\<lambda>x y. x) <.> x <.> y = x"
+    unfolding stream_ap_def
+    by (coinduction arbitrary: x y) auto
+next
+  fix f x
+  show "sconst (\<lambda>f x. f x x) <.> f <.> x = f <.> x <.> x"
+    unfolding stream_ap_def
+    by (coinduction arbitrary: f x) auto
+qed
 
-lemma stream_homomorphism: "sconst f <.> sconst x = sconst (f x)"
+lemma smap_applicative[applicative_unfold]: "smap f x = sconst f <.> x"
 unfolding stream_ap_def
-by coinduction simp
+by (coinduction arbitrary: x) auto
 
-lemma stream_composition: "sconst (\<lambda>g f x. g (f x)) <.> g <.> f <.> x = g <.> (f <.> x)"
-unfolding stream_ap_def
-by (coinduction arbitrary: g f x) auto
-
-lemma stream_interchange: "f <.> sconst x = sconst (\<lambda>f. f x) <.> f"
-unfolding stream_ap_def
-by (coinduction arbitrary: f) auto
-
-lemma stream_flip: "sconst (\<lambda>f x y. f y x) <.> f <.> x <.> y = f <.> y <.> x"
-unfolding stream_ap_def
-by (coinduction arbitrary: f x y) auto
-
-lemma stream_const: "sconst (\<lambda>x y. x) <.> x <.> y = x"
+lemma smap2_applicative[applicative_unfold]: "smap2 f x y = sconst f <.> x <.> y"
 unfolding stream_ap_def
 by (coinduction arbitrary: x y) auto
 
-lemma stream_duplicate: "sconst (\<lambda>f x. f x x) <.> f <.> x = f <.> x <.> x"
-unfolding stream_ap_def
-by (coinduction arbitrary: f x) auto
-
-setup {*
-  let
-    val stream_sign = Applicative.mk_sign @{context} (@{term "sconst"}, @{term "op <.>"});
-    val stream_laws =
-     {identity = @{thm stream_identity},
-      composition = @{thm stream_composition},
-      homomorphism = @{thm stream_homomorphism},
-      interchange = @{thm stream_interchange},
-      flip = SOME @{thm stream_flip},
-      const = SOME @{thm stream_const},
-      duplicate = SOME @{thm stream_duplicate}};
-    val stream_af = Applicative.mk_afun @{context} (stream_sign, stream_laws);
-  in Applicative.add_global stream_af end
-*}
-
 instantiation stream :: (plus) plus
 begin
-  definition stream_plus_def: "x + y = sconst plus <.> x <.> y"
+  definition stream_plus_def[applicative_unfold]: "x + y = sconst plus <.> x <.> y"
   instance ..
 end
 
 instantiation stream :: (times) times
 begin
-  definition stream_times_def: "x * y = sconst times <.> x <.> y"
+  definition stream_times_def[applicative_unfold]: "x * y = sconst times <.> x <.> y"
   instance ..
 end
 
 lemma "(x::int stream) * sconst 0 = sconst 0"
-unfolding stream_times_def
-by general_lifting linarith
+by applicative_lifting
 
 lemma "(x::int stream) * (y + z) = x * y + x * z"
-unfolding stream_plus_def stream_times_def
-by general_lifting algebra
+apply applicative_lifting
+by algebra
+
+
+definition "lift_streams xs = foldr (smap2 Cons) xs (sconst [])"
+
+lemma lift_streams_Nil[applicative_unfold]: "lift_streams [] = sconst []"
+unfolding lift_streams_def
+by simp
+
+lemma lift_streams_Cons[applicative_unfold]:
+  "lift_streams (x # xs) = smap2 Cons x (lift_streams xs)"
+unfolding lift_streams_def
+by applicative_unfold
+
+lemma stream_append_Cons: "smap2 append (smap2 Cons x ys) zs = smap2 Cons x (smap2 append ys zs)"
+by applicative_lifting
+
+lemma lift_streams_append[applicative_unfold]:
+  "lift_streams (xs @ ys) = smap2 append (lift_streams xs) (lift_streams ys)"
+proof (induction xs)
+  case Nil
+  (*
+    case could be proved directly if "lift_streams ([] @ ys) = lift_streams ys" is solved
+    in head_cong_tac (invoke simplifier?) -- but only with applicative_nf
+  *)
+  have "lift_streams ys = sconst append <.> lift_streams [] <.> lift_streams ys"
+    by applicative_lifting
+  thus ?case by applicative_unfold
+next
+  case (Cons x xs)
+  with stream_append_Cons  (* the actual lifted fact *)
+  show ?case by applicative_unfold (rule sym)  (* slightly weird *)
+qed
+
+(* There seems to be a pattern! *)
+
+lemma "lift_streams (rev x) = smap rev (lift_streams x)"
+proof (induction x)
+  case Nil
+  have "lift_streams [] = smap rev (lift_streams [])"
+    by applicative_lifting
+  thus ?case by simp
+next
+  case (Cons x xs)
+  have "\<forall>y ys. rev ys @ [y] = rev (y # ys)" by simp
+  hence "\<forall>y ys. smap2 append (smap rev ys) (smap2 Cons y (sconst [])) = smap rev (smap2 Cons y ys)"
+    by applicative_lifting
+  with Cons.IH show ?case by applicative_unfold blast
+qed
+
+definition [applicative_unfold]: "sconcat xs = smap concat xs"
+
+lemma "sconcat (lift_streams [sconst ''Hello '', sconst ''world!'']) = sconst ''Hello world!''"
+by applicative_lifting
 
 end

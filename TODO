@@ -1,14 +1,17 @@
-- document normalization algorithm
+- restructure notes
 
-- NF: forbid beta redexes
-- NF: allow additional fixed (type) variables
-- NF: extend 'unlift' wrapper
-- provide rewrite wrapper for normalform_conv
+- del variant for applicative_unfold attribute
+- registration command: note theorems
+- rewrite wrapper for normalform_conv without congruence solver
+- forward lifting
+- proper user interface with debugging (list of functors etc.)
+- use of adhoc overloading?
 
-- lifting lemma: investigate combinator subsets
+- restructure tests & examples
 
-- proper user interface with debugging
-- intermediate forms (cf. Hinze, §7)?
-- other logical operators -> relators
+- document lifting lemma approach
+- investigate combinator subsets (intuitive meaning?)
+- document implementation
 - comparison with related tools
-- examples & tests
+
+- other logical operators -> relators
