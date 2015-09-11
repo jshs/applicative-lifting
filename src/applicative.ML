@@ -55,7 +55,6 @@ fun pick_if false xs = (NONE, xs)
 
 fun mk_TFrees Ss ctxt = Variable.invent_types Ss ctxt |>> map TFree;
 val mk_TFrees' = mk_TFrees oo replicate;
-val mk_TFrees_of_vars = mk_TFrees o map (#2 o Term.dest_TVar);
 
 fun mk_Free name typ ctxt = Variable.variant_fixes [name] ctxt
   |>> (fn name' => Free (name', typ)) o the_single;
@@ -67,14 +66,16 @@ type sign =
  {pure: term,
   ap: term,
   T: typ * typ,  (* variable, type pattern *)
+  sort: sort,
   params: typ list,
-  sort: sort};
+  param_sorts: sort list};
 
-fun map_sign f1 f2 f3 f4 f5 {pure, ap, T, params, sort} =
-  {pure = f1 pure, ap = f2 ap, T = f3 T, params = f4 params, sort = f5 sort};
+fun map_sign f1 f2 f3 f4 f5 f6 {pure, ap, T, sort, params, param_sorts} =
+  {pure = f1 pure, ap = f2 ap, T = f3 T, sort = f4 sort, params = f5 params,
+    param_sorts = f6 param_sorts};
 
 fun morph_sign phi = map_sign (Morphism.term phi) (Morphism.term phi) (apply2 (Morphism.typ phi))
-  (map (Morphism.typ phi)) I;
+  I (map (Morphism.typ phi)) I;
 
 type axioms =
  {identity: thm,
@@ -304,6 +305,7 @@ fun mk_sign ctxt (raw_pure, raw_ap) =
     val (var as (_, pure_sort), tycon) = Term.fastype_of pure |> Term.dest_funT |>> Term.dest_TVar
       handle TYPE _ => bad_types ();
     val params = subtract (op =) [var] (Term.add_tvars pure []);
+    val param_sorts = map (fn (_, S) => Sign.inter_sort thy (S, @{sort HOL.type})) params;
 
     val ap = closed_poly_term raw_ap;
     val i = Term.maxidx_of_term pure;
@@ -322,12 +324,13 @@ fun mk_sign ctxt (raw_pure, raw_ap) =
     val _ = ap_var1' <> ap_var2' orelse bad_types ();
     (* FIXME check additional type params *)
 
-    val sort = foldl1 (Sign.inter_sort thy) [pure_sort, ap_sort1, ap_sort2];
+    val sort = foldl1 (Sign.inter_sort thy) [pure_sort, ap_sort1, ap_sort2, @{sort HOL.type}];
     val _ = Sign.of_sort thy (Term.aT sort --> Term.aT sort, sort) orelse
       error ("Sort constraint " ^ quote (Syntax.string_of_sort ctxt sort) ^
         " not closed under function types");
   in
-   {pure = pure, ap = ap, T = (TVar var, tycon), params = map TVar params, sort = sort}
+   {pure = pure, ap = ap, T = (TVar var, tycon), sort = sort, params = map TVar params,
+     param_sorts = param_sorts}
   end;
 
 fun mk_facts ctxt sign axioms =
@@ -340,7 +343,7 @@ fun mk_facts ctxt sign axioms =
       let
         val (([T1, T2, T3], Ts), ctxt') = ctxt
           |> mk_TFrees' 3 (#sort sign)
-          ||>> mk_TFrees_of_vars (#params sign);
+          ||>> mk_TFrees (#param_sorts sign);
         val (((g, f), x), ctxt'') = ctxt'
           |> mk_Free "g" (T2 --> T3)
           ||>> mk_Free "f" (lift_type_sign sign Ts (T1 --> T2))
@@ -370,7 +373,7 @@ fun mk_comb_prop comb sign ctxt =
     val comb_tfrees = Term.add_tfrees comb [];
     val ((Ts, Us), ctxt') = ctxt
       |> mk_TFrees' (length comb_tfrees) (#sort sign)
-      ||>> mk_TFrees_of_vars (#params sign);
+      ||>> mk_TFrees (#param_sorts sign);
     val comb' = Term.subst_atomic_types (map TFree comb_tfrees ~~ Ts) comb;
     val (bound_names, bound_Ts) = split_list (Term.strip_abs_vars comb');
     val (var_names, ctxt'') = Variable.variant_fixes bound_names ctxt';
@@ -399,7 +402,7 @@ fun mk_homomorphism_prop sign ctxt =
   let
     val (([T1, T2], Us), ctxt') = ctxt
       |> mk_TFrees' 2 (#sort sign)
-      ||>> mk_TFrees_of_vars (#params sign);
+      ||>> mk_TFrees (#param_sorts sign);
     val ((f, x), ctxt'') = ctxt'
       |> mk_Free "f" (T1 --> T2)
       ||>> mk_Free "x" T1;
@@ -412,7 +415,7 @@ fun mk_interchange_prop sign ctxt =
   let
     val (([T1, T2], Us), ctxt') = ctxt
       |> mk_TFrees' 2 (#sort sign)
-      ||>> mk_TFrees_of_vars (#params sign);
+      ||>> mk_TFrees (#param_sorts sign);
     val ((f, x), ctxt'') = ctxt'
       |> mk_Free "f" (lift_type_sign sign Us (T1 --> T2))
       ||>> mk_Free "x" T1;
