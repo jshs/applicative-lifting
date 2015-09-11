@@ -49,9 +49,6 @@ fun option none some x = case x of NONE => none | SOME y => some y;
 fun filter_flag [] = []
   | filter_flag ((flag, x)::xs) = if flag then x :: filter_flag xs else filter_flag xs;
 
-fun pick (x::xs) = (x, xs)
-  | pick _ = raise List.Empty;
-
 fun pick_if false xs = (NONE, xs)
   | pick_if true (x::xs) = (SOME x, xs)
   | pick_if true _ = raise List.Empty;
@@ -127,7 +124,7 @@ val unfolds_of_afun = #unfolds o rep_afun;
 val facts_of_afun = #facts o rep_afun;
 fun terms_of_afun af = let val {pure, ap, ...} = sign_of_afun af in (pure, ap) end;
 
-fun has_fact f = is_some o f o facts_of_afun;
+fun has_axiom f = is_some o f o axioms_of_afun;
 
 fun mk_afun name sign axioms facts =
   AFun {name = name, sign = sign, axioms = axioms, facts = facts, unfolds = []};
@@ -461,11 +458,7 @@ fun applicative_cmd name pure ap flags lthy =
 
     fun after_qed thmss lthy =
       let
-        val ((((id_thm, comp_thm), hom_thm), interchange_thm), extra_thms) = flat thmss
-          |> pick
-          ||>> pick
-          ||>> pick
-          ||>> pick;
+        val (id_thm :: comp_thm :: hom_thm :: interchange_thm :: extra_thms) = flat thmss;
         val (((flip_thm), const_thm), duplicate_thm) = extra_thms
           |> pick_if C
           ||>> pick_if K
@@ -600,76 +593,85 @@ fun normalform_conv ctxt af =
 val normalize_eq_tac = hol_eq_conv_tac o apply2 oo normalform_conv;
 
 
-(* Generalized unlifting *)
+(* Bracket abstraction and generalized unlifting *)
 
-datatype tterm = Atom of term | Var of int * int * term | App of tterm * tterm;
+datatype apterm =
+    Pure of term  (* includes pure application *)
+  | Var of int * term  (* unique index, instantiated term *)
+  | Ap of apterm * apterm;
 
-fun fold_atterms f (App (s, t)) = fold_atterms f s #> fold_atterms f t
-  | fold_atterms f a = f a;
+fun apterm_vars (Pure _) = I
+  | apterm_vars (Var v) = cons v
+  | apterm_vars (Ap (t1, t2)) = apterm_vars t1 #> apterm_vars t2;
 
-val cons_tterm_vars = fold_atterms (fn Var (i, j, _) => cons (i, j) | _ => I);
+fun occurs_any _ (Pure _) = false
+  | occurs_any vs (Var (i, _)) = exists (fn j => i = j) vs
+  | occurs_any vs (Ap (t1, t2)) = occurs_any vs t1 orelse occurs_any vs t2;
 
-fun occurs_any v (App (s, t)) = occurs_any v s orelse occurs_any v t
-  | occurs_any v (Var (i, _, _)) = exists (fn x => i = x) v
-  | occurs_any _ _ = false;
-
-fun term_of_tterm comb tt =
+fun term_of_apterm ctxt af t =
   let
-    fun tm_of (Atom t) = t
-      | tm_of (Var (_, _, t)) = t
-      | tm_of (App (tt1, tt2)) = comb (tm_of tt1) (tm_of tt2);
-  in tm_of tt end;
+    fun tm_of (Pure t) = t
+      | tm_of (Var (_, t)) = t
+      | tm_of (Ap (t1, t2)) = lift_comb ctxt af (tm_of t1, tm_of t2);
+  in tm_of t end;
 
-fun analyze_terms ctxt af (t1, t2) =
+fun apterm_of_term ctxt af t =
   let
-    fun generalize t (i, j, table, insts) = case Termtab.lookup table t of
-        SOME k => (Var (i, k, t), (i + 1, j, table, insts))
-      | NONE => (Var (i, j, t), (i + 1, j + 1, Termtab.insert (op =) (t, j) table, t :: insts));
-    fun analyze t state = case try (dest_comb ctxt af) t of
-        SOME (t1, t2) => state |> analyze t1 ||>> analyze t2 |>> App
+    fun aptm_of t i = case try (dest_comb ctxt af) t of
+        SOME (t1, t2) => i |> aptm_of t1 ||>> aptm_of t2 |>> Ap
       | NONE => if can (dest_pure ctxt af) t
-            then (Atom t, state)
-            else generalize t state;
-    val get_insts = rev o #4;
-  in (0, 0, Termtab.empty, []) |> analyze t1 ||>> analyze t2 ||> get_insts end;
+          then (Pure t, i)
+          else (Var (i, t), i + 1);
+  in aptm_of t end;
 
-fun consolidate ctxt af ((tt1, tt2), insts) =
+fun consolidate ctxt af (t1, t2) =
   let
-    fun merge_adjacent ([], _) [] = []
-      | merge_adjacent (vs, d) [] = [(vs, d)]
-      | merge_adjacent ([], _) ((v, d)::xs) = merge_adjacent ([v], d) xs
-      | merge_adjacent (vs, d) ((v', d')::xs) = if d = d'
-          then merge_adjacent (v'::vs, d) xs
-          else (vs, d) :: merge_adjacent ([v'], d') xs;
+    fun common_inst (i, t) (j, insts) = case Termtab.lookup insts t of
+        SOME k => (((i, t), k), (j, insts))
+      | NONE => (((i, t), j), (j + 1, Termtab.update (t, j) insts));
+
+    val (vars, _) = (0, Termtab.empty)
+      |> fold_map common_inst (apterm_vars t1 [])
+      ||>> fold_map common_inst (apterm_vars t2 []);
+
+    fun merge_adjacent (([], _), _) [] = []
+      | merge_adjacent ((is, t), d) [] = [((is, t), d)]
+      | merge_adjacent (([], _), _) (((i, t), d)::xs) = merge_adjacent (([i], t), d) xs
+      | merge_adjacent ((is, t), d) (((i', t'), d')::xs) = if d = d'
+          then merge_adjacent ((i'::is, t), d) xs
+          else ((is, t), d) :: merge_adjacent (([i'], t'), d') xs;
+
     fun align _ [] = NONE
-      | align (v, d) ((v', d')::xs) = if d = d'
-          then SOME [(v @ v', d)]
-          else Option.map (cons (v', d')) (align (v, d) xs);
-    (* TODO select by least insertions *)
+      | align ((i, t), d) (((i', t'), d')::xs) = if d = d'
+          then SOME [((i @ i', t), d)]
+          else Option.map (cons ((i', t'), d')) (align ((i, t), d) xs);
     fun merge ([], ys) = ys
       | merge (xs, []) = xs
-      | merge (((v1, d1)::xs), ((v2, d2)::ys)) = if d1 = d2
-          then (v1 @ v2, d1) :: merge (xs, ys)
-          else case (align (v2, d2) xs, align (v1, d1) ys) of
-              (SOME vs, NONE) => vs @ merge (xs, ys)
-            | (NONE, SOME vs) => vs @ merge (xs, ys)
-            | _ => (v1, d1) :: (v2, d2) :: merge (xs, ys);
-    fun unbalanced vs = error ("Unbalanced opaque term(s) " ^
-      commas_quote (map (Syntax.string_of_term ctxt o nth insts o #2) vs));
-    fun mismatch (d1, d2) = error ("Mismatched opaque terms " ^
-      quote (Syntax.string_of_term ctxt (nth insts d1)) ^ " and " ^
-      quote (Syntax.string_of_term ctxt (nth insts d2)));
+      | merge ((((is1, t1), d1)::xs), (((is2, t2), d2)::ys)) = if d1 = d2
+          then ((is1 @ is2, t1), d1) :: merge (xs, ys)
+          else case (align ((is2, t2), d2) xs, align ((is1, t1), d1) ys) of
+              (SOME zs, NONE) => zs @ merge (xs, ys)
+            | (NONE, SOME zs) => zs @ merge (xs, ys)
+            | _ => ((is1, t1), d1) :: ((is2, t2), d2) :: merge (xs, ys);
+
+    fun unbalanced vs = error ("Unbalanced opaque terms " ^
+      commas_quote (map (Syntax.string_of_term ctxt o #2 o #1) vs));
+    fun mismatch (t1, t2) = error ("Mismatched opaque terms " ^
+      quote (Syntax.string_of_term ctxt t1) ^ " and " ^ quote (Syntax.string_of_term ctxt t2));
     fun same ([], []) = []
-      | same ([], vs) = unbalanced vs
-      | same (vs, []) = unbalanced vs
-      | same (((v1, d1)::xs), ((v2, d2)::ys)) = if d1 = d2
-          then (v1 @ v2, d1) :: same (xs, ys)
-          else mismatch (d1, d2);
-    val vars = (cons_tterm_vars tt1 [], cons_tterm_vars tt2 [])
-        |> has_fact #C_intro af ? apply2 (sort (fn ((_, a), (_, b)) => int_ord (b, a)))
-        |> apply2 (if has_fact #W_intro af then merge_adjacent ([], 0) else map (apfst single))
-        |> (if has_fact #K_intro af then merge else same);
-  in vars end;
+      | same ([], ys) = unbalanced ys
+      | same (xs, []) = unbalanced xs
+      | same ((((i1, t1), d1)::xs), (((i2, t2), d2)::ys)) = if d1 = d2
+          then ((i1 @ i2, t1), d1) :: same (xs, ys)
+          else mismatch (t1, t2);
+  in vars
+    |> has_axiom #flip af ? apply2 (sort (int_ord o apply2 #2))
+    |> apply2 (if has_axiom #duplicate af
+        then merge_adjacent (([], Term.dummy), 0)
+        else map (apfst (apfst single)))
+    |> (if has_axiom #const af then merge else same)
+    |> map #1
+  end;
 
 fun rewr_subst_ap ctxt af rewr thm1 thm2 =
   let
@@ -682,9 +684,9 @@ fun rewr_subst_ap ctxt af rewr thm1 thm2 =
 fun squash_atoms ctxt af tt =
   let
     val {merge, ...} = facts_of_afun af;
-    fun squash (Atom t) = SOME (Thm.reflexive (Thm.cterm_of ctxt t))
+    fun squash (Pure t) = SOME (Thm.reflexive (Thm.cterm_of ctxt t))
       | squash (Var _) = NONE
-      | squash (App (tt1, tt2)) = case squash tt1 of
+      | squash (Ap (tt1, tt2)) = case squash tt1 of
           NONE => NONE
         | SOME thm1 => case squash tt2 of
             NONE => NONE
@@ -697,58 +699,57 @@ fun eliminate ctxt af tt (v, v_tm) =
   let
     val rules = facts_of_afun af;
 
-    fun mk_ap t1 t2 = lift_comb ctxt af (t1, t2);
     val rewr_subst_ap = rewr_subst_ap ctxt af;
-    fun extract_comb n thm = Atom (thm |> Thm.rhs_of |> funpow n Thm.dest_arg1 |> Thm.term_of);
-    fun refl_step tt = (tt, Thm.reflexive (Thm.cterm_of ctxt (term_of_tterm mk_ap tt)));
+    fun extract_comb n thm = Pure (thm |> Thm.rhs_of |> funpow n Thm.dest_arg1 |> Thm.term_of);
+    fun refl_step tt = (tt, Thm.reflexive (Thm.cterm_of ctxt (term_of_apterm ctxt af tt)));
     fun comb2_step def (tt1, thm1) (tt2, thm2) =
       let val thm = rewr_subst_ap def thm1 thm2;
-      in (App (App (extract_comb 3 thm, tt1), tt2), thm) end;
+      in (Ap (Ap (extract_comb 3 thm, tt1), tt2), thm) end;
     val B_step = comb2_step (#B_intro rules);
     fun swap_B_step (tt1, thm1) thm2 =
       let
         val thm3 = rewr_subst_ap (#swap rules) thm1 thm2;
         val thm4 = Thm.transitive thm3 (Conv.rewr_conv (#B_intro rules) (Thm.rhs_of thm3));
-      in (App (App (extract_comb 3 thm4, extract_comb 1 thm3), tt1), thm4) end;
+      in (Ap (Ap (extract_comb 3 thm4, extract_comb 1 thm3), tt1), thm4) end;
     fun I_step tm =
       let val thm = Conv.rewr_conv (#I_intro rules) (Thm.cterm_of ctxt tm)
       in (extract_comb 1 thm, thm) end;
     fun W_step s1 s2 =
       let
-        val (App (App (tt1, tt2), tt3), thm1) = B_step s1 s2;
+        val (Ap (Ap (tt1, tt2), tt3), thm1) = B_step s1 s2;
         val thm2 = Conv.rewr_conv (#B_intro rules) (Thm.rhs_of thm1 |> funpow 2 Thm.dest_arg1);
         val thm3 = squash_atoms ctxt af tt3 |> the;
-        val (tt4, thm4) = swap_B_step (App (App (extract_comb 3 thm2, tt1), tt2), thm2) thm3;
+        val (tt4, thm4) = swap_B_step (Ap (Ap (extract_comb 3 thm2, tt1), tt2), thm2) thm3;
         val var = Thm.rhs_of thm1 |> Thm.dest_arg;
         val thm5 = rewr_subst_ap (#W_intro rules |> the) thm4 (Thm.reflexive var);
         val thm6 = Thm.transitive thm1 thm5;
-      in (App (extract_comb 2 thm6, tt4), thm6) end;
+      in (Ap (extract_comb 2 thm6, tt4), thm6) end;
     fun S_step s1 s2 =
       let
-        val (App (App (tt1, tt2), tt3), thm1) = comb2_step (#C_intro rules |> the) s1 s2;
+        val (Ap (Ap (tt1, tt2), tt3), thm1) = comb2_step (#C_intro rules |> the) s1 s2;
         val thm2 = Conv.rewr_conv (#B_intro rules) (Thm.rhs_of thm1 |> Thm.dest_arg1);
         val var = Thm.rhs_of thm1 |> Thm.dest_arg;
         val thm3 = rewr_subst_ap (#W_intro rules |> the) thm2 (Thm.reflexive var);
         val thm4 = Thm.transitive thm1 thm3;
-        val tt = App (extract_comb 2 thm4, App (App (extract_comb 3 thm2, App (tt1, tt2)), tt3));
+        val tt = Ap (extract_comb 2 thm4, Ap (Ap (extract_comb 3 thm2, Ap (tt1, tt2)), tt3));
       in (tt, thm4) end;
     fun K_step tt tm =
       let
         val ct = Thm.cterm_of ctxt tm;
         val T = Term.fastype_of tm |> dest_type ctxt af |> #1 |> Thm.ctyp_of ctxt;
         val thm = Drule.instantiate' [SOME T] [SOME ct]
-          (Conv.rewr_conv (#K_intro rules |> the) (term_of_tterm mk_ap tt |> Thm.cterm_of ctxt))
-      in (App (extract_comb 2 thm, tt), thm) end;
+          (Conv.rewr_conv (#K_intro rules |> the) (term_of_apterm ctxt af tt |> Thm.cterm_of ctxt))
+      in (Ap (extract_comb 2 thm, tt), thm) end;
     fun unreachable _ = raise ASSERT "eliminate: assertion failed";
-    fun elim (Atom _) = unreachable ()
-      | elim (Var (i, _, t)) = if exists (fn x => x = i) v then I_step t else unreachable ()
-      | elim (App (t1, t2)) = (case (occurs_any v t1, occurs_any v t2) of
+    fun elim (Pure _) = unreachable ()
+      | elim (Var (i, t)) = if exists (fn x => x = i) v then I_step t else unreachable ()
+      | elim (Ap (t1, t2)) = (case (occurs_any v t1, occurs_any v t2) of
             (false, false) => unreachable ()
           | (false, true) => B_step (refl_step t1) (elim t2)
           | (true, false) => (case squash_atoms ctxt af t2 of
                 SOME thm => swap_B_step (elim t1) thm
               | NONE => comb2_step (#C_intro rules |> the) (elim t1) (refl_step t2))
-          | (true, true) => if has_fact #C_intro af
+          | (true, true) => if has_axiom #flip af
               then S_step (elim t1) (elim t2)
               else W_step (elim t1) (elim t2));
   in if occurs_any v tt
@@ -756,10 +757,10 @@ fun eliminate ctxt af tt (v, v_tm) =
     else K_step tt v_tm
   end;
 
-fun rename_boundvars ctxt af vs insts thm =
+fun rename_boundvars ctxt af vs thm =
   let
     fun rename [] t = t
-      | rename (v::vs) (Abs (_, T, t)) = Abs (term_to_vname (nth insts v), T, rename vs t)
+      | rename ((_, v)::vs) (Abs (_, T, t)) = Abs (term_to_vname v, T, rename vs t)
       | rename _ t = t;
     fun rename_pure t = t
       |> dest_pure ctxt af
@@ -773,18 +774,19 @@ fun rename_boundvars ctxt af vs insts thm =
 
 fun general_normalform_conv ctxt af cts =
   let
-    val ts = apply2 Thm.term_of cts;
-    val (tts, insts) = analyze_terms ctxt af ts;
-    val vs = consolidate ctxt af (tts, insts);
-    fun elim_all tt [] = squash_atoms ctxt af tt |> the |> rename_boundvars ctxt af (map #2 vs) insts
-      | elim_all tt ((v, d)::vs) =
+    val (t1, t2) = apply2 (Thm.term_of) cts;
+    val ((apt1, apt2), _) = 0 |> apterm_of_term ctxt af t1 ||>> apterm_of_term ctxt af t2;
+    val vs = consolidate ctxt af (apt1, apt2);
+    fun elim_all tt [] = squash_atoms ctxt af tt |> the |> rename_boundvars ctxt af vs
+      | elim_all tt (v::vs) =
           let
-            val (tt', rule1) = eliminate ctxt af tt (v, nth insts d);
+            val (tt', rule1) = eliminate ctxt af tt v;
             val rule2 = elim_all tt' vs;
+            (* FIXME remaining use of plain term destruction instead of Applicative.dest_comb *)
             val ((ct1, _), ct3) = rule1 |> Thm.rhs_of |> Thm.dest_comb |>> Thm.dest_comb;
             val rule3 = Thm.combination (Thm.combination (Thm.reflexive ct1) rule2) (Thm.reflexive ct3);
           in Thm.transitive rule1 rule3 end;
-  in (elim_all (#1 tts) vs, elim_all (#2 tts) vs) end;
+  in (elim_all apt1 vs, elim_all apt2 vs) end;
 
 val general_normalize_eq_tac = hol_eq_conv_tac oo general_normalform_conv;
 
