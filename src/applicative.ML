@@ -865,7 +865,6 @@ fun fold_wrapper_tac ctxt opt_af = fold_goal_tac ctxt (get_unfolds ctxt opt_af);
 
 end;
 
-(* FIXME fine-tune final step *)
 fun WRAPPER tac ctxt opt_af =
   REPEAT_DETERM o resolve_tac ctxt [@{thm HOL.allI}] THEN'
   Subgoal.FOCUS (fn {context = ctxt, ...} =>
@@ -873,8 +872,7 @@ fun WRAPPER tac ctxt opt_af =
       AUTO_AFUN true (fn af =>
         afun_unfold_tac ctxt af THEN'
         tac ctxt af THEN'
-        head_cong_tac ctxt af) ctxt opt_af 1) ctxt THEN'
-  (TRY o Simplifier.safe_asm_simp_tac ctxt);
+        head_cong_tac ctxt af) ctxt opt_af 1) ctxt;
 
 val normalize_wrapper_tac = WRAPPER normalize_eq_tac;
 val lifting_wrapper_tac = WRAPPER general_normalize_eq_tac;

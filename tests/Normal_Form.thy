@@ -16,27 +16,27 @@ unfolding id_def comp_def[THEN ext, THEN ext]
 
 notepad
 begin
-  have "\<forall>x. x = pure (\<lambda>x. x) \<diamond> x" by applicative_nf
-  have "\<forall>x. pure x = pure x" by applicative_nf
-  have "\<forall>f x. pure f \<diamond> x = pure f \<diamond> x" by applicative_nf
-  have "\<forall>f x y. pure f \<diamond> x \<diamond> y = pure f \<diamond> x \<diamond> y" by applicative_nf
-  have "\<forall>g f x. pure g \<diamond> (f \<diamond> x) = pure (\<lambda>f x. g (f x)) \<diamond> f \<diamond> x" by applicative_nf
-  have "\<forall>f x y. f \<diamond> x \<diamond> y = pure (\<lambda>f x y. f x y) \<diamond> f \<diamond> x \<diamond> y" by applicative_nf
-  have "\<forall>g f x. g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by applicative_nf
-  have "\<forall>f x. f \<diamond> pure x = pure (\<lambda>f. f x) \<diamond> f" by applicative_nf
-  have "\<forall>x y. pure x \<diamond> pure y = pure (x y)" by applicative_nf
-  have "\<forall>f x y. f \<diamond> x \<diamond> pure y = pure (\<lambda>f x. f x y) \<diamond> f \<diamond> x" by applicative_nf
-  have "\<forall>f x y. pure f \<diamond> x \<diamond> pure y = pure (\<lambda>x. f x y) \<diamond> x" by applicative_nf
-  have "\<forall>f x y z. pure f \<diamond> x \<diamond> pure y \<diamond> z = pure (\<lambda>x z. f x y z) \<diamond> x \<diamond> z" by applicative_nf
-  have "\<forall>f x g y. pure f \<diamond> x \<diamond> (pure g \<diamond> y) = pure (\<lambda>x y. f x (g y)) \<diamond> x \<diamond> y" by applicative_nf
-  have "\<forall>f g x y. f \<diamond> (g \<diamond> x) \<diamond> y = pure (\<lambda>f g x y. f (g x) y) \<diamond> f \<diamond> g \<diamond> x \<diamond> y" by applicative_nf
-  have "\<forall>f g x y z. f \<diamond> (g \<diamond> x \<diamond> y) \<diamond> z = pure (\<lambda>f g x y z. f (g x y) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> y \<diamond> z" by applicative_nf
-  have "\<forall>f g x y z. f \<diamond> (g \<diamond> (x \<diamond> pure y)) \<diamond> z = pure (\<lambda>f g x z. f (g (x y)) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> z" by applicative_nf
-  have "\<forall>f g x. f \<diamond> (g \<diamond> x \<diamond> x) = pure (\<lambda>f g x x'. f (g x x')) \<diamond> f \<diamond> g \<diamond> x \<diamond> x" by applicative_nf
-  have "\<forall>f x y. f x \<diamond> y = pure (\<lambda>f x. f x) \<diamond> f x \<diamond> y" by applicative_nf
+  have "\<forall>x. x = pure (\<lambda>x. x) \<diamond> x" by applicative_nf rule
+  have "\<forall>x. pure x = pure x" by applicative_nf rule
+  have "\<forall>f x. pure f \<diamond> x = pure f \<diamond> x" by applicative_nf rule
+  have "\<forall>f x y. pure f \<diamond> x \<diamond> y = pure f \<diamond> x \<diamond> y" by applicative_nf rule
+  have "\<forall>g f x. pure g \<diamond> (f \<diamond> x) = pure (\<lambda>f x. g (f x)) \<diamond> f \<diamond> x" by applicative_nf rule
+  have "\<forall>f x y. f \<diamond> x \<diamond> y = pure (\<lambda>f x y. f x y) \<diamond> f \<diamond> x \<diamond> y" by applicative_nf rule
+  have "\<forall>g f x. g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by applicative_nf rule
+  have "\<forall>f x. f \<diamond> pure x = pure (\<lambda>f. f x) \<diamond> f" by applicative_nf rule
+  have "\<forall>x y. pure x \<diamond> pure y = pure (x y)" by applicative_nf rule
+  have "\<forall>f x y. f \<diamond> x \<diamond> pure y = pure (\<lambda>f x. f x y) \<diamond> f \<diamond> x" by applicative_nf rule
+  have "\<forall>f x y. pure f \<diamond> x \<diamond> pure y = pure (\<lambda>x. f x y) \<diamond> x" by applicative_nf rule
+  have "\<forall>f x y z. pure f \<diamond> x \<diamond> pure y \<diamond> z = pure (\<lambda>x z. f x y z) \<diamond> x \<diamond> z" by applicative_nf rule
+  have "\<forall>f x g y. pure f \<diamond> x \<diamond> (pure g \<diamond> y) = pure (\<lambda>x y. f x (g y)) \<diamond> x \<diamond> y" by applicative_nf rule
+  have "\<forall>f g x y. f \<diamond> (g \<diamond> x) \<diamond> y = pure (\<lambda>f g x y. f (g x) y) \<diamond> f \<diamond> g \<diamond> x \<diamond> y" by applicative_nf rule
+  have "\<forall>f g x y z. f \<diamond> (g \<diamond> x \<diamond> y) \<diamond> z = pure (\<lambda>f g x y z. f (g x y) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> y \<diamond> z" by applicative_nf rule
+  have "\<forall>f g x y z. f \<diamond> (g \<diamond> (x \<diamond> pure y)) \<diamond> z = pure (\<lambda>f g x z. f (g (x y)) z) \<diamond> f \<diamond> g \<diamond> x \<diamond> z" by applicative_nf rule
+  have "\<forall>f g x. f \<diamond> (g \<diamond> x \<diamond> x) = pure (\<lambda>f g x x'. f (g x x')) \<diamond> f \<diamond> g \<diamond> x \<diamond> x" by applicative_nf rule
+  have "\<forall>f x y. f x \<diamond> y = pure (\<lambda>f x. f x) \<diamond> f x \<diamond> y" by applicative_nf rule
 next
   fix f :: "('a \<Rightarrow> 'b) af" and g :: "('b \<Rightarrow> 'c) af" and x
-  have "g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by applicative_nf
+  have "g \<diamond> (f \<diamond> x) = pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by applicative_nf rule
 end
 (* TODO automatic test for names of new variables *)
 
@@ -113,7 +113,7 @@ next
 qed
 
 lemma "Inl plus \<oplus> (x :: nat + 'e list) \<oplus> x = Inl (\<lambda>x. 2 * x) \<oplus> x"
-by applicative_lifting
+by applicative_lifting simp
 
 
 subsection {* Example: Streams *}
@@ -184,7 +184,7 @@ begin
 end
 
 lemma "(x::int stream) * sconst 0 = sconst 0"
-by applicative_lifting
+by applicative_lifting simp
 
 lemma "(x::int stream) * (y + z) = x * y + x * z"
 apply applicative_lifting
@@ -203,7 +203,7 @@ unfolding lift_streams_def
 by applicative_unfold
 
 lemma stream_append_Cons: "smap2 append (smap2 Cons x ys) zs = smap2 Cons x (smap2 append ys zs)"
-by applicative_lifting
+by applicative_lifting simp
 
 lemma lift_streams_append[applicative_unfold]:
   "lift_streams (xs @ ys) = smap2 append (lift_streams xs) (lift_streams ys)"
@@ -214,7 +214,7 @@ proof (induction xs)
     in head_cong_tac (invoke simplifier?) -- but only with applicative_nf
   *)
   have "lift_streams ys = sconst append <.> lift_streams [] <.> lift_streams ys"
-    by applicative_lifting
+    by applicative_lifting simp
   thus ?case by applicative_unfold
 next
   case (Cons x xs)
@@ -228,19 +228,19 @@ lemma "lift_streams (rev x) = smap rev (lift_streams x)"
 proof (induction x)
   case Nil
   have "lift_streams [] = smap rev (lift_streams [])"
-    by applicative_lifting
+    by applicative_lifting simp
   thus ?case by simp
 next
   case (Cons x xs)
   have "\<forall>y ys. rev ys @ [y] = rev (y # ys)" by simp
   hence "\<forall>y ys. smap2 append (smap rev ys) (smap2 Cons y (sconst [])) = smap rev (smap2 Cons y ys)"
-    by applicative_lifting
+    by applicative_lifting simp
   with Cons.IH show ?case by applicative_unfold blast
 qed
 
 definition [applicative_unfold]: "sconcat xs = smap concat xs"
 
 lemma "sconcat (lift_streams [sconst ''Hello '', sconst ''world!'']) = sconst ''Hello world!''"
-by applicative_lifting
+by applicative_lifting simp
 
 end
