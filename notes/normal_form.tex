@@ -280,7 +280,7 @@ of `nf-pure'.
 The corresponding transformation is therefore
 \begin{align}
 	\operatorname{nf-nf}(g \sap (f \sap x)) &=
-		\operatorname{nf-nf}{(\operatorname{pure-nf}{(\spure \mathbf{B} \sap g)} \sap f)} \sap x \\
+		\operatorname{nf-nf}{(\operatorname{pure-nf}{(\spure \mathbf{B} \sap g)} \sap f)} \sap x \label{eq:nf-nf1}\\
 	\operatorname{nf-nf}(t) &= \operatorname{nf-pure}(t) \quad\text{(otherwise)}
 \end{align}
 \begin{lemma}\label{thm:nf-nf}
@@ -492,3 +492,89 @@ $\unlift{s'} \termeq \unlift{t'}$.
 By Lemma~\ref{thm:unlift-head} and the condition on the opaque subterms, it
 follows that $s' \termeq t'$ and further $s \simeq t$.
 \end{proof}
+
+\subsection{Implementation}\label{subsec:nf-implementation}  % TODO title?
+
+We introduced an algorithm for computing the normal form of an idiomatic term,
+and argued for its central role in lifting.
+In order to be useful in the context of theorem proving, just providing the
+normal form is not sufficient.
+We need to establish a formal proof of the equivalence.
+In Isabelle, this means constructing a theorem $t = t'$, where $t'$ is the
+normal form of $t$.
+We observe that in Algorithm~\ref{alg:normalize}, each equation can be recast
+in the following scheme:
+The input term is first transformed in a fixed way that changes the outermost
+constitution.
+Then, the whole term or subterms thereof are substituted by other functions
+or recursively, possibly multiple times.
+For instance, in the first equation \eqref{eq:nf-nf1} for nf-nf, the term
+$g \sap (f \sap x)$ (where $g$, $f$, $x$ should be understood as placeholders
+for concrete terms) is rearranged to $\spure \mathbf{B} \sap g \sap f \sap x$.
+The subterm $\spure \mathbf{B} \sap g$ is passed to pure-nf and replaced by
+the result, say $g'$.
+nf-nf acts on $g' \sap f$, yielding $f'$, such that the final term is
+$f' \sap x$.
+
+\begin{table}[t]\centering\small
+\begin{tabular}{lrcll}
+Function & Pattern & & Substitution & Name \\
+\hline
+normalize & $\sterm x$ & $\simeq$ & $\spure{(\sabs{x}{x})} \sap \sterm x$ \\
+	& $x$ & $=$ & $\pure{(\abs{x}{x})} \ap x$ & \texttt{I\_intro} \\[1ex]
+nf-nf & $g \sap (f \sap x)$ & $\simeq$ & $\spure \mathbf{B} \sap g \sap f \sap x$ \\
+	& $g \ap (f \ap x)$ & $=$ & $\pure{(\abs{g f x}{g (f x)})} \ap g \ap f \ap x$ & \texttt{B\_intro} \\[1ex]
+pure-nf & $\spure g \sap (f \sap x)$ & $\simeq$ & $\spure{(\mathbf{B} \sapp g)} \sap f \sap x$ \\
+	& $\pure g \ap (f \ap x)$ & $=$ & $\pure{(\abs{f x}{g (f x)})} \ap f \ap x$ & \texttt{B\_pure} \\[1ex]
+pure-nf & $\spure f \sap \spure x$ & $\simeq$ & $\spure{(f \sapp x)}$ \\
+	& $\pure f \ap \pure x$ & $=$ & $\pure{(f x)}$ & \texttt{merge} \\[1ex]
+nf-pure & $f \sap \spure x$ & $\simeq$ & $\spure{((\sabs{x}{\sabs{f}{f \sapp x}}) \sapp x)} \sap f$ \\
+	& $f \ap \pure x$ & $=$ & $\pure{(\abs{f}{f x})} \ap f$ & \texttt{swap}
+\end{tabular}
+\caption{Fixed transformations of Algorithm~\ref{alg:normalize}, with
+corresponding rewrite rules. Identity cases are omitted.}
+\label{tab:normalize-rules}
+\end{table}
+
+Table~\ref{tab:normalize-rules} shows all initial transformations.
+It is no coincidence that these are the well-known equivalences
+\eqref{eq:iterm-id}--\eqref{eq:iterm-xchng} and~\eqref{eq:pure-rotate}, which
+were used in the correctness proofs.
+Now let us identify idiomatic terms $\mathcal{I}$ with HOL terms.
+While the implementation of the normal form conversion does not create an
+internal representation in the style of $\mathcal{I}$, this discussion links
+the abstract properties described earlier to the ML algorithm.
+Assume that the applicative functor is fixed, i.e., there is a type scheme
+$f[\tvar{a}]$ and corresponding terms $\pure$, $(\ap)$.
+A type scheme is simply a normal HOL type with (in this case) one distinguished
+type variable $\tvar{a}$.
+This variable has to be tracked externally in ML, because of the lack of
+type quantifiers in Pure.%
+\footnote{We allow additional type variables in functor signatures, which
+therefore represent families of functors.}  % TODO move out/clarify
+The lifted type of $\alpha$ is then obtained by substitution of $\tvar{a}$ by
+$\alpha$ in $f[\tvar{a}]$.
+The mapping $\ldb\_\rdb$ from idiomatic terms to HOL terms can now be stated as
+\[ \ldb\sterm x\rdb = x, \quad \ldb\spure x\rdb = \pure x, \quad
+	\ldb f \sap x \rdb = \ldb f\rdb \ap \ldb x\rdb; \]
+with a side condition for well-typedness.
+For the inverse mapping, we demand that $\spure$- and $\sap$-nodes are created
+eagerly.
+Otherwise, it would suffice to map every term $x$ to $\sterm x$, for example.
+Another problem is identifying terms of the form $\pure x$ and $f \ap x$.
+We do not want to restrict the term structure of these ``constants'', since some
+useful predefined concepts in the HOL libraries are abbreviations of compound terms.
+Isabelle's higher-order matching appears to be a proper solution in practice,
+using $\pure v$ (or $v_1 \ap v_2$) with new variables $v$ ($v_1$, $v_2$) as the
+pattern.
+The matching algorithm does not work with arbitrary patterns, though. % TODO cite Nipkow 93
+An obvious counterexample is the applicator pattern for the environment functor,
+$\abs{x}{(v_1 x)(v_2 x)}$, which is not well-formed.
+In such cases, one needs to introduce proper constants equal to the problematic
+terms, and construct the goal equation explicitly with these constants.
+
+Figure~\ref{tab:normalize-rules} has been extended by the corresponding HOL
+equations.
+These are the four applicative laws, which have to be supplied by the user.
+The pure-rotate rule is easily proven with a custom rewriting tactic.
+\todo
