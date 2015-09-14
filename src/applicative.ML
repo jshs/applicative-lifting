@@ -516,7 +516,11 @@ fun term_to_vname (Const (x, _)) = Long_Name.base_name x
   | term_to_vname _ = "x";
 
 fun afuns_of_eq precise ctxt t =
-  let val (lhs, rhs) = t |> HOLogic.dest_Trueprop |> HOLogic.dest_eq;
+  let val (lhs, rhs) = Variable.focus t ctxt
+    |> #2 o #1
+    |> Logic.strip_imp_concl
+    |> HOLogic.dest_Trueprop
+    |> HOLogic.dest_eq;
   in if precise
     then (case afuns_of_term ctxt lhs of
         [] => afuns_of_term ctxt rhs
@@ -849,21 +853,10 @@ fun head_cong_tac ctxt af = SUBGOAL (fn (goal, i) =>
 
 (* High-level tactics *)
 
-local
+fun unfold_wrapper_tac ctxt = AUTO_AFUNS false (fn afs =>
+  Simplifier.safe_asm_full_simp_tac (ctxt addsimps flat (map unfolds_of_afun afs))) ctxt;
 
-fun get_unfolds ctxt opt_af = case opt_af of
-    SOME af => unfolds_of_afun af
-  | NONE => all_unfolds_of ctxt;
-
-in
-
-(* FIXME tweak *)
-fun unfold_wrapper_tac ctxt opt_af =
-  Simplifier.safe_asm_full_simp_tac (ctxt addsimps get_unfolds ctxt opt_af);
-
-fun fold_wrapper_tac ctxt opt_af = fold_goal_tac ctxt (get_unfolds ctxt opt_af);
-
-end;
+fun fold_wrapper_tac ctxt = AUTO_AFUN true (fold_goal_tac ctxt o unfolds_of_afun) ctxt;
 
 fun WRAPPER tac ctxt opt_af =
   REPEAT_DETERM o resolve_tac ctxt [@{thm HOL.allI}] THEN'
