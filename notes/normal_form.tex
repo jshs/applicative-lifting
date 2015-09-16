@@ -502,8 +502,8 @@ normal form is not sufficient.
 We need to establish a formal proof of the equivalence.
 In Isabelle, this means constructing a theorem $t = t'$, where $t'$ is the
 normal form of $t$.
-We observe that in Algorithm~\ref{alg:normalize}, each equation can be recast
-in the following scheme:
+We observe that in Algorithm~\ref{alg:normalize} each equation can be recast
+in the following way:
 The input term is first transformed in a fixed way that changes the outermost
 constitution.
 Then, the whole term or subterms thereof are substituted by other functions
@@ -561,20 +561,25 @@ with a side condition for well-typedness.
 For the inverse mapping, we demand that $\spure$- and $\sap$-nodes are created
 eagerly.
 Otherwise, it would suffice to map every term $x$ to $\sterm x$, for example.
-Another problem is identifying terms of the form $\pure x$ and $f \ap x$.
-We do not want to restrict the term structure of these ``constants'', since some
-useful predefined concepts in the HOL libraries are abbreviations of compound terms.
+Another problem is identifying terms of the form $\pure \_$ and $\_ \ap \_$ in
+the first place.
+We do not want to restrict the term structure of the functor ``constants'',
+since some useful predefined concepts in the HOL libraries are abbreviations of
+compound terms.
 Isabelle's higher-order matching appears to be a proper solution in practice,
-using $\pure v$ (or $v_1 \ap v_2$) with new variables $v$ ($v_1$, $v_2$) as the
+using $\pure v$ (or $v_1 \ap v_2$) with variables $v$ ($v_1$, $v_2$) as the
 pattern.
-The matching algorithm does not work with arbitrary patterns, though. % TODO cite Nipkow 93
-An obvious counterexample is the applicator pattern for the environment functor,
-$\abs{x}{(v_1 x)(v_2 x)}$, which is not well-formed.
-In such cases, one needs to introduce proper constants equal to the problematic
-terms, and construct the goal equation explicitly with these constants.
+% TODO ?
 
-Figure~\ref{tab:normalize-rules} has been extended by the corresponding HOL
+Figure~\ref{tab:normalize-rules} has been augmented with the corresponding HOL
 equations.
-These are the four applicative laws, which have to be supplied by the user.
-The pure-rotate rule is easily proven with a custom rewriting tactic.
-\todo
+Rule \texttt{B\_pure} is easily proven by rewriting with \texttt{B\_intro} and
+\texttt{merge}.
+The other rules are the applicative laws and thus are available from the
+registration infrastructure.
+Applying a transformation to a term means instantiating the rule such that the
+left hand side is equal to that term.
+This is done by the ML function \verb+Conv.rewr_conv+, which uses matching
+internally.
+
+\todo\ current implementation with conversion combinators relies on term structure
