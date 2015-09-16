@@ -16,58 +16,47 @@ After unfolding and normalization, we get
 Clearly, this can't be solved with a standard congruence rule, because we would
 have to to prove that $X$ is equal to $Y$.
 Since we are concerned with transferring properties from a base domain,
-we don't want to assume anything about those opaque subterms, which may
-carry additional information of the functor.
-Note that the arguments of both $\pure$ terms are actually the same function
-$(+)$, so we can't even make use of the base equation there.
-Expressed as an equality of functions, it reads
-\[ \abs{xy}{x + y} = \abs{xy}{y + x}. \]
-The left-hand side is an eta-expanded from of $(+)$, while the other has the
-arguments reversed.
-We can use the flip function, defined as $\operatorname{flip} fxy = fyx$,
-to write it consistently in point-free style: $(+) = \operatorname{flip}{(+)}$.
-From this one derives
-\begin{equation}\label{eq:comb-intro2}
-	\pure{(+)} \ap X \ap Y = \pure \operatorname{flip} \ap \pure{(+)} \ap X \ap Y.
-\end{equation}
-Now it would be very convenient if the defining equation of flip can be lifted,
-that is
-\begin{equation}\label{eq:flip-lifted}
-	\pure \operatorname{flip} \ap f \ap x \ap y = f \ap y \ap x.
-\end{equation}
-And indeed, this is true for the set idiom!
-The term $\pure{(\operatorname{flip}{(+)})} \ap X \ap Y$, which is equivalent
-to the right-hand side of \eqref{eq:comb-intro2}, is not the canonical normal
-form of $Y \oplus X$.
-Yet the overall structure is similar: a pure function applied to some opaque
-arguments.
-The availability of equation~\eqref{eq:flip-lifted} is a quite powerful
-condition, because it will allow us to permute opaque terms freely.%
-\footnote{Strictly speaking, a weaker property with $\pure f$ instead of $f$ is
-sufficient for this example. Section~\ref{subsec:combinator-bases} attempts to
-give a rationale why the ``full'' property is desirable.}
-% TODO how are "weak C" and C related? example where only the former holds?
-If permutations exist such that both sides of the (transformed) equation align
-regarding their opaque terms, reduction by congruence is possible again.
-Furthermore, the effect of rewriting with the flip function in one domain
-can be reversed in the other.
-This guarantees that the corresponding base equation is always applicable.
+we don't want to assume anything about those opaque subterms.
 
-As opposed to $\abs{yx}{y + x}$, the term $\operatorname{flip}{(+)}$ does not
-contain any lambda abstractions or bound variables.
-Being able to express terms this way is the general idea behind
-\emph{combinators} from combinatory logic.
-These are certain functions with characteristic defining equations, and using
-them in terms eliminates the need for explicit naming of variables.
-In this context, flip is usually referred to as combinator $\mathbf{C}$, which
-is the name we will use in the following.
-We have already used different combinators extensively: $\mathbf{B}$ and
-$\mathbf{I} = \abs{x}{x}$.
-Both can be lifted in each idiom due to the composition and identity laws.
-We say that the combinators $\mathbf{B}$ and $\mathbf{I}$ \emph{exist} in
-each idiom.
-Table~\ref{tab:combinators} lists all combinators which are used throughout
-this text.
+Hinze showed that such equations can be solved if certain \emph{combinators}
+can be lifted.
+We have already used two combinators, $\mathbf{I}$ and $\mathbf{B}$.
+Lifting their defining equations (see Table~\ref{tab:combinators}) gives us
+the identity and composition laws, respectively.
+Informally, combinators are functions which rearrange their arguments in a
+specific manner.
+If the lifted combinator performs the same rearrangement with arbitrary
+functorial values, one can translate between the two layers.
+In this case, we simply say that the combinator exists.
+To continue with~\eqref{eq:comb-intro1}, we could attempt to change the order of
+$Y$ and $X$ on the right-hand side.
+Note that these appear as arguments to a pure function.
+The $\mathbf{C}$ combinator, also known as `flip' in functional programming,
+does what we want: $\mathbf{C}fxy = fyx$.
+The lifted equation is
+\begin{equation}\label{eq:flip-lifted}
+	\pure \mathbf{C} \ap f \ap x \ap y = f \ap y \ap x,
+\end{equation}
+and it is indeed true for set idiom!
+From this we get
+\begin{equation}\label{eq:comb-intro2}
+	\pure{(+)} \ap X \ap Y = \pure{(\operatorname{flip}(+))} \ap X \ap Y.
+\end{equation}
+The right-hand side is no longer the normal form of $Y \oplus X$, but still
+a canonical form (which is why we distinguish these two).
+But now the argument lists on both sides coincide.
+We reduce to
+\[ \abs{xy}{x + y} = \abs{xy}{y + x}, \]
+which is extensionally equivalent to the base equation $x + y = y + x$.
+The availability of equation~\eqref{eq:flip-lifted} is a quite powerful
+condition, because it will allow us to permute opaque terms freely.
+(The $\mathbf{C}$ does not exist for all applicative functors.
+For example, the order of values in a state monad may be significant.)
+If permutations exist such that both sides of an equation in canonical form
+align regarding their opaque terms, reduction by congruence is possible again.
+Furthermore, the effect of rewriting with $\mathbf{C}$ in one domain can be
+reversed in the other.
+This guarantees that the corresponding base equation is always applicable.
 
 \begin{table}\centering
 \begin{tabular}{cll}
@@ -86,17 +75,28 @@ $\mathbf{H}$ & $\mathbf{H} x y z = x y (z y)$ \\
 \label{tab:combinators}
 \end{table}
 
+Combinators appeared originally in the context of logic~\cite{curry68}.
+They were studied because it is possible to write logical formulas without
+variables using only applications of suitable combinators, as opposed to the
+usual lambda calculus.
+Table~\ref{tab:combinators} lists all combinators which are used throughout
+this text, together with their defining equations.
 There are certain sets of combinators which are sufficient to express all
 lambda terms, $\{\mathbf{S,K}\}$ being one of them.
+In other sets, only a limited part of terms is representable.
 Hinze's Lifting Lemma shows that all terms and thus all equations can be
-lifted if $\mathbf{S}$ and $\mathbf{K}$ exist.
+lifted while preserving the variable structure if $\mathbf{S}$ and $\mathbf{K}$
+exist.
 He also notes that other combinator set are useful, because there are idioms
 where more than $\{\mathbf{B,I}\}$, but not all combinators exist.
-In this section we present an implementation of this generalized lifting
-for solving a broader class of equation than with normalization.
-The abstract concept works with arbitrary combinators.
+The original proof of the Lifting~Lemma~\cite[11--14]{hinze10} uses induction
+on the structure of idiomatic terms; it is not entirely obvious how it can
+be generalized to other combinators sets, as it depends on the availability
+of $\mathbf{K}$ to lift tuple projections.
+In this section we present an implementation of this generalized lifting,
+whose underlying concept works with arbitrary combinators.
 It depends on an abstraction algorithm and the structure of representable terms,
-which are difficult to derive automatically.  % TODO or impossible?
+which are difficult to derive automatically.
 Therefore we will restrict ourselves to certain sets (``bases'') with
 hard-coded algorithms.
 
@@ -105,10 +105,7 @@ hard-coded algorithms.
 The high-level method of proof is the same as with the one based on plain
 normalization: Rewriting both sides of the equation, stripping equal terms by
 congruence and finally resolving with the base equation.
-The generalized approach differs in the rewriting step:
-With additional combinators, the normal form of a given idiomatic term is not
-necessarily unique.
-
+The generalized approach differs in the rewriting step.
 We will first discuss how one goes from the base equation to its lifted form.
 In general, the base equation looks like this:
 \[ \all{\vec x}{s[\vec x] = t[\vec x]}, \]
