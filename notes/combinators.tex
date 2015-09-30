@@ -20,14 +20,15 @@ we don't want to assume anything about those opaque subterms.
 
 Hinze showed that such equations can be solved if certain \emph{combinators}
 can be lifted.
+Informally, combinators are functions which rearrange their arguments in a
+specific manner.
 We have already used two combinators, $\mathbf{I}$ and $\mathbf{B}$.
 Lifting their defining equations (see Table~\ref{tab:combinators}) gives us
 the identity and composition laws, respectively.
-Informally, combinators are functions which rearrange their arguments in a
-specific manner.
 If the lifted combinator performs the same rearrangement with arbitrary
-functorial values, one can translate between the two layers.
-In this case, we simply say that the combinator exists.
+functorial values, one can translate that particular term structure between the
+two layers.
+In this case, we simply say that the combinator \emph{exists}.
 To continue with~\eqref{eq:comb-intro1}, we could attempt to change the order of
 $Y$ and $X$ on the right-hand side.
 Note that these appear as arguments to a pure function.
@@ -40,7 +41,7 @@ The lifted equation is
 and it is indeed true for set idiom!
 From this we get
 \begin{equation}\label{eq:comb-intro2}
-	\pure{(+)} \ap X \ap Y = \pure{(\operatorname{flip}(+))} \ap X \ap Y.
+	\pure{(+)} \ap X \ap Y = \pure{(\mathbf{C}(+))} \ap X \ap Y.
 \end{equation}
 The right-hand side is no longer the normal form of $Y \oplus X$, but still
 a canonical form (which is why we distinguish these two).
@@ -50,13 +51,11 @@ We reduce to
 which is extensionally equivalent to the base equation $x + y = y + x$.
 The availability of equation~\eqref{eq:flip-lifted} is a quite powerful
 condition, because it will allow us to permute opaque terms freely.
-(The $\mathbf{C}$ does not exist for all applicative functors.
-For example, the order of values in a state monad may be significant.)
 If permutations exist such that both sides of an equation in canonical form
 align regarding their opaque terms, reduction by congruence is possible again.
-Furthermore, the effect of rewriting with $\mathbf{C}$ in one domain can be
-reversed in the other.
-This guarantees that the corresponding base equation is always applicable.
+This will again lead to the expected base equation.
+However, the combinator $\mathbf{C}$ does not exist for all applicative functors.
+For example, the order of values in a state monad may be significant.
 
 \begin{table}\centering
 \begin{tabular}{cll}
@@ -89,66 +88,177 @@ lifted while preserving the variable structure if $\mathbf{S}$ and $\mathbf{K}$
 exist.
 He also notes that other combinator set are useful, because there are idioms
 where more than $\{\mathbf{B,I}\}$, but not all combinators exist.
+Generally speaking, additional combinators enlarge the set of equations which
+can be lifted.
+
 The original proof of the Lifting~Lemma~\cite[11--14]{hinze10} uses induction
 on the structure of idiomatic terms; it is not entirely obvious how it can
 be generalized to other combinators sets, as it depends on the availability
 of $\mathbf{K}$ to lift tuple projections.
 In this section we present an implementation of this generalized lifting,
 whose underlying concept works with arbitrary combinators.
-It depends on an abstraction algorithm and the structure of representable terms,
-which are difficult to derive automatically.
+However, tt depends on an abstraction algorithm and the structure of
+representable terms, which are difficult to derive automatically.
 Therefore we will restrict ourselves to certain sets (``bases'') with
-hard-coded algorithms.
+fixed algorithms, while understanding that the scope can be extended 
+if needed.
 
-\subsection{Algorithm Outline}\label{subsec:general-algorithm}
+\subsection{General Lifting}\label{subsec:general-lifting}
 
-The high-level method of proof is the same as with the one based on plain
-normalization: Rewriting both sides of the equation, stripping equal terms by
-congruence and finally resolving with the base equation.
-The generalized approach differs in the rewriting step.
-We will first discuss how one goes from the base equation to its lifted form.
-In general, the base equation looks like this:
-\[ \all{\vec x}{s[\vec x] = t[\vec x]}, \]
-where $u[\vec x]$ means that variables $\vec x$ may occur freely in $u$.
-By function extensionality, which is an axiom of HOL, this is true iff
-\[ \abs{\vec x}{s[\vec x]} = \abs{\vec x}{t[\vec x]}. \]
-Now we attempt to translate both terms to their combinator representation,
-using those combinators which exists for the idiom we are working with.
-The exact process depends on the combinator set, and may also fail if a term
-is not representable with that set.
-The details are discussed in the next section.
-Let $s'$ and $t'$ be the translated terms.
-Each can be viewed as an function application tree of some atomic terms.
-We derive $\pure_f s' = \pure_f t'$ by simple substitution.
-This is an equation of functions of type
-\[ \tau_1 f \funT \cdots \funT \tau_n f \funT \sigma f, \]
-with $\tau_i$ is the type of $x_i$, and $\sigma$ is the type of $s[\vec x]$.
-It follows that
-\[ \all{\vec y}{\pure s' \ap y_1 \ap \cdots \ap y_n =
-	\pure t' \ap y_1 \cdots \ap y_n}. \]
-The type of $y_i$ is $\tau_i f$.
-The homomorphism law allows us to distribute $\pure$ over the applications
-in $s'$ and $t'$, which makes it possible to unfold all lifted combinators.
-For example, a subterm
-\[ \pure \mathbf{S} \ap \pure f \ap x \ap y \]
-gets rewritten to $\pure f \ap y \ap (x \ap y)$.
-The result is the lifted equation (modulo splitting/joining of adjacent
-$\pure$s), because the combinators capture the term--variable structure and
-transfer it to the idiom.
+We start with the relationship of combinators and lambda terms.
+The equations in Table~\ref{tab:combinators} can be expressed as abstractions
+$\mathbf{I} = \abs{x}{x}$ etc.
+If we substitute occurrences of combinators in a term, new abstractions are
+introduced, which may be beta-reduced afterwards:
+\[ \mathbf{WB} = (\abs{fx}{fxx})(\abs{gfx}{g(fx)}) =_\beta \abs{xy}{x(xy)}. \]
+The question arises when and how this process can be reversed, meaning that
+all abstractions are replaced by suitable combinators.
+In Curry et.~al.~\cite[Section~6A]{curry68}, terms with variables, but no
+abstractions are considered.
+A syntactical operation is defined, denoted $[x]t$, where $t$ is such a term
+and $x$ is a variable.
+The desired property is that $x$ does not occur in $[x]t$, and
+$([x]t)x = t$.  % TODO check Curry - what is = here?
+Due to its notation, the operation is known as \emph{bracket abstraction}.
+There is an obvious correspondence with lambda abstractions $\abs{x}{t}$.
+Bracket abstraction however is defined to evaluate to a concrete applicative
+term, whereas a lambda is an object of the syntax itself. % TODO check Curry chapter 3
+Replacing lambdas $\abs{x}{t}$ by brackets $[x]t$ performs the shift to a
+combinator representation.
+Curry et.\ al. give several possible definitions for bracket abstraction.
+They note that these follow a scheme they refer to as an algorithm---a sequence
+of rules, where each rule is a partial definition.
+The rules may invoke abstraction recursively.
+In particular, the following rules are used:
 
-However, a user should able to use the proof method without supplying the base
-equation beforehand.
-To do this, the procedure we have just described is essentially done backwards.
-(The direction of logical implication remains the same, though.)
-This may cause some issues if the proof goal cannot be represented using the
-available combinators, but is an instantiation of a more general proposition
-which can be proven.
-An example is
-\[ X \oplus (X \oplus Y) = (X \oplus X) \oplus Y. \]
-We want this to be handled automatically, if possible.
-In terms of above presentation, the algorithm has to determine the variables
-$\vec y$ and find an assignment of all opaque terms to this variables, such
-that the proof goes through.
+\begin{alignat}{2}
+	\tag{$i$} [x]x &= \mathbf{I}, && \\
+	\tag{$k$} [x]t &= \mathbf{K} t &&\qquad\text{if $x$ not free in $t$}, \\
+	\tag{$\eta$} [x]tx &= t &&\qquad\text{if $x$ not free in $t$}, \\
+	\tag{$b$} [x]st &= \mathbf{B}s([x]t) &&\qquad\text{if $x$ not free in $s$}, \\
+	\tag{$c$} [x]st &= \mathbf{C}([x]s)t &&\qquad\text{if $x$ not free in $t$}, \\
+	\tag{$s$} [x]st &= \mathbf{S}([x]s)([x]t). &&
+\end{alignat}
+
+The algorithm which consists of rules $(i)$, $(k)$ and $(s)$, in that order,
+is written succinctly as $(iks)$.
+The algorithm attempts to use the rules in their left-to-right order, applying
+the first one whose restrictions are satisfied by the term at hand.
+Each abstraction algorithm $A$ introduces a certain set of primitive combinators,
+which we refer to as $C(A)$.
+It is sound only if certain postulates about those combinators, which are again
+the equations in Table~\ref{tab:combinators}, are assumed.
+
+\begin{example}\label{exmp:bracket-abs}
+Using the $(iks)$ algorithm, one gets
+\[ [x]xxy \stackrel{(s)}{=} \mathbf{S}([x]xx)([x]y)
+	\stackrel{(s),(k)}{=} \mathbf{S}(\mathbf{S}([x]x)([x]x))(\mathbf{K}y)
+	\stackrel{(i)}{=} \mathbf{S}(\mathbf{SII})(\mathbf{K}y). \]
+Attempting to use the $(ik\eta bc)$ algorithm with the same abstraction
+quickly comes to a halt:
+\[ [x]xxy \stackrel{(c)}{=} \mathbf{C}([x]xx)y, \]
+which is undefined.
+\end{example}
+
+As we can see, not all algorithms are total.
+Therefore, there is a trade-off between the combinators required and the terms
+for which abstraction is possible.
+Bunder~\cite{bunder96} presents an analysis of the situation for certain
+algorithms and combinator sets, based on rigorous definitions for term
+translation and definability.
+We will come back to this later, when we discuss how to order the variables in
+an idiomatic term such that abstraction is defined.
+For now, the concept of bracket abstraction with the example of rules
+$(i)$--$(s)$ is sufficient.
+
+Next, we attempt to transfer these concepts to idiomatic terms.
+On the one hand, this is quite intuitive since the latter are also formed by
+an application operator, and pure terms can be identified with constants.
+But we do not have any ``idiomatic abstractions''.
+Hinze actually defines these in terms of abstract combinators and an
+extensionality property of the idiom.
+For our purpose it is sufficient to work directly with bracket abstraction,
+and we assume that all combinators are lifted, i.e. expressible as a pure term.
+To clarify the following discussion, we adjust our $\mathcal{I}$ formalism
+and replace opaque terms $\sterm x$ with variables.
+
+\begin{definition}
+The set of generic idiomatic terms $\mathcal{I}'$ is defined by
+\begin{equation}
+	\mathcal{I}' ::= \sivar \mathcal{V} \mid \spure \mathcal{T} \mid
+		\mathcal{I}' \sap \mathcal{I}'.
+\end{equation}
+We reuse the congruence $\simeq$ from Definition~\ref{def:idiomatic-terms} for
+generic terms.
+The set of variables $\operatorname{var}(t)$ of $t$ is defined as the set of
+all arguments to $\sivar$ occuring in $t$.
+Unlifting (see Definition~\ref{def:unlifting}) is also transferred, but uses
+the variable $x$ in subterms $\sivar x$ instead of inventing new ones.
+\end{definition}
+
+Using this definition, it is clear what the rules for idiomatic abstraction
+are:
+\begin{alignat}{2}
+	\tag{$i'$} [x](\sivar x) &= \spure \mathbf{I}, && \\
+	\tag{$k'$} [x]t &= \spure \mathbf{K} \sap t &&\qquad\text{if } x \not\in \operatorname{var}(t), \\
+	\tag{$b'$} [x](s \sap t) &= \spure \mathbf{B} \sap s \sap [x]t &&\qquad\text{if } x \not\in \operatorname{var}(s), \\
+	\tag{$c'$} [x](s \sap t) &= \spure \mathbf{C} \sap [x]s \sap t &&\qquad\text{if } x \not\in \operatorname{var}(t), \\
+	\tag{$s'$} [x](s \sap t) &= \spure \mathbf{S} \sap [x]s \sap [x]t. &&
+\end{alignat}
+In general, the algorithm $A'$ on idiomatic terms is obtained from algorithm
+$A$ on regular terms by lifting its rules in this fashion, preserving order.
+% TODO lifted combinator defs?
+% TODO W combinator 
+
+Before we show the connection to the canonical form, there is one thing which
+remains to be considered.
+The interchange law allows us to move a variable out of the left subterm of
+an application, given that the right subterm is pure.
+This is not captured by rules $(b')$ and $(i')$, which are the only ones from
+above which are valid in all idioms.
+We define a combinator $\mathbf{T}xy = yx$ and the rules
+\begin{alignat}{2}
+	\tag{$t$} [x]st &= \mathbf{T}t([x]s) &&\qquad\text{if $t$ contains no variables}, \\
+	\tag{$t'$} [x](s \sap t) &= \spure \mathbf{T} \sap t \sap [x]s &&\qquad\text{if } \operatorname{var}(t) = \emptyset.
+\end{alignat}
+Soundness of rule $(t')$ can be shown to be equivalent to the interchange law.
+It is important to understand that $\mathbf{T}$ does not have to exist in the
+idiom; these rules do not fit exactly in the pattern of the other rules.
+
+As with ordinary terms, we demand a soundness property for idiomatic bracket
+abstraction, namely that $[x]t \sap \sivar x \simeq t$ holds.
+The required combinator definitions get lifted to $\mathbf{I} \sap x \simeq x$
+and so on.
+\begin{lemma}
+Let $t \in \mathcal{I'}$ be a generic idiomatic term, and $x \in \mathcal{V}$
+a variable.
+For an abstraction algorithm $A$ consisting of a subset of rules $(i')$--$(t')$,
+we have $[x]t \sap \sivar x \simeq t$, assuming that all combinators $C(A)$
+exist.
+\end{lemma}
+\begin{proof}
+\todo ?
+\end{proof}
+
+Now we can state the key obversation:
+The successful abstraction of all variables in an idiomatic term leaves a
+single pure term, per the homomorphism law.
+Moreover, that term is identical to the result of applying the same abstraction
+algorithm to the ``unlifted term''.
+
+\begin{theorem}
+In the following, bracket abstraction uses algorithms $A$ and $A'$, respectively.
+Let $t \in \mathcal{I}'$ be a generic idiomatic term, and $x_1,\dots,x_n$
+a sequence of variables such that $\{x_1,\dots,x_n\} \supseteq \operatorname{var}(t)$.
+If $[x_1]\cdots[x_n]t$ is defined for $A'$, then
+\begin{enumerate}
+\item $[x_1]\cdots[x_n]t$ consists only of applications of pure terms; and
+\item the unique canonical form of $[x_1]\cdots[x_n]t$ is $\spure t'$, where
+\item $t' = [x_1]\cdots[x_n]\unlift{t}$, thus
+\item replacing all combinators from $C(A)$ in $t'$ with their definitions
+	yields $t'' \termeq \abs{x_1\cdots x_n}{\unlift{t}}$.
+\end{enumerate}
+\end{theorem}
 
 \subsection{Combinator Bases}\label{subsec:combinator-bases}
 
