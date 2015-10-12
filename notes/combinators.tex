@@ -97,20 +97,20 @@ be generalized to other combinators sets, as it depends on the availability
 of $\mathbf{K}$ to lift tuple projections.
 In this section we present an implementation of this generalized lifting,
 whose underlying concept works with arbitrary combinators.
-However, tt depends on an abstraction algorithm and the structure of
+However, it depends on an abstraction algorithm and the structure of
 representable terms, which are difficult to derive automatically.
 Therefore we will restrict ourselves to certain sets (``bases'') with
 fixed algorithms, while understanding that the scope can be extended 
 if needed.
 
-\subsection{General Lifting}\label{subsec:general-lifting}
+\subsection{Generic Lifting}\label{subsec:generic-lifting}
 
 We start with the relationship of combinators and lambda terms.
 The equations in Table~\ref{tab:combinators} can be expressed as abstractions
 $\mathbf{I} = \abs{x}{x}$ etc.
-If we substitute occurrences of combinators in a term, new abstractions are
-introduced, which may be beta-reduced afterwards:
-\[ \mathbf{WB} = (\abs{fx}{fxx})(\abs{gfx}{g(fx)}) =_\beta \abs{xy}{x(xy)}. \]
+If we substitute occurrences of combinators in a term (signified by $=_\delta$),
+new abstractions are introduced, which may be beta-reduced afterwards:
+\[ \mathbf{WB} =_\delta (\abs{fx}{fxx})(\abs{gfx}{g(fx)}) =_\beta \abs{xy}{x(xy)}. \]
 The question arises when and how this process can be reversed, meaning that
 all abstractions are replaced by suitable combinators.
 In Curry et.~al.~\cite[Section~6A]{curry68}, terms with variables, but no
@@ -118,11 +118,11 @@ abstractions are considered.
 A syntactical operation is defined, denoted $[x]t$, where $t$ is such a term
 and $x$ is a variable.
 The desired property is that $x$ does not occur in $[x]t$, and
-$([x]t)x = t$.  % TODO check Curry - what is = here?
+$([x]t)x =_{\delta\beta} t$.
 Due to its notation, the operation is known as \emph{bracket abstraction}.
 There is an obvious correspondence with lambda abstractions $\abs{x}{t}$.
-Bracket abstraction however is defined to evaluate to a concrete applicative
-term, whereas a lambda is an object of the syntax itself. % TODO check Curry chapter 3
+Bracket abstraction however stands for a concrete applicative term, whereas
+a lambda is an object of the syntax itself.
 Replacing lambdas $\abs{x}{t}$ by brackets $[x]t$ performs the shift to a
 combinator representation.
 Curry et.\ al. give several possible definitions for bracket abstraction.
@@ -144,7 +144,7 @@ The algorithm which consists of rules $(i)$, $(k)$ and $(s)$, in that order,
 is written succinctly as $(iks)$.
 The algorithm attempts to use the rules in their left-to-right order, applying
 the first one whose restrictions are satisfied by the term at hand.
-Each abstraction algorithm $A$ introduces a certain set of primitive combinators,
+Each abstraction algorithm $A$ introduces a certain set of basic combinators,
 which we refer to as $C(A)$.
 It is sound only if certain postulates about those combinators, which are again
 the equations in Table~\ref{tab:combinators}, are assumed.
@@ -155,7 +155,7 @@ Using the $(iks)$ algorithm, one gets
 	\stackrel{(s),(k)}{=} \mathbf{S}(\mathbf{S}([x]x)([x]x))(\mathbf{K}y)
 	\stackrel{(i)}{=} \mathbf{S}(\mathbf{SII})(\mathbf{K}y). \]
 Attempting to use the $(ik\eta bc)$ algorithm with the same abstraction
-quickly comes to a halt:
+quickly comes to a stop:
 \[ [x]xxy \stackrel{(c)}{=} \mathbf{C}([x]xx)y, \]
 which is undefined.
 \end{example}
@@ -199,16 +199,15 @@ the variable $x$ in subterms $\sivar x$ instead of inventing new ones.
 Using this definition, it is clear what the rules for idiomatic abstraction
 are:
 \begin{alignat}{2}
-	\tag{$i'$} [x](\sivar x) &= \spure \mathbf{I}, && \\
-	\tag{$k'$} [x]t &= \spure \mathbf{K} \sap t &&\qquad\text{if } x \not\in \operatorname{var}(t), \\
-	\tag{$b'$} [x](s \sap t) &= \spure \mathbf{B} \sap s \sap [x]t &&\qquad\text{if } x \not\in \operatorname{var}(s), \\
-	\tag{$c'$} [x](s \sap t) &= \spure \mathbf{C} \sap [x]s \sap t &&\qquad\text{if } x \not\in \operatorname{var}(t), \\
-	\tag{$s'$} [x](s \sap t) &= \spure \mathbf{S} \sap [x]s \sap [x]t. &&
+	\tag{$i'$} [x]'(\sivar x) &= \spure \mathbf{I}, && \\
+	\tag{$k'$} [x]'t &= \spure \mathbf{K} \sap t &&\qquad\text{if } x \not\in \operatorname{var}(t), \\
+	\tag{$\eta'$} [x]'(t \sap \sivar x) &= t &&\qquad\text{if } x \not\in\operatorname{var}(t), \\
+	\tag{$b'$} [x]'(s \sap t) &= \spure \mathbf{B} \sap s \sap [x]'t &&\qquad\text{if } x \not\in \operatorname{var}(s), \\
+	\tag{$c'$} [x]'(s \sap t) &= \spure \mathbf{C} \sap [x]'s \sap t &&\qquad\text{if } x \not\in \operatorname{var}(t), \\
+	\tag{$s'$} [x]'(s \sap t) &= \spure \mathbf{S} \sap [x]'s \sap [x]'t. &&
 \end{alignat}
 In general, the algorithm $A'$ on idiomatic terms is obtained from algorithm
 $A$ on regular terms by lifting its rules in this fashion, preserving order.
-% TODO lifted combinator defs?
-% TODO W combinator 
 
 Before we show the connection to the canonical form, there is one thing which
 remains to be considered.
@@ -219,64 +218,138 @@ above which are valid in all idioms.
 We define a combinator $\mathbf{T}xy = yx$ and the rules
 \begin{alignat}{2}
 	\tag{$t$} [x]st &= \mathbf{T}t([x]s) &&\qquad\text{if $t$ contains no variables}, \\
-	\tag{$t'$} [x](s \sap t) &= \spure \mathbf{T} \sap t \sap [x]s &&\qquad\text{if } \operatorname{var}(t) = \emptyset.
+	\tag{$t'$} [x]'(s \sap t) &= \spure \mathbf{T} \sap t \sap [x]'s
+		&&\qquad\text{if } \operatorname{var}(t) = \emptyset.
 \end{alignat}
 Soundness of rule $(t')$ can be shown to be equivalent to the interchange law.
 It is important to understand that $\mathbf{T}$ does not have to exist in the
 idiom; these rules do not fit exactly in the pattern of the other rules.
+The $\mathbf{T}$ combinator is also necessary to formulate the most generic
+rule for the $\mathbf{W}$ combinator.
+Without the interchange law, it could only be used for terms
+$t \sap \sivar x \sap \sivar x$, i.e. those where the same variable is applied
+twice in direct succession.
+In an idiom, there may be arbitrary pure terms ``inbetween'' the variables.
+We use the $(w)$ rule when the variable occurs in both operands of an application,
+just like the $(s)$ rule.
+\begin{alignat}{2}
+	\tag{$w$} [x]st &= \mathbf{W}(\mathbf{B}(\mathbf{T}[x]s)(\mathbf{B}(\mathbf{B}[x]t)))
+		&&\qquad\text{if $[x]s$ contains no variables}.
+\end{alignat}
+$(w')$ is derived similarly to the other rules.
 
 As with ordinary terms, we demand a soundness property for idiomatic bracket
-abstraction, namely that $[x]t \sap \sivar x \simeq t$ holds.
-The required combinator definitions get lifted to $\mathbf{I} \sap x \simeq x$
-and so on.
-\begin{lemma}
-Let $t \in \mathcal{I'}$ be a generic idiomatic term, and $x \in \mathcal{V}$
+abstraction, namely that $[x]'t' \sap \sivar x \simeq_C t'$ holds true.
+The definitions for the additional combinators $C$ get lifted to
+$\spure \mathbf{I} \sap x \simeq_C x$ and so on, consistently extending our
+congruence relation $\simeq$ to $\simeq_C$.
+% FIXME \simeq is not consistent -- pure I <> pure x ~= pure x and pure I <> pure x = pure (Ix)
+
+\begin{lemma}\label{thm:bracket-lifting}
+Let $t' \in \mathcal{I'}$ be a generic idiomatic term, and $x \in \mathcal{V}$
 a variable.
-For an abstraction algorithm $A$ consisting of a subset of rules $(i')$--$(t')$,
-we have $[x]t \sap \sivar x \simeq t$, assuming that all combinators $C(A)$
-exist.
+For an abstraction algorithm $A'$ consisting of a subset of rules $(i')$--$(t')$,
+we have $\unlift{[x]'t'} = [x]\unlift{t'}$ and $[x]'t' \sap \sivar x \simeq_{C(A')} t'$,
+assuming that $[x]'t'$ is defined.
+Also, bracket abstraction does not add variables:
+$\operatorname{var}([x]'t') \subseteq \operatorname{var}(t')$.
 \end{lemma}
 \begin{proof}
-\todo ?
+This statement uses that fact that the rules in $A'$ are very similar to those
+of $A$.
+In particular, rule $(r')$ is applied first when evaluating $[x]'t'$ iff rule
+$(r)$ is applied first to $[x]\unlift{t'}$.
+The remainder of the proof is a simple induction.
+We show the case involving rule $(c')$ as an example, the other cases are similar.
+Thus $t = s \sap u$ with $x \not\in \operatorname{var}(u)$.
+The induction hypothesis is
+\[ \unlift{[x]'s} = [x]\unlift{s} \quad\text{and}\quad [x]'s \sap \sivar x \simeq_{C(A')} s
+	\quad\text{and}\quad \operatorname{var}([x]'s) \subseteq \operatorname{var}(s). \]
+Then we have
+\[\begin{split}
+	\unlift{[x]'t} \stackrel{(c')}{=} \unlift{(\spure \mathbf{C} \sap [x]'s \sap u)}
+	= \mathbf{C} (\unlift{[x]'s}) (\unlift{u}) \\
+	\stackrel{\text{(IH)}}{=} \mathbf{C} ([x]\unlift{s}) (\unlift{u})
+	\stackrel{(c)}{=} [x](\unlift{s} \unlift{u})
+	= [x]\unlift{t} \end{split}\]
+and
+\[\begin{split} [x]'t' \sap \sivar x = \spure \mathbf{C} \sap [x]'s \sap u \sap \sivar x
+	\simeq_{C(A')} [x]'s \sap \sivar x \sap u \\
+	\stackrel{\text{(IH)}}{\simeq}_{C(A')} s \sap u = t. \end{split}\]
 \end{proof}
 
 Now we can state the key obversation:
 The successful abstraction of all variables in an idiomatic term leaves a
 single pure term, per the homomorphism law.
-Moreover, that term is identical to the result of applying the same abstraction
+Moreover, that term is equivalent to the result of applying the same abstraction
 algorithm to the ``unlifted term''.
+In principle, this works with arbitrary rules, as long as the statements of
+Lemma~\ref{thm:bracket-lifting} hold true.
 
-\begin{theorem}
-In the following, bracket abstraction uses algorithms $A$ and $A'$, respectively.
-Let $t \in \mathcal{I}'$ be a generic idiomatic term, and $x_1,\dots,x_n$
-a sequence of variables such that $\{x_1,\dots,x_n\} \supseteq \operatorname{var}(t)$.
-If $[x_1]\cdots[x_n]t$ is defined for $A'$, then
+\begin{theorem}\label{thm:unlifting}
+In the following, bracket abstraction uses algorithms $A$ and $A'$ with
+a subset of the rules $(i)$--$(t)$ and $(i')$--$(t')$, respectively.
+Let $t' \in \mathcal{I}'$ be a generic idiomatic term, and $x_1,\dots,x_n$
+a permutation of the variables $\operatorname{var}(t')$.
+If $f = [x_1]\cdots[x_n]\unlift{t'}$ is defined for $A$ and no variable in
+$\operatorname{var}(t')$ is free in $f$, then
 \begin{enumerate}
-\item $[x_1]\cdots[x_n]t$ consists only of applications of pure terms; and
-\item the unique canonical form of $[x_1]\cdots[x_n]t$ is $\spure t'$, where
-\item $t' = [x_1]\cdots[x_n]\unlift{t}$, thus
-\item replacing all combinators from $C(A)$ in $t'$ with their definitions
-	yields $t'' \termeq \abs{x_1\cdots x_n}{\unlift{t}}$.
+\item $[x_1]'\cdots[x_n]'t'$ consists only of applications of pure terms, and
+\item the unique canonical form of $[x_1]'\cdots[x_n]'t'$ is $\spure f$;
+\item $\spure f \sap \sivar x_1 \sap \cdots \sap \sivar x_n$ is a canonical
+	form of $t'$;
+\item replacing all combinators from $C(A)$ in $f$ with their definitions
+	yields $f' \termeq \abs{x_1\cdots x_n}{\unlift{t'}}$.
 \end{enumerate}
 \end{theorem}
-
-\subsection{Combinator Bases}\label{subsec:combinator-bases}
+\begin{proof}
+\begin{enumerate}
+\item is due to $\unlift{([x_1]'\cdots[x_n]'t')} = f$ (induction and
+	Lemma~\ref{thm:bracket-lifting}).
+\item It is not difficult to see that a pure-only term $p$ has a unique canonical
+	form, which is equal to $\spure \unlift{p}$.
+\item We have $\spure f \sap \sivar x_1 \sap \cdots \sap \sivar x_n \simeq_{C(A)} t'$
+	by induction, making repeated use of Lemma~\ref{thm:bracket-lifting}.
+\item \todo
+\end{enumerate}
+\end{proof}
 
 \begin{table}\centering
-\begin{tabular}{ll}
-Base & Example idioms \\
+\begin{tabular}{lll} Base & Abstraction & Example idioms \\
 \hline
-$\mathbf{BI}$ & state, list \\
-$\mathbf{BIC}$ & set \\
-$\mathbf{BIK}$ & \\
-$\mathbf{BIW}$ & either \\
-$\mathbf{BCK}$ & \\
-$\mathbf{BKW}$ & \\
-$\mathbf{BICW}$ & maybe \\
-$\mathbf{BCKW}$ & stream, $\alpha \to$ \\
+$\mathbf{BI}$ & $(ibt)$ & state, list \\
+$\mathbf{BIC}$ & $(ibtc)$ & set \\
+$\mathbf{BIK}$ & $(kibt)$ & \\
+$\mathbf{BIW}$ & $(ibtw)$ & either \\
+$\mathbf{BCK}$ & $(kibtc)$ & \\
+$\mathbf{BKW}$ & $(kibtw)$ & \\
+$\mathbf{BICW}$ & $(ibts)$ & maybe \\
+$\mathbf{BCKW}$ & $(kibts)$ & stream, $\alpha \to$ \\
 \end{tabular}
 \caption{Substructures of BCKW.}
 \label{tab:combinator-bases}
 \end{table}
+
+Remember that we are interested in equations, which obviously consist of two
+idiomatic terms.
+We get to the base equation only if the same variable sequence is used for both
+terms, and the assumptions of Theorem~\ref{thm:unlifting} are satisfied.
+To complete the \emph{generic lifting} approach, we need a procedure for
+determining the abstraction order.
+Since this procedure has to depend on the abstraction algorithm, we fix the
+combinator bases first.
+Hinze focuses on $\mathbf{SK = BCKW}$ and $\mathbf{BICS = BICW}$, noting
+that $\mathbf{BIC}$ is also relevant.
+The set $\{\mathbf{B,I,C,K,W}\}$ and its subsets seem to be a good starting
+point to cover relevant cases.
+Table~\ref{tab:combinator-bases} lists all distinct subsets containing
+$\mathbf{B}$ and $\mathbf{I}$, together with the abstraction algorithms we
+propose.
+(We routinely ignore $\mathbf{T}$ when listing the combinators.)
+The rules have been chosen in the following way:
+If $\mathbf{K}$ exists, start with $k$.
+Then, for all bases, perform $ibt$.
+If $\mathbf{C}$ (or $\mathbf{W}$) exists, add $c$ (or $w$), respectively.
+However, if both do, use rule $s$ instead.
 
 \todo
