@@ -506,8 +506,8 @@ We observe that in Algorithm~\ref{alg:normalize} each equation can be recast
 in the following way:
 The input term is first transformed in a fixed way that changes the outermost
 constitution.
-Then, the whole term or subterms thereof are substituted by other functions
-or recursively, possibly multiple times.
+Then, the whole term or subterms thereof are substituted by other functions%
+---or recursively---, possibly multiple times.
 For instance, in the first equation \eqref{eq:nf-nf1} for nf-nf, the term
 $g \sap (f \sap x)$ (where $g$, $f$, $x$ should be understood as placeholders
 for concrete terms) is rearranged to $\spure \mathbf{B} \sap g \sap f \sap x$.
@@ -521,15 +521,15 @@ $f' \sap x$.
 Function & Pattern & & Substitution & Name \\
 \hline
 normalize & $\sterm x$ & $\simeq$ & $\spure{(\sabs{x}{x})} \sap \sterm x$ \\
-	& $x$ & $=$ & $\pure{(\abs{x}{x})} \ap x$ & \texttt{I\_intro} \\[1ex]
+	& $\svar{x}$ & $=$ & $\pure{(\abs{x}{x})} \ap \svar{x}$ & \texttt{I\_intro} \\[1ex]
 nf-nf & $g \sap (f \sap x)$ & $\simeq$ & $\spure \mathbf{B} \sap g \sap f \sap x$ \\
-	& $g \ap (f \ap x)$ & $=$ & $\pure{(\abs{g f x}{g (f x)})} \ap g \ap f \ap x$ & \texttt{B\_intro} \\[1ex]
+	& $\svar{g} \ap (\svar{f} \ap \svar{x})$ & $=$ & $\pure{(\abs{g f x}{g (f x)})} \ap \svar{g} \ap \svar{f} \ap \svar{x}$ & \texttt{B\_intro} \\[1ex]
 pure-nf & $\spure g \sap (f \sap x)$ & $\simeq$ & $\spure{(\mathbf{B} \sapp g)} \sap f \sap x$ \\
-	& $\pure g \ap (f \ap x)$ & $=$ & $\pure{(\abs{f x}{g (f x)})} \ap f \ap x$ & \texttt{B\_pure} \\[1ex]
+	& $\pure \svar{g} \ap (\svar{f} \ap \svar{x})$ & $=$ & $\pure{(\abs{f x}{\svar{g} (f x)})} \ap \svar{f} \ap \svar{x}$ & \texttt{B\_pure} \\[1ex]
 pure-nf & $\spure f \sap \spure x$ & $\simeq$ & $\spure{(f \sapp x)}$ \\
-	& $\pure f \ap \pure x$ & $=$ & $\pure{(f x)}$ & \texttt{merge} \\[1ex]
+	& $\pure \svar{f} \ap \pure \svar{x}$ & $=$ & $\pure{(\svar{f} \svar{x})}$ & \texttt{merge} \\[1ex]
 nf-pure & $f \sap \spure x$ & $\simeq$ & $\spure{((\sabs{x}{\sabs{f}{f \sapp x}}) \sapp x)} \sap f$ \\
-	& $f \ap \pure x$ & $=$ & $\pure{(\abs{f}{f x})} \ap f$ & \texttt{swap}
+	& $\svar{f} \ap \pure \svar{x}$ & $=$ & $\pure{(\abs{f}{f \svar{x}})} \ap \svar{f}$ & \texttt{swap}
 \end{tabular}
 \caption{Fixed transformations of Algorithm~\ref{alg:normalize}, with
 corresponding rewrite rules. Identity cases are omitted.}
@@ -540,46 +540,131 @@ Table~\ref{tab:normalize-rules} shows all initial transformations.
 It is no coincidence that these are the well-known equivalences
 \eqref{eq:iterm-id}--\eqref{eq:iterm-xchng} and~\eqref{eq:pure-rotate}, which
 were used in the correctness proofs.
-Now let us identify idiomatic terms $\mathcal{I}$ with HOL terms.
-While the implementation of the normal form conversion does not create an
-internal representation in the style of $\mathcal{I}$, this discussion links
-the abstract properties described earlier to the ML algorithm.
-Assume that the applicative functor is fixed, i.e., there is a type scheme
-$f[\tvar{a}]$ and corresponding terms $\pure$, $(\ap)$.
-A type scheme is simply a normal HOL type with (in this case) one distinguished
-type variable $\tvar{a}$.
-This variable has to be tracked externally in ML, because of the lack of
-type quantifiers in Pure.%
-\footnote{We allow additional type variables in functor signatures, which
-therefore represent families of functors.}  % TODO move out/clarify
-The lifted type of $\alpha$ is then obtained by substitution of $\tvar{a}$ by
-$\alpha$ in $f[\tvar{a}]$.
-The mapping $\ldb\_\rdb$ from idiomatic terms to HOL terms can now be stated as
-\[ \ldb\sterm x\rdb = x, \quad \ldb\spure x\rdb = \pure x, \quad
-	\ldb f \sap x \rdb = \ldb f\rdb \ap \ldb x\rdb; \]
-with a side condition for well-typedness.
-For the inverse mapping, we demand that $\spure$- and $\sap$-nodes are created
-eagerly.
-Otherwise, it would suffice to map every term $x$ to $\sterm x$, for example.
-Another problem is identifying terms of the form $\pure \_$ and $\_ \ap \_$ in
-the first place.
-We do not want to restrict the term structure of the functor ``constants'',
-since some useful predefined concepts in the HOL libraries are abbreviations of
-compound terms.
-Isabelle's higher-order matching appears to be a proper solution in practice,
-using $\pure v$ (or $v_1 \ap v_2$) with variables $v$ ($v_1$, $v_2$) as the
-pattern.
-% TODO ?
-
-Figure~\ref{tab:normalize-rules} has been augmented with the corresponding HOL
-equations.
+Each transformation has been augmented with the corresponding HOL equation.
+The mapping from syntactic idiomatic terms to HOL terms is obvious;
+$\pure$ and $(\ap)$ are the concrete constants of the idiom under consideration.
+The variables standing for arbitrary opaque terms become new schematic variables,
+representing unknowns which may be instantiated.
+%$\mathbf{B}$ has been unfolded, ...
 Rule \texttt{B\_pure} is easily proven by rewriting with \texttt{B\_intro} and
 \texttt{merge}.
 The other rules are the applicative laws and thus are available from the
-registration infrastructure.
+registration infrastructure, see also \todo. % TODO ref to design section
 Applying a transformation to a term means instantiating the rule such that the
 left hand side is equal to that term.
-This is done by the ML function \verb+Conv.rewr_conv+, which uses matching
-internally.
+Isabelle provides a low-level reasoning framework for combining \emph{conversions}~
+\cite{paulson83}, which we use here.
+A conversion is a function which takes a term $t$ and returns a theorem
+$t = u$ for some $u$.%
+\footnote{Isabelle's conversions use the Pure equality $\equiv$.}
+The ML function \verb+Conv.rewr_conv+ turns a proven equation into such a
+conversion function.
+When the resulting conversion is applied, it attempts to instantiate the
+schematic variables in the equation.
+Note that conversions can fail; here if there is no match.
+Basic conversion combinators are the \verb+then_conv+ operator, which chains
+two conversions sequentially (and fails if any of these does),
+and the \verb+else_conv+ operator, which attempts to apply the first conversion,
+but uses the second if the first fails.
+%\verb+Conv.all_conv+ is the identity of \verb+then_conv+; ...
+Because rewrite conversions act like pattern matching guards, we combine them
+with \verb+else_conv+ to recreate the case switching of the algorithm.
+Combinators like \verb+Conv.arg1_conv+ facilitate the rewriting of subterms---%
+this one takes a conversions and modifies it such that it applies to the left
+operand of a binary operator.
+With these tools at hand, we can construct the normal form conversion.
+The recursive pieces can be expressed just as recursive auxiliary functions.
+However, we lose a bit of generality by using \verb+Conv.arg1_conv+ to access
+the left operand of $(\ap)$, because it requires that $(\ap)$ is not a
+beta-redex.
+This could be solved by creating a specialized combinator, which does pattern
+matching instead of simple term deconstruction.
 
-\todo\ current implementation with conversion combinators relies on term structure
+\begin{figure}
+\begin{lstlisting}[language=ml]
+fun normalform_conv ctxt af =
+  let
+    val rules = facts_of_afun af;
+
+    val leaf_conv = rename_rewr_conv (fn t => [("x", term_to_vname t)])
+      (#I_intro rules);
+    val merge_conv = Conv.rewr_conv (#merge rules);
+    val swap_conv = Conv.rewr_conv (#swap rules);
+    val rotate_conv = rename_rr_conv "x" (#B_intro rules);
+    val pure_rotate_conv = rename_rr_conv "x" (#B_pure rules);
+
+    fun normalize_pure_nf ct = ((pure_rotate_conv then_conv
+      Conv.arg1_conv normalize_pure_nf) else_conv merge_conv) ct;
+    val normalize_nf_pure = swap_conv then_conv normalize_pure_nf;
+    fun normalize_nf_nf ct = ((rotate_conv then_conv
+        Conv.arg1_conv (Conv.arg1_conv normalize_pure_nf then_conv
+          normalize_nf_nf)) else_conv
+      normalize_nf_pure) ct;
+
+    fun normalize ct =
+      let val t = Thm.term_of ct
+      in if can (dest_comb ctxt af) t
+        then (Conv.arg1_conv normalize then_conv
+            Conv.arg_conv normalize then_conv normalize_nf_nf) ct
+        else if can (dest_pure ctxt af) t
+          then Conv.all_conv ct
+          else leaf_conv ct
+      end;
+  in normalize end;
+\end{lstlisting}
+\caption{ML implementation of normalization.}
+\label{fig:ml-normalform}
+\end{figure}
+
+Figure~\ref{fig:ml-normalform} shows the ML code.
+It is parameterized by the applicative functor \verb+af+, which contains all
+the necessary rules.
+In the helper function \verb+normalize+, the different cases are selected
+by predicates like \verb+can (dest_comb ctxt af) t+, which is true only if
+term \verb+t+ fits the pattern $\_ \ap_\mathtt{af} \_$.
+We do this here because it is the only recursive conversion which is not
+guarded by a rewrite rule before recurring, so we want to protect against
+rampant rewriting.
+Finally, \verb+rename_rewr_conv+ and \verb+rename_rr_conv+ (not shown)
+adjust the names of bound variables in the argument rule to the term to convert.
+While these names are only hints in Isabelle and obviously subject to alpha
+conversion, they influence the display of the proof state.
+To elaborate, consider a HOL term $p \ap (q \ap r)$.
+Without the adjustment, the normal form would be
+$\pure{(\abs{xx_ax_b}{x(x_ax_b)})} \ap p \ap q \ap r$.
+The name component $x$ stems from the lambda abstraction in rule \verb+B_intro+.
+If the term is part of an equation, the variables of the reduced base equation
+will also be called $x$, $x_a$, and $x_b$.
+This creates unnecessary confusion, and to help the user, we try to preserve the
+variable names of the input term.
+
+%Now let us identify idiomatic terms $\mathcal{I}$ with HOL terms.
+%While the implementation of the normal form conversion does not create an
+%internal representation in the style of $\mathcal{I}$, this discussion links
+%the abstract properties described earlier to the ML algorithm.
+%Assume that the applicative functor is fixed, i.e., there is a type scheme
+%$f[\tvar{a}]$ and corresponding terms $\pure$, $(\ap)$.
+%A type scheme is simply a normal HOL type with (in this case) one distinguished
+%type variable $\tvar{a}$.
+%This variable has to be tracked externally in ML, because of the lack of
+%type quantifiers in Pure.%
+%\footnote{We allow additional type variables in functor signatures, which
+%therefore represent families of functors.}  % TODO move out/clarify
+%The lifted type of $\alpha$ is then obtained by substitution of $\tvar{a}$ by
+%$\alpha$ in $f[\tvar{a}]$.
+%The mapping $\ldb\_\rdb$ from idiomatic terms to HOL terms can now be stated as
+%\[ \ldb\sterm x\rdb = x, \quad \ldb\spure x\rdb = \pure x, \quad
+%	\ldb f \sap x \rdb = \ldb f\rdb \ap \ldb x\rdb; \]
+%with a side condition for well-typedness.
+%For the inverse mapping, we demand that $\spure$- and $\sap$-nodes are created
+%eagerly.
+%Otherwise, it would suffice to map every term $x$ to $\sterm x$, for example.
+%Another problem is identifying terms of the form $\pure \_$ and $\_ \ap \_$ in
+%the first place.
+%We do not want to restrict the term structure of the functor ``constants'',
+%since some useful predefined concepts in the HOL libraries are abbreviations of
+%compound terms.
+%Isabelle's higher-order matching appears to be a proper solution in practice,
+%using $\pure v$ (or $v_1 \ap v_2$) with variables $v$ ($v_1$, $v_2$) as the
+%pattern.
+%% TODO ?
