@@ -325,8 +325,8 @@ $\mathbf{BIK}$ & $(kibt)$ & \\
 $\mathbf{BIW}$ & $(ibtw)$ & either \\
 $\mathbf{BCK}$ & $(kibtc)$ & \\
 $\mathbf{BKW}$ & $(kibtw)$ & \\
-$\mathbf{BICW}$ & $(ibts)$ & maybe \\
-$\mathbf{BCKW}$ & $(kibts)$ & stream, $\alpha \to$ \\
+$\mathbf{BICW}$ & $(ibtcs)$ & maybe \\
+$\mathbf{BCKW}$ & $(kibtcs)$ & stream, $\alpha \to$ \\
 \end{tabular}
 \caption{Substructures of BCKW.}
 \label{tab:combinator-bases}
@@ -351,7 +351,8 @@ Table~\ref{tab:combinator-bases} lists all distinct subsets containing
 $\mathbf{B}$ and $\mathbf{I}$, together with the abstraction algorithms we
 propose.
 (We routinely ignore $\mathbf{T}$ when listing the combinators.)
-The rules have been chosen in the following way:
+The algorithms have been chosen in order to simplify the implementation, by
+using the rules conditionally depending on the available combinators:
 If $\mathbf{K}$ exists, start with $k$.
 Then, for all bases, perform $ibt$.
 If $\mathbf{C}$ (or $\mathbf{W}$) exists, add $c$ (or $w$), respectively.
@@ -404,21 +405,62 @@ A simple choice is
 $\operatorname{abs}_\mathbf{BIC}(s,t) = \overrightarrow{\operatorname{var}}(s)$.
 However note that we do not use the $(\eta)$ rule, but add the $(t)$ rule.
 $(\eta)$ could be a considered as an optimization, since
-$\abs{x}{yx} =_\beta \mathbf{B}y\mathbf{I}x$, so $(b)$ and $(i)$ suffice.
+$\abs{x}{yx} =_\beta \mathbf{B}y\mathbf{I}$, so $(b)$ and $(i)$ suffice.
 Conversely, $(t)$ is a special case of $(c)$ with $(i)$, and adding it to the
 algorithm next to $(c)$ just results in a slightly different combinator
 representation.
 We use this particular algorithm in order to simplify the implementation,
 such that as much code as possible can be shared between the bases. 
 
-\subsubsection*{$\mathbf{BCK}$}\label{subsec:base-bck}
+\subsubsection*{$\mathbf{BCK}$ and $\mathbf{BICW}$}\label{subsec:base-bck-bicw}
 
-This case was also analyzed by Bunder.
-The definable terms are those where each bound variable occurs at most once,
-again ignoring the order.
+These cases were also analyzed by Bunder.
+For $\mathbf{BCK}$, the definable terms are those where each bound variable occurs
+at most once, again ignoring the order.
 In terms of bracket abstraction, $[x]y$ is then also defined if $x$ is not free
 in $y$.
-This allows us to extend the sequence $\operatorname{abs}_\mathbf{BIC}(s,t)$
-with other variables.
+This allows us to extend the sequence with other variables.
+We make use of this to deal with variables which only occur on one side of
+an equation---it does not hurt to abstract over those too.
+Hence, $\operatorname{abs}_\mathbf{BCK}(s,t)$ can be any arrangement of the
+set $\operatorname{var}(s) \cup \operatorname{var}(t)$.
+The implementation uses a total order on the set of variables.
+On the contrary, the definable terms of $\mathbf{BICW}$ have at least one
+occurence of each bound variable; $[x]y$ can therefore be used if $x$ occurs
+multiple times in $y$, and $x$ will not be free in $[x]y$.
+Comparing this with $\mathbf{BIC}$, we loosen the restriction that variables
+must not be repeated.
+$\operatorname{abs}_\mathbf{BICW}(s,t)$ must be an arrangement of
+$\operatorname{var}(s) = \operatorname{var}(t)$.
+We can compute this by sorting the sequences again, and then trimming duplicates
+which now are next to each other.
 
-% TODO
+Bunder proposes the $(i\eta kbc)$ algorithm for $\mathbf{BCK}$, and
+$(i\eta bcs)$ for $\mathbf{BICW}$.
+The comments on $(\eta)$ and $(t)$ from above apply here as well.
+The only other difference is the position of $(k)$ in the list.
+But $(k)$ on one side and $(i)$ and $(\eta)$ on the sider work with disjoint
+sets of terms, so this is not an issue.
+
+\subsubsection*{$\mathbf{BCKW}$}\label{subsec:base-bckw}
+
+This base, which is logically equivalent to $\mathbf{SK}$, has some useful
+properties:
+$[x]y$ can always be defined, making it possible to use any abstraction
+sequence, and in turn handle all equations.
+In conjunction with Theorem~\ref{thm:unlifting}, we want to abstract all
+free variables, though.
+Therefore we determine the sequence as with $\mathbf{BCK}$, but the
+term restriction is rescinded.
+As for the abstraction algorithm, we use a variation of $(ik\eta bcs)$
+from~\cite{curry68}.
+
+\subsubsection*{The Odd Ones -- $\mathbf{BIK}$, $\mathbf{BIW}$ and $\mathbf{BKW}$}\label{subsec:base-odd}
+
+\todo
+\begin{itemize}
+	\item lack of $\mathbf{C}$ -- have to consider $\mathbf{T}$?
+	\item no precedent regarding definable terms, bracket abstraction
+	\item use techniques from other bases: insert foreign variables, merge adjacent duplicates
+	\item at least $\mathbf{BIW}$ is useful, not sure about others
+\end{itemize}
