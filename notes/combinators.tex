@@ -192,6 +192,8 @@ We reuse the congruence $\simeq$ from Definition~\ref{def:idiomatic-terms} for
 generic terms.
 The set of variables $\operatorname{var}(t)$ of $t$ is defined as the set of
 all arguments to $\sivar$ occuring in $t$.
+The sequence of variables $\overrightarrow{\operatorname{var}}(t)$ is defined
+similarly to $\operatorname{opaq}$.
 Unlifting (see Definition~\ref{def:unlifting}) is also transferred, but uses
 the variable $x$ in subterms $\sivar x$ instead of inventing new ones.
 \end{definition}
@@ -290,7 +292,7 @@ Lemma~\ref{thm:bracket-lifting} hold true.
 In the following, bracket abstraction uses algorithms $A$ and $A'$ with
 a subset of the rules $(i)$--$(t)$ and $(i')$--$(t')$, respectively.
 Let $t' \in \mathcal{I}'$ be a generic idiomatic term, and $x_1,\dots,x_n$
-a permutation of the variables $\operatorname{var}(t')$.
+a permutation of the variables $\operatorname{var}(t')$, or a superset thereof.
 If $f = [x_1]\cdots[x_n]\unlift{t'}$ is defined for $A$ and no variable in
 $\operatorname{var}(t')$ is free in $f$, then
 \begin{enumerate}
@@ -342,6 +344,9 @@ Hinze focuses on $\mathbf{SK = BCKW}$ and $\mathbf{BICS = BICW}$, noting
 that $\mathbf{BIC}$ is also relevant.
 The set $\{\mathbf{B,I,C,K,W}\}$ and its subsets seem to be a good starting
 point to cover relevant cases.
+The additional combinators play an intuitive role:
+$\mathbf{C}$ reorders variables, $\mathbf{W}$ duplicates them, and $\mathbf{K}$
+permits abstraction over additional variables.
 Table~\ref{tab:combinator-bases} lists all distinct subsets containing
 $\mathbf{B}$ and $\mathbf{I}$, together with the abstraction algorithms we
 propose.
@@ -351,5 +356,69 @@ If $\mathbf{K}$ exists, start with $k$.
 Then, for all bases, perform $ibt$.
 If $\mathbf{C}$ (or $\mathbf{W}$) exists, add $c$ (or $w$), respectively.
 However, if both do, use rule $s$ instead.
+Below follows a detailed description of how the variable sequence can be found
+in each base, and we justify the abstraction algorithms, meaning that the
+preconditions of Theorem~\ref{thm:unlifting} are satisfied.
+The function $\operatorname{abs}_C(s,t)$ will denote the chosen sequence for
+terms $s$, $t$ in the context of base $C$.
+% TODO talk about the examples in the table
 
-\todo
+\subsubsection*{$\mathbf{BI}$}\label{subsec:base-bi}
+
+This is the minimal base which is available for all idioms.
+We already know from Section~\ref{subsec:idiomatic-calculus} that there is only
+one canonical form with respect to $\simeq$.
+Therefore, there is exactly one permissible sequence:
+\[ \operatorname{abs}_\mathbf{BI}(s,t) = \overrightarrow{\operatorname{var}}(s)
+	= \overrightarrow{\operatorname{var}}(t). \]
+Equations where the two sequences differ are rejected.
+If any other sequence could be used, we would get a different canonical form
+per Theorem~\ref{thm:unlifting}, thus contradicting the previous result on
+normal forms.
+Focusing on a single abstraction step $[x_i]t_i$, $x_i$ must occur once in
+$t_i$, and it is the right-most variable.
+If $t_i$ is an application, there are two cases:
+$x_i$ occurs in the right subterm, and rule $(b)$ is used successfully.
+Otherwise, there can be no variable in the right subterm, so $(t)$ applies.
+This confirms that algorithm $(ibt)$ is indeed acceptable for this base.
+
+\subsubsection*{$\mathbf{BIC}$}\label{subsec:base-bic}
+
+Bunder shows~\cite{bunder96} that $\mathbf{BIC}$-definable lambda terms are
+those where each bound variable occurs excatly once, irrespective of their order.
+His definition of a $C$-definable term $t$ (with combinator base $C$)
+implies that there exists an abstraction algorithm such that $[x]s$ is defined
+if $t = \abs{x}{s}$.
+In particular, $(i\eta bc)$ is a valid algorithm.
+From this it follows that we can choose the order in which we abstract, as long
+as the corresponding variable occurs exactly one.
+Note that our special $\mathbf{T}$ combinator is not considered there.
+But as it can be simulated by the more powerful $\mathbf{CI}$, adding it to the
+combinator base does not change anything.
+
+In this base, we can work with all equations where the variable sequence of
+one term can be reordered to the sequence of the second.
+The order used for the abstraction is irrelevant, but it will be reflected
+in the quantifier order of the base equation.
+A simple choice is
+$\operatorname{abs}_\mathbf{BIC}(s,t) = \overrightarrow{\operatorname{var}}(s)$.
+However note that we do not use the $(\eta)$ rule, but add the $(t)$ rule.
+$(\eta)$ could be a considered as an optimization, since
+$\abs{x}{yx} =_\beta \mathbf{B}y\mathbf{I}x$, so $(b)$ and $(i)$ suffice.
+Conversely, $(t)$ is a special case of $(c)$ with $(i)$, and adding it to the
+algorithm next to $(c)$ just results in a slightly different combinator
+representation.
+We use this particular algorithm in order to simplify the implementation,
+such that as much code as possible can be shared between the bases. 
+
+\subsubsection*{$\mathbf{BCK}$}\label{subsec:base-bck}
+
+This case was also analyzed by Bunder.
+The definable terms are those where each bound variable occurs at most once,
+again ignoring the order.
+In terms of bracket abstraction, $[x]y$ is then also defined if $x$ is not free
+in $y$.
+This allows us to extend the sequence $\operatorname{abs}_\mathbf{BIC}(s,t)$
+with other variables.
+
+% TODO
