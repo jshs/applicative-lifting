@@ -535,4 +535,243 @@ $\varseq(t)$ is allowed and treated like a single instance.
 
 \subsection{Implementation}\label{subsec:combinator-implementation}
 
-\todo
+The implementation of generic unlifting essentially has to compute bracket
+abstractions, i.e., recursively select the correct rule for a term.
+Similar to what we did with the normal form conversion, the goal is to prove a
+theorem representing
+\[ t \simeq ([x_1]'\cdots[x_n]'t) \sap x_1 \sap \cdots \sap x_n. \]
+However, we also add a heuristic that tries to determine how variables have
+been instantiated in the supplied equation.
+First, arbitrary opaque terms take the place of variables.
+We can work directly with these, but it becomes less clear which subterms are
+the same, meaning that they should be abstracted simultaneously.
+Consider a base equation with two, universally quantified variables $x$ and $y$.
+If the lifted version can be proven, it will also have two variables.
+Now, the user might want to prove a proposition which is equivalent to the
+lifted equation, except that both variables have been replaced by the
+(same) term $z$.
+This modified statement is obviously true, so we might expect that the lifting
+tool can handle it.
+Remember that we prohibited multiple occurrences in certain bases, e.g.
+$\mathbf{BI}$, when we defined bracket abstraction.
+What would happend if we normalize the equation?
+Normalization treats each instance of a opaque subterm separately, thus we will
+get something of the form $\pure f \ap z \ap z = \pure g \ap z \ap z$.
+By magic, the functions $f$ and $g$ have been equipped with two arguments!
+In the base $\mathbf{BI}$, generic unlifting is not more powerful than
+normal form conversion, but we expect it not to be weaker either.
+We solve the problem by handling each opaque subterm as if it were a different
+variable.
+For other bases, we need to be more clever, or we would lose the advantage
+that generic unflifting was supposed to give us.
+For example, idempotency of an operator $\circ$, $x \circ x = x$
+can be lifted if $\mathbf{W}$ exists;
+when proving a lifted instance like $f(x) \hat\circ f(x) = f(x)$, the two
+copies of $f(x)$ on the left-hand side must be identified.
+Therefore, the base of the idiom influences the assignment of ``virtual''
+variables to opaque terms.
+In general, it is best if we identify as many terms as possible:
+The resulting base equation is certainly provable if it were so without grouping
+some pair of variables.
+However, we will see that the situation can sometimes be ambiguous.
+
+\begin{figure}[h]
+\begin{lstlisting}[language=ML]
+datatype apterm =
+  Pure of term | Var of int * term | Ap of apterm * apterm;
+\end{lstlisting}
+\caption{The datatype to keep track of idiomatic terms.}
+\label{fig:apterm}
+\end{figure}
+
+We use a ML datatype to make the term structure explicit.
+\texttt{apterm} (see Figure~\ref{fig:apterm}) has a similar structure as $\mathcal{I}$.
+Opaque terms \texttt{Var} are tagged with an integer, which is unique for each
+position in an equation.
+Sets of these positions play the role of variables in the previous section.
+The function \texttt{eliminate} takes an \texttt{apterm} $t$ and such a set $x$,
+computing the pair $([x]'t,\phi)$, where $\phi$ is the theorem
+$t \simeq [x]'t \sap x$.
+One important building block for this function is \texttt{rewr\_subst\_ap},
+whose code is shown in Figure~\ref{fig:rewr-subst-ap}.
+It combines three rewrite rules.
+Two of them, say $x = x'$ and $y = y'$, get merged to a congruence rule of the
+idiomatic application operator, $x \ap y = x' \ap y'$, by the standard
+\texttt{Drule.binop\_cong\_rule}.
+However, the application operator's types need to be instantiated before.
+The resulting equation is then chained with the third rule.
+Similar to our use of conversion combinators in Section~\ref{subsec:nf-implementation},
+we employ \texttt{rewr\_subst\_ap} to handle the recursive nature of most
+abstraction rules.
+As an example refer to Figure~\ref{fig:b-impl}.
+It takes as arguments two pairs of an idiomatic term and a theorem, the results
+of abstracting the two subterms of an application.
+Here, the key transformation is again provided by \texttt{B\_intro} from
+Table~\ref{tab:normalize-rules}.
+We must also update the \texttt{apterm} structure.
+New combinator terms are introduced, which also need proper type instantiation.
+Because these combinator are part of the equation we have computed, it seems
+to be the easiest method to extract the term from that equation.
+The integer supplied to \texttt{extract\_comb} indicates how deeply nested to
+the left the combinator is.
+
+\begin{figure}[t]
+\begin{lstlisting}[language=ML]
+fun rewr_subst_ap ctxt af rewr thm1 thm2 =
+  let
+    val funT = thm1 |> Thm.lhs_of |> Thm.typ_of_cterm;
+    val ap_inst = Thm.cterm_of ctxt (ap ctxt af funT);
+    val rule1 = Drule.binop_cong_rule ap_inst thm1 thm2;
+    val rule2 = Conv.rewr_conv rewr (Thm.rhs_of rule1);
+  in Thm.transitive rule1 rule2 end;
+\end{lstlisting}
+\caption{The \texttt{rewr\_subst\_ap} function.}
+\label{fig:rewr-subst-ap}
+\end{figure}
+
+\begin{figure}[t]
+\begin{lstlisting}[language=ML]
+fun extract_comb n thm = Pure (thm |> Thm.rhs_of |>
+  funpow n Thm.dest_arg1 |> Thm.term_of);
+fun comb2_step def (tt1, thm1) (tt2, thm2) =
+  let val thm = rewr_subst_ap def thm1 thm2;
+  in (Ap (Ap (extract_comb 3 thm, tt1), tt2), thm) end;
+val B_step = comb2_step (#B_intro rules);
+\end{lstlisting}
+\caption{Implementation of rule $(b')$.}
+\label{fig:b-impl}
+\end{figure}
+
+% TODO other rules?
+%\begin{figure}[t]
+%\begin{lstlisting}[language=ML]
+%fun W_step s1 s2 =
+%  let
+%    val (Ap (Ap (tt1, tt2), tt3), thm1) = B_step s1 s2;
+%    val thm2 = Conv.rewr_conv (#B_intro rules)
+%      (Thm.rhs_of thm1 |> funpow 2 Thm.dest_arg1);
+%    val thm3 = squash_atoms ctxt af tt3 |> the;
+%    val (tt4, thm4) = swap_B_step (Ap (Ap (extract_comb 3 thm2, tt1), tt2), thm2) thm3;
+%    val var = Thm.rhs_of thm1 |> Thm.dest_arg;
+%    val thm5 = rewr_subst_ap (#W_intro rules |> the) thm4 (Thm.reflexive var);
+%    val thm6 = Thm.transitive thm1 thm5;
+%  in (Ap (extract_comb 2 thm6, tt4), thm6) end;
+%\end{lstlisting}
+%\caption{Implementation of rule $(w')$.}
+%\label{fig:w-impl}
+%\end{figure}
+
+% TODO squash_atoms?
+
+\begin{figure}[t]\centering
+\begin{tikzpicture}
+	\matrix [matrix of nodes, column sep=-\pgflinewidth,
+			every node/.style={draw, anchor=base, inner sep=0, minimum width=4ex, text height=3ex, text depth=1.5ex},
+			label/.style={draw=none, anchor=base east}] {
+		|[label]| $l =$ &[3mm] a & b & |[dashed] (c1)| & & |(c2)| c & |(d)| d & |[draw=none] (a)| & |(e)| e \\[1mm]
+		|[label]| $r =$ & a & b & f & g & c & & a \\[3mm]
+		|[label]| $\mathtt{merge}(l,r) =$ & a & b & f & g & c & d & a & e \\
+	};
+	\draw[->, thick] (c1.center) -- (c2) node [midway, above, xshift=1mm] {(1)};
+	\draw[decorate, decoration=brace, thick] ([yshift=1mm]d.north west) -- ([yshift=1mm]a.north east)
+		node [midway, above] {(2)};
+	\draw (e.east) node [right] {(3)};
+\end{tikzpicture}
+\caption{Example of the merge operation for $\mathbf{K}$ in \texttt{consolidate}.
+(1) Variable $c$ can be aligned with the remainder of list $r$, which is not
+possible with $f$ and list $l$.
+(2) Neither $d$ nor the copy of $a$ can be aligned, so we intersperse them.
+The previous occurrence of $a$ is not considered, because the algorithm is greedy
+and works from left to right.
+(3) A single tail is preserved.}
+\label{fig:consolidate-merge}
+\end{figure}
+
+The function \texttt{consolidate} determines the common abstraction sequence
+for two idiomatic terms.
+It begins with creating a left-to-right list of the variables for each term.
+Then an additional tag is added such that two list elements have the same
+tag iff we consider the instantiated terms equal.
+In the current implementation, the equality predicate is plain alpha
+convertibility.
+The next steps depend on the combinator base:
+\begin{enumerate}
+\item If $\mathbf{C}$ exists, each list is sorted according to the tag.
+	This groups equal terms together.
+\item If $\mathbf{W}$ exists, adjacent copies of the same term (again as
+	indicated by the tag) are merged in each list.
+	The positions of the involved variables are collected into a list.
+	Otherwise, each position is put in an singleton list, so we have a uniform
+	type after this step.
+\item If $\mathbf{K}$ exists, both lists are merged in a peculiar way:
+	If the heads of them have the same tag, we merge their positions to obtain
+	a single element and add it to the result, then proceeding with the tails.
+	Otherwise, we try to align one head with the other list and vice versa.
+	A head is aligned if its tag occurs in the list after some prefix.
+	If alignment is possible in one direction, but not the other, the prefix
+	and the aligned element become part of the result.
+	Otherwise, the two heads are emitted one after the other.
+	A potentially remaining single tail is kept as-is.
+	Figure~\ref{fig:consolidate-merge} displays an example.
+
+	If $\mathbf{K}$ does not exist, we check that both lists have the same
+	length and contain the same sequence of tags, or an error condition is raised.
+	Again, the position lists within both lists are zipped.
+\end{enumerate}
+% TODO full code in appendix?
+We should investigate whether this algorithm is consistent with the theoretical
+development in Section~\ref{subsec:generic-lifting}, and also with the
+criteria regarding variable instantiation.
+\begin{itemize}
+\item With $\mathbf{BI}$, there is not much flexibility---we can only abstract
+	over a single position at a time.
+	Aborting due to a sequence mismatch is basically the single difference to
+	normal form conversion.
+	However, there we will just get a likely unprovable result, so this
+	behavior is justified.
+\item $\mathbf{BIC}$: As before; sorting produces a suitable sequence if one
+	exists.
+\item $\mathbf{BIW}$: We have shown that simultaneous abstraction is only
+	possible for coherent spans of a variable.
+	Merging all adjacent copies of a variable is the best we can hope for.
+\item $\mathbf{BICW}$: Sorting puts equal terms next to each other, where they
+	will be merged.
+	Thus, all possible terms are identified, making this the most general
+	solution.
+	If the sanity check at the end fails, then the set of variables for both
+	sides of the equation must differ, and the precondition for this base is
+	violated. % TODO rev
+\item $\mathbf{BCKW}$ differs from the previous case in the last step.
+	As expected, we now accept every pair of terms.
+	It should not happen that we will get a duplicate variable tag, in other words,
+	if a tag appears in both lists, there must be a single element in the output.
+	This is easily shown by induction.
+	Especially if alignment is used, the ``skipped'' prefix can only contain
+	variables which do not occur in both terms, because the lists are sorted.
+\item $\mathbf{BCK}$: The lack of $\mathbf{W}$ implies that all positions
+	have to be abstracted individually.
+	However, it is interesting to see what the last step does with respect to
+	consolidating both sides of the equation.
+	Again by induction we see that as many pairings as possible between the
+	two sides of the equation are created.
+	The difference to $\mathbf{BCKW}$ is that the same term may occur repeatedly
+	in the lists.
+	In case of different repetition counts, the algorithm is biased to the left.
+	This is a potentially destructive choice, but the user can always resort
+	to using new variables in the desired manner, and then do the instantiation
+	in a second step.
+\item $\mathbf{BIK}$ and $\mathbf{BKW}$ are not perfectly solvable either.
+	For example, consider the lists (tags only) $\langle 1,2\rangle$ and $\langle 2,1\rangle$.
+	If we try to consolidate, then $\langle 1,2,1\rangle$ or $\langle 2,1,2\rangle$
+	are the only possible sequences.
+	It is not clear which is the correct one.
+	The algorithm bails out and selects $\langle 1,2,2,1\rangle$ (which is
+	probably useless).
+	Likewise, discretion on behalf of the user is required.
+	One could try more sophisticated algorithms like minimizing the edit
+	distance.
+	Due to a lack of example idioms for these bases, we decided against this
+	extra effort.
+\end{itemize}
+
+% TODO driver (general_normalform_conv)?
