@@ -190,10 +190,9 @@ The set of generic idiomatic terms $\mathcal{I}'$ is defined by
 \end{equation}
 We reuse the congruence $\simeq$ from Definition~\ref{def:idiomatic-terms} for
 generic terms.
-The set of variables $\operatorname{var}(t)$ of $t$ is defined as the set of
-all arguments to $\sivar$ occuring in $t$.
-The sequence of variables $\overrightarrow{\operatorname{var}}(t)$ is defined
-similarly to $\operatorname{opaq}$.
+The set of variables $\vars(t)$ of $t$ is defined as the set of all arguments
+to $\sivar$ occuring in $t$.
+The sequence of variables $\varseq(t)$ is defined similarly to $\operatorname{opaq}$.
 Unlifting (see Definition~\ref{def:unlifting}) is also transferred, but uses
 the variable $x$ in subterms $\sivar x$ instead of inventing new ones.
 \end{definition}
@@ -202,10 +201,10 @@ Using this definition, it is clear what the rules for idiomatic abstraction
 are:
 \begin{alignat}{2}
 	\tag{$i'$} [x]'(\sivar x) &= \spure \mathbf{I}, && \\
-	\tag{$k'$} [x]'t &= \spure \mathbf{K} \sap t &&\qquad\text{if } x \not\in \operatorname{var}(t), \\
-	\tag{$\eta'$} [x]'(t \sap \sivar x) &= t &&\qquad\text{if } x \not\in\operatorname{var}(t), \\
-	\tag{$b'$} [x]'(s \sap t) &= \spure \mathbf{B} \sap s \sap [x]'t &&\qquad\text{if } x \not\in \operatorname{var}(s), \\
-	\tag{$c'$} [x]'(s \sap t) &= \spure \mathbf{C} \sap [x]'s \sap t &&\qquad\text{if } x \not\in \operatorname{var}(t), \\
+	\tag{$k'$} [x]'t &= \spure \mathbf{K} \sap t &&\qquad\text{if } x \not\in \vars(t), \\
+	\tag{$\eta'$} [x]'(t \sap \sivar x) &= t &&\qquad\text{if } x \not\in\vars(t), \\
+	\tag{$b'$} [x]'(s \sap t) &= \spure \mathbf{B} \sap s \sap [x]'t &&\qquad\text{if } x \not\in \vars(s), \\
+	\tag{$c'$} [x]'(s \sap t) &= \spure \mathbf{C} \sap [x]'s \sap t &&\qquad\text{if } x \not\in \vars(t), \\
 	\tag{$s'$} [x]'(s \sap t) &= \spure \mathbf{S} \sap [x]'s \sap [x]'t. &&
 \end{alignat}
 In general, the algorithm $A'$ on idiomatic terms is obtained from algorithm
@@ -221,7 +220,7 @@ We define a combinator $\mathbf{T}xy = yx$ and the rules
 \begin{alignat}{2}
 	\tag{$t$} [x]st &= \mathbf{T}t([x]s) &&\qquad\text{if $t$ contains no variables}, \\
 	\tag{$t'$} [x]'(s \sap t) &= \spure \mathbf{T} \sap t \sap [x]'s
-		&&\qquad\text{if } \operatorname{var}(t) = \emptyset.
+		&&\qquad\text{if } \vars(t) = \emptyset.
 \end{alignat}
 Soundness of rule $(t')$ can be shown to be equivalent to the interchange law.
 It is important to understand that $\mathbf{T}$ does not have to exist in the
@@ -235,8 +234,8 @@ In an idiom, there may be arbitrary pure terms ``inbetween'' the variables.
 We use the $(w)$ rule when the variable occurs in both operands of an application,
 just like the $(s)$ rule.
 \begin{alignat}{2}
-	\tag{$w$} [x]st &= \mathbf{W}(\mathbf{B}(\mathbf{T}[x]s)(\mathbf{B}(\mathbf{B}[x]t)))
-		&&\qquad\text{if $[x]s$ contains no variables}.
+	\tag{$w$} [x]st &= \mathbf{W}(\mathbf{B}(\mathbf{T}[x]t)(\mathbf{B}\mathbf{B}[x]s))
+		&&\qquad\text{if $[x]t$ contains no variables}.
 \end{alignat}
 $(w')$ is derived similarly to the other rules.
 
@@ -254,7 +253,7 @@ For an abstraction algorithm $A'$ consisting of a subset of rules $(i')$--$(t')$
 we have $\unlift{[x]'t'} = [x]\unlift{t'}$ and $[x]'t' \sap \sivar x \simeq_{C(A')} t'$,
 assuming that $[x]'t'$ is defined.
 Also, bracket abstraction does not add variables:
-$\operatorname{var}([x]'t') \subseteq \operatorname{var}(t')$.
+$\vars([x]'t') \subseteq \vars(t')$.
 \end{lemma}
 \begin{proof}
 This statement uses that fact that the rules in $A'$ are very similar to those
@@ -263,10 +262,10 @@ In particular, rule $(r')$ is applied first when evaluating $[x]'t'$ iff rule
 $(r)$ is applied first to $[x]\unlift{t'}$.
 The remainder of the proof is a simple induction.
 We show the case involving rule $(c')$ as an example, the other cases are similar.
-Thus $t = s \sap u$ with $x \not\in \operatorname{var}(u)$.
+Thus $t = s \sap u$ with $x \not\in \vars(u)$.
 The induction hypothesis is
 \[ \unlift{[x]'s} = [x]\unlift{s} \quad\text{and}\quad [x]'s \sap \sivar x \simeq_{C(A')} s
-	\quad\text{and}\quad \operatorname{var}([x]'s) \subseteq \operatorname{var}(s). \]
+	\quad\text{and}\quad \vars([x]'s) \subseteq \vars(s). \]
 Then we have
 \[\begin{split}
 	\unlift{[x]'t} \stackrel{(c')}{=} \unlift{(\spure \mathbf{C} \sap [x]'s \sap u)}
@@ -292,16 +291,15 @@ Lemma~\ref{thm:bracket-lifting} hold true.
 In the following, bracket abstraction uses algorithms $A$ and $A'$ with
 a subset of the rules $(i)$--$(t)$ and $(i')$--$(t')$, respectively.
 Let $t' \in \mathcal{I}'$ be a generic idiomatic term, and $x_1,\dots,x_n$
-a permutation of the variables $\operatorname{var}(t')$, or a superset thereof.
-If $f = [x_1]\cdots[x_n]\unlift{t'}$ is defined for $A$ and no variable in
-$\operatorname{var}(t')$ is free in $f$, then
+a permutation of the variables $\vars(t')$, or a superset thereof.
+If $f = [x_1]\cdots[x_n]\unlift{t'}$ is defined for $A$, then
 \begin{enumerate}
 \item $[x_1]'\cdots[x_n]'t'$ consists only of applications of pure terms, and
 \item the unique canonical form of $[x_1]'\cdots[x_n]'t'$ is $\spure f$;
 \item $\spure f \sap \sivar x_1 \sap \cdots \sap \sivar x_n$ is a canonical
 	form of $t'$;
 \item replacing all combinators from $C(A)$ in $f$ with their definitions
-	yields $f' \termeq \abs{x_1\cdots x_n}{\unlift{t'}}$.
+	yields $f' =_{\beta\eta} \abs{x_1\cdots x_n}{\unlift{t'}}$.
 \end{enumerate}
 \end{theorem}
 \begin{proof}
@@ -312,7 +310,9 @@ $\operatorname{var}(t')$ is free in $f$, then
 	form, which is equal to $\spure \unlift{p}$.
 \item We have $\spure f \sap \sivar x_1 \sap \cdots \sap \sivar x_n \simeq_{C(A)} t'$
 	by induction, making repeated use of Lemma~\ref{thm:bracket-lifting}.
-\item \todo
+\item We show $[x_1]\cdots[x_n]\unlift{t'} =_{\delta\beta} \abs{x_1\cdots x_n}{\unlift{t'}}$.
+	Note that $([x_i]p)x_i =_{\delta\beta} p$ for all terms $p$, and hence
+	$[x_i]p =_\eta \abs{x_i}{([x_i]p)x_i} =_{\delta\beta} \abs{x_i}{p}$.
 \end{enumerate}
 \end{proof}
 
@@ -350,7 +350,10 @@ permits abstraction over additional variables.
 Table~\ref{tab:combinator-bases} lists all distinct subsets containing
 $\mathbf{B}$ and $\mathbf{I}$, together with the abstraction algorithms we
 propose.
-(We routinely ignore $\mathbf{T}$ when listing the combinators.)
+We routinely ignore $\mathbf{T}$ when listing the combinators.
+This highlights the connection with combinatorial logic, where some of those
+bases have been studied.
+
 The algorithms have been chosen in order to simplify the implementation, by
 using the rules conditionally depending on the available combinators:
 If $\mathbf{K}$ exists, start with $k$.
@@ -360,8 +363,8 @@ However, if both do, use rule $s$ instead.
 Below follows a detailed description of how the variable sequence can be found
 in each base, and we justify the abstraction algorithms, meaning that the
 preconditions of Theorem~\ref{thm:unlifting} are satisfied.
-The function $\operatorname{abs}_C(s,t)$ will denote the chosen sequence for
-terms $s$, $t$ in the context of base $C$.
+The function $\abseq_C(s,t)$ will denote the chosen sequence for terms $s$, $t$
+in the context of base $C$.
 % TODO talk about the examples in the table
 
 \subsubsection*{$\mathbf{BI}$}\label{subsec:base-bi}
@@ -370,8 +373,7 @@ This is the minimal base which is available for all idioms.
 We already know from Section~\ref{subsec:idiomatic-calculus} that there is only
 one canonical form with respect to $\simeq$.
 Therefore, there is exactly one permissible sequence:
-\[ \operatorname{abs}_\mathbf{BI}(s,t) = \overrightarrow{\operatorname{var}}(s)
-	= \overrightarrow{\operatorname{var}}(t). \]
+\[ \abseq_\mathbf{BI}(s,t) = \varseq(s) = \varseq(t). \]
 Equations where the two sequences differ are rejected.
 If any other sequence could be used, we would get a different canonical form
 per Theorem~\ref{thm:unlifting}, thus contradicting the previous result on
@@ -401,8 +403,7 @@ In this base, we can work with all equations where the variable sequence of
 one term can be reordered to the sequence of the second.
 The order used for the abstraction is irrelevant, but it will be reflected
 in the quantifier order of the base equation.
-A simple choice is
-$\operatorname{abs}_\mathbf{BIC}(s,t) = \overrightarrow{\operatorname{var}}(s)$.
+A simple choice is $\abseq_\mathbf{BIC}(s,t) = \varseq(s)$.
 However note that we do not use the $(\eta)$ rule, but add the $(t)$ rule.
 $(\eta)$ could be a considered as an optimization, since
 $\abs{x}{yx} =_\beta \mathbf{B}y\mathbf{I}$, so $(b)$ and $(i)$ suffice.
@@ -422,21 +423,21 @@ in $y$.
 This allows us to extend the sequence with other variables.
 We make use of this to deal with variables which only occur on one side of
 an equation---it does not hurt to abstract over those too.
-Hence, $\operatorname{abs}_\mathbf{BCK}(s,t)$ can be any arrangement of the
-set $\operatorname{var}(s) \cup \operatorname{var}(t)$.
+Hence, $\abseq_\mathbf{BCK}(s,t)$ can be any arrangement of the
+set $\vars(s) \cup \vars(t)$.
 The implementation uses a total order on the set of variables.
 On the contrary, the definable terms of $\mathbf{BICW}$ have at least one
 occurence of each bound variable; $[x]y$ can therefore be used if $x$ occurs
 multiple times in $y$, and $x$ will not be free in $[x]y$.
 Comparing this with $\mathbf{BIC}$, we loosen the restriction that variables
 must not be repeated.
-$\operatorname{abs}_\mathbf{BICW}(s,t)$ must be an arrangement of
-$\operatorname{var}(s) = \operatorname{var}(t)$.
+$\abseq_\mathbf{BICW}(s,t)$ must be an arrangement of $\vars(s) = \vars(t)$.
 We can compute this by sorting the sequences again, and then trimming duplicates
 which now are next to each other.
 
 Bunder proposes the $(i\eta kbc)$ algorithm for $\mathbf{BCK}$, and
-$(i\eta bcs)$ for $\mathbf{BICW}$.
+$(i\eta bcs)$ for $\mathbf{BICW}$; our rules are $(kibtc)$ and $(ibtcs)$,
+respectively.
 The comments on $(\eta)$ and $(t)$ from above apply here as well.
 The only other difference is the position of $(k)$ in the list.
 But $(k)$ on one side and $(i)$ and $(\eta)$ on the sider work with disjoint
@@ -455,12 +456,322 @@ term restriction is rescinded.
 As for the abstraction algorithm, we use a variation of $(ik\eta bcs)$
 from~\cite{curry68}.
 
-\subsubsection*{The Odd Ones -- $\mathbf{BIK}$, $\mathbf{BIW}$ and $\mathbf{BKW}$}\label{subsec:base-odd}
+\subsubsection*{$\mathbf{BIK}$, $\mathbf{BIW}$ and $\mathbf{BKW}$}\label{subsec:base-odd}
 
-\todo
+These bases do not appear to be significantly covered in the literature.
+Since there is at least one useful example of an idiom with $\mathbf{BIW}$
+combinators, we still shall implement and discuss them.
+By adding the $\mathbf{K}$ combinator to $\mathbf{BI}$, additional variables
+may be abstracted, but the other restrictions (order, single occurrence) remain.
+Accordingly, we demand that $\abseq_\mathbf{BIK}(s,t)$ has $\varseq(s)$ and
+$\varseq(t)$ as subsequences.
+% TODO define "subsequence" somewhere?
+For definiteness, we can limit it to the shortest sequence where variables
+only in $s$ appear before those only in $t$, whenever there is an ambiguity:
+$\abseq_\mathbf{BIK}(s,t) = \abseq'_\mathbf{BIK}(\varseq(s), \varseq(t))$,
+\[ \abseq'_\mathbf{BIK}(a,b) = \begin{cases}
+		x \cdot \abseq'_\mathbf{BIK}(a',b') &\text{if } a = x \cdot a', \; b = x \cdot b'; \\
+		x \cdot \abseq'_\mathbf{BIK}(a',b) &\text{if } a = x \cdot a', \\
+		x \cdot \abseq'_\mathbf{BIK}(a,b') &\text{if } b = x \cdot b', \\
+		\langle \rangle &\text{if } a = b = \langle \rangle. \end{cases} \]
+Trying rule $(k)$ in the beginning of the abstraction algorithm obviously takes
+care of unused variables.
+
+For the other bases, we simply take the abstraction algorithms as granted.
+Based on that we analyze the set of defined bracket abstractions.
+Since $\mathbf{W}$ duplicates variables, one might conjecture that a single
+variable may now occur repeatedly.
+No other variable may be interspersed in the lexical order, though, because
+none of the available combinators reorder their arguments.
+The following lemma proves that this intuition is correct.
+In order to express it on the level of lambda terms, we overload $\varseq(x)$
+in the obvious way.
+We use the notation $x^n$ with sequence $x$ to stand for $n$ concatenated
+copies of $x$.
+
+\begin{lemma}
+Let $x \in \mathcal{V}$ and $t \in \mathcal{T}$.
+With algorithm $(ibtw)$, $[x]t$ is defined iff there is a natural number
+$n \geq 1$ and a variable sequence $v$ such that
+$\varseq(t) = v \mathbin{@} \langle x \rangle^n$, where $x$ does not appear in $v$.
+The same statement holds true for algorithm $(kibtw)$, except that $n$ may be
+zero as well.
+\end{lemma}
+\begin{proof}
+The first part of the proof is concerned with the direction where $[x]t$ is
+assumed to be defined.
+We perform induction over the steps of the abstraction algorithm.
+In the evaluation of $[x]s$ for a subterm $s$ of $t$, there are the following
+cases:
+If $(k)$ is used, then $x$ must not be free in $s$, thus $n = 0$ and $v = \varseq(s)$.
+For $(i)$, we have $n = 1$ and $v = \langle\rangle$.
+For $(b)$, there must be terms $u$ and $w$ with $s = uw$, and $x$ is not free
+in $u$.
+From the induction hypothesis we get adequate $n'$ and $v'$ for $[x]w$.
+Then $n'$ and $\varseq(u) \mathbin{@} v'$ satisfy the conditions for $[x]s$.
+Rules $(t)$ and $(w)$ are analogous:
+For $(t)$, the side condition implies that $\varseq(w) = \langle\rangle$;
+for $(w)$ we have $\varseq(w) = \langle x \rangle^k$ for some $k \geq 1$,
+thus $\varseq(u) \mathbin{@} \varseq(w) = v' \mathbin{@} \langle x \rangle^{n'+k}$,
+where $n'$ and $v'$ are from $[x]u$.
+
+Now we show the other direction.
+Assume that suitable $n$ and $v$ exist.
+If $n = 0$, rule $(k)$ is used, because $x$ cannot be free in $t$.
+Otherwise we assume $n \geq 1$ during an induction on the structure of $t$.
+If $t$ is a variable, it must be $x$, so rule $(i)$ applies.
+If it is an application $s = uw$ instead, there are three cases:
+$x \not\in \vars(u)$, hence $v = \varseq(u) \mathbin{@} v'$ for some $v'$,
+and $[x]w$ is defined by the induction hypothesis so we can use rule $(b)$.
+If $\vars(w) = \emptyset$, $[x]u$ is defined and rule $(t)$ applies.
+Otherwise, $\varseq(w) = \langle x \rangle^k$ with $k \leq n$ must hold,
+so $(w)$ can be used.
+\end{proof}
+
+It follows that the abstraction sequences for $\mathbf{BIW}$ and $\mathbf{BKW}$
+should be chosen like those of $\mathbf{BI}$ and $\mathbf{BIK}$, respectively;
+but for each variable, a single span of repetitions in $\varseq(s)$ and
+$\varseq(t)$ is allowed and treated like a single instance.
+
+\subsection{Implementation}\label{subsec:combinator-implementation}
+
+The implementation of generic unlifting essentially has to compute bracket
+abstractions, i.e., recursively select the correct rule for a term.
+Similar to what we did with the normal form conversion, the goal is to prove a
+theorem representing
+\[ t \simeq ([x_1]'\cdots[x_n]'t) \sap x_1 \sap \cdots \sap x_n. \]
+However, we also add a heuristic that tries to determine how variables have
+been instantiated in the supplied equation.
+First, arbitrary opaque terms take the place of variables.
+We can work directly with these, but it becomes less clear which subterms are
+the same, meaning that they should be abstracted simultaneously.
+Consider a base equation with two, universally quantified variables $x$ and $y$.
+If the lifted version can be proven, it will also have two variables.
+Now, the user might want to prove a proposition which is equivalent to the
+lifted equation, except that both variables have been replaced by the
+(same) term $z$.
+This modified statement is obviously true, so we might expect that the lifting
+tool can handle it.
+Remember that we prohibited multiple occurrences in certain bases, e.g.
+$\mathbf{BI}$, when we defined bracket abstraction.
+What would happend if we normalize the equation?
+Normalization treats each instance of a opaque subterm separately, thus we will
+get something of the form $\pure f \ap z \ap z = \pure g \ap z \ap z$.
+By magic, the functions $f$ and $g$ have been equipped with two arguments!
+In the base $\mathbf{BI}$, generic unlifting is not more powerful than
+normal form conversion, but we expect it not to be weaker either.
+We solve the problem by handling each opaque subterm as if it were a different
+variable.
+For other bases, we need to be more clever, or we would lose the advantage
+that generic unflifting was supposed to give us.
+For example, idempotency of an operator $\circ$, $x \circ x = x$
+can be lifted if $\mathbf{W}$ exists;
+when proving a lifted instance like $f(x) \hat\circ f(x) = f(x)$, the two
+copies of $f(x)$ on the left-hand side must be identified.
+Therefore, the base of the idiom influences the assignment of ``virtual''
+variables to opaque terms.
+In general, it is best if we identify as many terms as possible:
+The resulting base equation is certainly provable if it were so without grouping
+some pair of variables.
+However, we will see that the situation can sometimes be ambiguous.
+
+\begin{figure}[h]
+\begin{lstlisting}[language=ML]
+datatype apterm =
+  Pure of term | Var of int * term | Ap of apterm * apterm;
+\end{lstlisting}
+\caption{The datatype to keep track of idiomatic terms.}
+\label{fig:apterm}
+\end{figure}
+
+We use a ML datatype to make the term structure explicit.
+\texttt{apterm} (see Figure~\ref{fig:apterm}) has a similar structure as $\mathcal{I}$.
+Opaque terms \texttt{Var} are tagged with an integer, which is unique for each
+position in an equation.
+Sets of these positions play the role of variables in the previous section.
+The function \texttt{eliminate} takes an \texttt{apterm} $t$ and such a set $x$,
+computing the pair $([x]'t,\phi)$, where $\phi$ is the theorem
+$t \simeq [x]'t \sap x$.
+One important building block for this function is \texttt{rewr\_subst\_ap},
+whose code is shown in Figure~\ref{fig:rewr-subst-ap}.
+It combines three rewrite rules.
+Two of them, say $x = x'$ and $y = y'$, get merged to a congruence rule of the
+idiomatic application operator, $x \ap y = x' \ap y'$, by the standard
+\texttt{Drule.binop\_cong\_rule}.
+However, the application operator's types need to be instantiated before.
+The resulting equation is then chained with the third rule.
+Similar to our use of conversion combinators in Section~\ref{subsec:nf-implementation},
+we employ \texttt{rewr\_subst\_ap} to handle the recursive nature of most
+abstraction rules.
+As an example refer to Figure~\ref{fig:b-impl}.
+It takes as arguments two pairs of an idiomatic term and a theorem, the results
+of abstracting the two subterms of an application.
+Here, the key transformation is again provided by \texttt{B\_intro} from
+Table~\ref{tab:normalize-rules}.
+We must also update the \texttt{apterm} structure.
+New combinator terms are introduced, which also need proper type instantiation.
+Because these combinator are part of the equation we have computed, it seems
+to be the easiest method to extract the term from that equation.
+The integer supplied to \texttt{extract\_comb} indicates how deeply nested to
+the left the combinator is.
+
+\begin{figure}[t]
+\begin{lstlisting}[language=ML]
+fun rewr_subst_ap ctxt af rewr thm1 thm2 =
+  let
+    val funT = thm1 |> Thm.lhs_of |> Thm.typ_of_cterm;
+    val ap_inst = Thm.cterm_of ctxt (ap ctxt af funT);
+    val rule1 = Drule.binop_cong_rule ap_inst thm1 thm2;
+    val rule2 = Conv.rewr_conv rewr (Thm.rhs_of rule1);
+  in Thm.transitive rule1 rule2 end;
+\end{lstlisting}
+\caption{The \texttt{rewr\_subst\_ap} function.}
+\label{fig:rewr-subst-ap}
+\end{figure}
+
+\begin{figure}[t]
+\begin{lstlisting}[language=ML]
+fun extract_comb n thm = Pure (thm |> Thm.rhs_of |>
+  funpow n Thm.dest_arg1 |> Thm.term_of);
+fun comb2_step def (tt1, thm1) (tt2, thm2) =
+  let val thm = rewr_subst_ap def thm1 thm2;
+  in (Ap (Ap (extract_comb 3 thm, tt1), tt2), thm) end;
+val B_step = comb2_step (#B_intro rules);
+\end{lstlisting}
+\caption{Implementation of rule $(b')$.}
+\label{fig:b-impl}
+\end{figure}
+
+% TODO other rules?
+%\begin{figure}[t]
+%\begin{lstlisting}[language=ML]
+%fun W_step s1 s2 =
+%  let
+%    val (Ap (Ap (tt1, tt2), tt3), thm1) = B_step s1 s2;
+%    val thm2 = Conv.rewr_conv (#B_intro rules)
+%      (Thm.rhs_of thm1 |> funpow 2 Thm.dest_arg1);
+%    val thm3 = squash_atoms ctxt af tt3 |> the;
+%    val (tt4, thm4) = swap_B_step (Ap (Ap (extract_comb 3 thm2, tt1), tt2), thm2) thm3;
+%    val var = Thm.rhs_of thm1 |> Thm.dest_arg;
+%    val thm5 = rewr_subst_ap (#W_intro rules |> the) thm4 (Thm.reflexive var);
+%    val thm6 = Thm.transitive thm1 thm5;
+%  in (Ap (extract_comb 2 thm6, tt4), thm6) end;
+%\end{lstlisting}
+%\caption{Implementation of rule $(w')$.}
+%\label{fig:w-impl}
+%\end{figure}
+
+% TODO squash_atoms?
+
+\begin{figure}[t]\centering
+\begin{tikzpicture}
+	\matrix [matrix of nodes, column sep=-\pgflinewidth,
+			every node/.style={draw, anchor=base, inner sep=0, minimum width=4ex, text height=3ex, text depth=1.5ex},
+			label/.style={draw=none, anchor=base east}] {
+		|[label]| $l =$ &[3mm] a & b & |[dashed] (c1)| & & |(c2)| c & |(d)| d & |[draw=none] (a)| & |(e)| e \\[1mm]
+		|[label]| $r =$ & a & b & f & g & c & & a \\[3mm]
+		|[label]| $\mathtt{merge}(l,r) =$ & a & b & f & g & c & d & a & e \\
+	};
+	\draw[->, thick] (c1.center) -- (c2) node [midway, above, xshift=1mm] {(1)};
+	\draw[decorate, decoration=brace, thick] ([yshift=1mm]d.north west) -- ([yshift=1mm]a.north east)
+		node [midway, above] {(2)};
+	\draw (e.east) node [right] {(3)};
+\end{tikzpicture}
+\caption{Example of the merge operation for $\mathbf{K}$ in \texttt{consolidate}.
+(1) Variable $c$ can be aligned with the remainder of list $r$, which is not
+possible with $f$ and list $l$.
+(2) Neither $d$ nor the copy of $a$ can be aligned, so we intersperse them.
+The previous occurrence of $a$ is not considered, because the algorithm is greedy
+and works from left to right.
+(3) A single tail is preserved.}
+\label{fig:consolidate-merge}
+\end{figure}
+
+The function \texttt{consolidate} determines the common abstraction sequence
+for two idiomatic terms.
+It begins with creating a left-to-right list of the variables for each term.
+Then an additional tag is added such that two list elements have the same
+tag iff we consider the instantiated terms equal.
+In the current implementation, the equality predicate is plain alpha
+convertibility.
+The next steps depend on the combinator base:
+\begin{enumerate}
+\item If $\mathbf{C}$ exists, each list is sorted according to the tag.
+	This groups equal terms together.
+\item If $\mathbf{W}$ exists, adjacent copies of the same term (again as
+	indicated by the tag) are merged in each list.
+	The positions of the involved variables are collected into a list.
+	Otherwise, each position is put in an singleton list, so we have a uniform
+	type after this step.
+\item If $\mathbf{K}$ exists, both lists are merged in a peculiar way:
+	If the heads of them have the same tag, we merge their positions to obtain
+	a single element and add it to the result, then proceeding with the tails.
+	Otherwise, we try to align one head with the other list and vice versa.
+	A head is aligned if its tag occurs in the list after some prefix.
+	If alignment is possible in one direction, but not the other, the prefix
+	and the aligned element become part of the result.
+	Otherwise, the two heads are emitted one after the other.
+	A potentially remaining single tail is kept as-is.
+	Figure~\ref{fig:consolidate-merge} displays an example.
+
+	If $\mathbf{K}$ does not exist, we check that both lists have the same
+	length and contain the same sequence of tags, or an error condition is raised.
+	Again, the position lists within both lists are zipped.
+\end{enumerate}
+% TODO full code in appendix?
+We should investigate whether this algorithm is consistent with the theoretical
+development in Section~\ref{subsec:generic-lifting}, and also with the
+criteria regarding variable instantiation.
 \begin{itemize}
-	\item lack of $\mathbf{C}$ -- have to consider $\mathbf{T}$?
-	\item no precedent regarding definable terms, bracket abstraction
-	\item use techniques from other bases: insert foreign variables, merge adjacent duplicates
-	\item at least $\mathbf{BIW}$ is useful, not sure about others
+\item With $\mathbf{BI}$, there is not much flexibility---we can only abstract
+	over a single position at a time.
+	Aborting due to a sequence mismatch is basically the single difference to
+	normal form conversion.
+	However, there we will just get a likely unprovable result, so this
+	behavior is justified.
+\item $\mathbf{BIC}$: As before; sorting produces a suitable sequence if one
+	exists.
+\item $\mathbf{BIW}$: We have shown that simultaneous abstraction is only
+	possible for coherent spans of a variable.
+	Merging all adjacent copies of a variable is the best we can hope for.
+\item $\mathbf{BICW}$: Sorting puts equal terms next to each other, where they
+	will be merged.
+	Thus, all possible terms are identified, making this the most general
+	solution.
+	If the sanity check at the end fails, then the set of variables for both
+	sides of the equation must differ, and the precondition for this base is
+	violated. % TODO rev
+\item $\mathbf{BCKW}$ differs from the previous case in the last step.
+	As expected, we now accept every pair of terms.
+	It should not happen that we will get a duplicate variable tag, in other words,
+	if a tag appears in both lists, there must be a single element in the output.
+	This is easily shown by induction.
+	Especially if alignment is used, the ``skipped'' prefix can only contain
+	variables which do not occur in both terms, because the lists are sorted.
+\item $\mathbf{BCK}$: The lack of $\mathbf{W}$ implies that all positions
+	have to be abstracted individually.
+	However, it is interesting to see what the last step does with respect to
+	consolidating both sides of the equation.
+	Again by induction we see that as many pairings as possible between the
+	two sides of the equation are created.
+	The difference to $\mathbf{BCKW}$ is that the same term may occur repeatedly
+	in the lists.
+	In case of different repetition counts, the algorithm is biased to the left.
+	This is a potentially destructive choice, but the user can always resort
+	to using new variables in the desired manner, and then do the instantiation
+	in a second step.
+\item $\mathbf{BIK}$ and $\mathbf{BKW}$ are not perfectly solvable either.
+	For example, consider the lists (tags only) $\langle 1,2\rangle$ and $\langle 2,1\rangle$.
+	If we try to consolidate, then $\langle 1,2,1\rangle$ or $\langle 2,1,2\rangle$
+	are the only possible sequences.
+	It is not clear which is the correct one.
+	The algorithm bails out and selects $\langle 1,2,2,1\rangle$ (which is
+	probably useless).
+	Likewise, discretion on behalf of the user is required.
+	One could try more sophisticated algorithms like minimizing the edit
+	distance.
+	Due to a lack of example idioms for these bases, we decided against this
+	extra effort.
 \end{itemize}
+
+% TODO driver (general_normalform_conv)?

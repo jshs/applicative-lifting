@@ -30,7 +30,7 @@
 \lstset{numbers=left,basicstyle=\ttfamily\small,keywordstyle=\ttfamily\small\itshape,columns=flexible}
 
 \usepackage{tikz}
-\usetikzlibrary{shapes.geometric}
+\usetikzlibrary{shapes.geometric,matrix,decorations.pathreplacing}
 \tikzset{itermtree/.style={level distance=6mm,sibling distance=10mm,%
 	edge from parent/.style={draw,solid},every node/.style={solid}}}
 \tikzset{pure/.style={draw,rectangle,inner sep=4pt,minimum size=5mm}}
@@ -80,6 +80,9 @@
 \newcommand{\tabs}[2]{{\boldsymbol\lambda}^\ast #1.\>#2}
 \newcommand{\termeq}{=_{\alpha\beta\eta}}
 \newcommand{\unlift}[1]{\left\downarrow #1\right.}
+\DeclareMathOperator{\vars}{var}
+\newcommand{\varseq}{\overrightarrow{\vars}}
+\DeclareMathOperator{\abseq}{abs}
 
 
 \title{Applicative Functors in Isabelle/HOL: Notes}
