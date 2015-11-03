@@ -35,6 +35,7 @@ sig
   val lifting_wrapper_tac: Proof.context -> afun option -> int -> tactic
 
   val applicative_cmd: binding -> string -> string -> string list -> local_theory -> Proof.state
+  val print_afuns: Proof.context -> unit
   val add_unfold_attrib: xstring option -> attribute
   val parse_opt_afun: afun option context_parser
 end;
@@ -479,6 +480,24 @@ fun applicative_cmd name pure ap flags lthy =
   in Proof.theorem NONE after_qed (map (fn t => [(t, [])]) props) lthy
     |> Proof.refine (Method.primitive_text (Library.K I))
     |> Seq.hd end;
+
+fun print_afuns ctxt =
+  let
+    fun pretty_afun (name, af) =
+      let
+        val {pure, ap, T, ...} = sign_of_afun af;
+        val (tvar, typ) = T;
+        val combinators = filter_flag [(has_axiom #flip af, "C"), (has_axiom #const af, "K"),
+          (has_axiom #duplicate af, "W")];
+      in Pretty.block (Pretty.fbreaks [Pretty.block [Pretty.str (name ^ ":"), Pretty.brk 1,
+          Pretty.quote (Syntax.pretty_typ ctxt typ), Pretty.brk 1, Pretty.str "of", Pretty.brk 1,
+          Syntax.pretty_typ ctxt tvar],
+        Pretty.block [Pretty.str "pure:", Pretty.brk 1, Pretty.quote (Syntax.pretty_term ctxt pure)],
+        Pretty.block [Pretty.str "ap:", Pretty.brk 1, Pretty.quote (Syntax.pretty_term ctxt ap)],
+        Pretty.block ([Pretty.str "combinators:", Pretty.brk 1] @
+          Pretty.commas (map Pretty.str combinators))]) end;
+    val afuns = sort_wrt #1 (Name_Space.fold_table cons (get_afuns (Context.Proof ctxt)) []);
+  in Pretty.writeln (Pretty.big_list "Registered applicative functors:" (map pretty_afun afuns)) end;
 
 
 (* Unfolding *)
