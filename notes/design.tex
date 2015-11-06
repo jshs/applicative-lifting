@@ -60,7 +60,7 @@ The following features are possible extensions which may help in this regard:
 	For example, the cancellation law $a + b = a + c \longrightarrow b = c$
 	consists of two equations, joined by implication.
 	We can interpret it in different domains, e.g., for integers and for
-	streams of integers with lifted $+$.
+	streams of integers with element-wise addition.
 	In this example, the law is true for both interpretations.
 	We are not able to handle such propositions with just a method for
 	equations, though.
@@ -79,36 +79,75 @@ explained.
 
 \subsection{Choice of Embedding}\label{subsec:embedding}
 
-In Isabelle, it is not possible to construct an abstract framework for
-applicative functors in such a way that it is inhabited by all instances. % FIXME what
-We already referred to the fact that type constructors are fixed.
+The package should support many different applicative functors.
+We are interested in functors on the type level, where application is based on
+the standard function space.
+Therefore, each idiom comes with a type family which is indexed by a
+distinguished type variable, and the related functions and laws are polymorphic
+in this index.
+This is the natural form of idioms in the HOL libraries; all examples in \todo\
+are parametric datatypes.  % TODO ref
+Regardless of the mechanism of proof construction, it needs a type constructor
+as a parameter.
+This concept is foreign to the type system of Pure and HOL---%
+we already referred to the fact that type constructors are fixed.
 Another issue is the lack of polymorphism in the inner logic:
 We cannot have, say, a schematic variable \textit{?pure} and use it with
 different types within the same proposition or proof.
+From this we conclude that we cannot prove lifting inside the logic as a
+inference rule that could be applied directly to equations.
+
 One solution is to define a custom logic, including a term language, axioms
 and meta theorems, and formalize it using the available specification tools.
+In our case, the language is that of idiomatic expressions,%
+\footnote{Base equations can be interpreted as expressions of the identity idiom.}
+the axioms describe an equality judgment which is compatible with the
+applicative functor laws, and lifting of equations is a theorem.
 This is a \emph{deep embedding} of the logic~\cite{wildmoser04}.
-Then it would be possible to derive the Normal Form Lemma as a regular
-inference rule, for example. % FIXME ref to NFL -- do we know it here already?
-However, we want to prove propositions about arbitrary HOL objects, not just
-their encodings in the embedded logic.
-Some machinery, which performs the encoding and transfers results, is necessary.
-\begin{itemize}
-\item finite number of types involved per term $\implies$ could use sum types
-\item number of types in sum is linear in size of terms
-\item would introduce a large number of projections/abstractions
-\end{itemize}
-\todo
+With its tools for algebraic datatypes and recursive functions, reasoning about
+such an embedding is quite manageable in HOL.
+However, we want to prove propositions involving objects of HOL itself, not just
+their encodings in the embedded language.
+Some machinery, known as reflection, needs to perform the encoding and transfer
+back results.
+It must be implemented necessarily outside of the logic, but can be generic.
+Chaieb and Nipkow have implemented a proof procedure using a deep embedding and
+reflection in Isabelle~\cite{chaieb05}.
+They point out that their approach also functions as a verification of the
+proof procedure, is portable and has smaller proofs than those obtained by
+automating inference rules.
+Their reflection system does not support polymorphism to the extent we need,
+though.
+
+The package for nonfree datatypes~\cite{schropp13} is deeply embedded as well.
+Its constructions must work with arbitrary types.
+In the underlying framework, Schropp~\cite{schropp12} proposed the use of a
+``pseudo-universe'', a sum type combining all these types.
+The meta-theory of the package carries a type parameter which is instantiated
+with a suitable pseudo-universe for every construction.
+It may be possible to use the same approach for idiomatic expressions, since the
+number of types occuring in an idiomatic expression is finite.
+This number can be linear in the size of the expression, though, which bloats
+the intermediate terms during reflection.
+A bigger problem is the generic axiomatization of idioms.
+For instance, the identity law would refer to a function of type $\alpha \funT \alpha$
+for each type $\alpha$ in the pseudo-universe.
+Thus, the universe needs to be closed under function types.
+It is not clear to the author how this could be modelled.
 
 A different approach, which is the one we will take, is a \emph{shallow embedding}.
-The ``formul\ae'' (here, idiomatic terms) are expressed directly in HOL.
+The formulas (here, idiomatic terms) are expressed directly in the language of HOL.
 Due to aforementioned restrictions, meta-theorectical results must be provided
 in specialized form for each case.
-We make use of the powerful ML interface of Isabelle to program the proof
-construction.
-The correctness of the proofs is still verified by the system, of course.
-On the other hand, the correctness of the construction algorithm has to be
-asserted externally.
+We use the powerful ML interface of Isabelle to program the proof construction,
+composing inferences according to the structure of the input equation.
+The handling of polymorphism is simplified, as we have full control over
+term and theorem instantiations.
+The system still verifies the soundness of the synthesized proofs.
+On the other hand, one has to assert externally that the construction algorithm
+itself is correct, i.e., complete.
+The main part of this report therefore justifies these algorithms.
+% TODO untyped NF theory?
 
 
 % TODO reorganize below

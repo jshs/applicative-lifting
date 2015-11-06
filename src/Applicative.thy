@@ -1,25 +1,31 @@
+section \<open>Lifting with Applicative Functors\<close>
+
 theory Applicative
 imports Fun
-keywords "applicative" :: thy_goal
+keywords "applicative" :: thy_goal and "print_applicative" :: diag
 begin
 
 ML_file "applicative.ML"
 
-method_setup applicative_unfold ={*
+method_setup applicative_unfold = {*
   Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
     SIMPLE_METHOD' (Applicative.unfold_wrapper_tac ctxt opt_af)) *}
+  "unfold to applicative expression"
 
 method_setup applicative_fold = {*
   Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
     SIMPLE_METHOD' (Applicative.fold_wrapper_tac ctxt opt_af)) *}
+  "folding of applicative expression"
 
 method_setup applicative_nf = {*
   Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
     SIMPLE_METHOD' (Applicative.normalize_wrapper_tac ctxt opt_af)) *}
+  "reduce equation using applicative normal form"
 
 method_setup applicative_lifting = {*
   Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
     SIMPLE_METHOD' (Applicative.lifting_wrapper_tac ctxt opt_af)) *}
+  "reduce equation lifted with applicative functor"
 
 ML {* Outer_Syntax.local_theory_to_proof @{command_keyword "applicative"}
   "register applicative functors"
@@ -29,7 +35,12 @@ ML {* Outer_Syntax.local_theory_to_proof @{command_keyword "applicative"}
     Parse.reserved "ap" --| @{keyword ":"} -- Parse.term >>
     (fn (((name, combs), pure), ap) => Applicative.applicative_cmd name pure ap combs)) *}
 
+ML {* Outer_Syntax.command @{command_keyword "print_applicative"}
+  "print registered applicative functors"
+  (Scan.succeed (Toplevel.keep (Applicative.print_afuns o Toplevel.context_of))) *}
+
 attribute_setup applicative_unfold =
   {* Scan.lift (Scan.option Parse.xname >> Applicative.add_unfold_attrib) *}
+  "register rules for unfolding to applicative expressions"
 
 end

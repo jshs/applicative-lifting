@@ -243,4 +243,6 @@ definition [applicative_unfold]: "sconcat xs = smap concat xs"
 lemma "sconcat (lift_streams [sconst ''Hello '', sconst ''world!'']) = sconst ''Hello world!''"
 by applicative_lifting simp
 
+print_applicative
+
 end
