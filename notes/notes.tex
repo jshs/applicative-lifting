@@ -24,10 +24,11 @@
 \setlist[prfcases,1]{label={\it Case \arabic*.},align=left,leftmargin=\parindent,itemindent=*}
 
 \newenvironment{isabelle}{\list{}{}\item\relax}{\endlist}
+\newcommand{\iindent}{\-\hspace{1em}}
 
 \usepackage{algorithm}
 \usepackage[final]{listings}
-\lstset{numbers=left,basicstyle=\ttfamily\small,keywordstyle=\ttfamily\small\itshape,columns=flexible}
+\lstset{numbers=left,stepnumber=5,basicstyle=\ttfamily\small,keywordstyle=\ttfamily\small\itshape,columns=flexible}
 
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric,matrix,decorations.pathreplacing}
@@ -64,7 +65,7 @@
 \newcommand{\imp}{\longrightarrow}
 \newcommand{\All}[2]{\bigwedge #1.\>#2}
 \newcommand{\all}[2]{\forall #1.\>#2}
-\newcommand{\tvar}[1]{'\!\textit{#1}}
+\newcommand{\tvar}[1]{{'\!\textit{#1}}}
 \newcommand{\svar}[1]{\textit{?#1}}
 \newcommand{\set}[2]{\{#1\mid #2\}}
 

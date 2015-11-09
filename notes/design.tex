@@ -79,14 +79,18 @@ explained.
 
 \subsection{Choice of Embedding}\label{subsec:embedding}
 
-The package should support many different applicative functors.
-We are interested in functors on the type level, where application is based on
-the standard function space.
+The basic way of proof composition in Isabelle is resolution with a proven
+theorem, using it as a rule of inference.
+Here we argue that it is not possible to prove lifting as a single theorem, and
+then we discuss potential remedies.
+We are interested in applicative functors on the type level, where application
+is based on the standard function space.
 Therefore, each idiom comes with a type family which is indexed by a
 distinguished type variable, and the related functions and laws are polymorphic
 in this index.
 This is the natural form of idioms in the HOL libraries; all examples in \todo\
 are parametric datatypes.  % TODO ref
+The proof method should work directly with equations of these idioms.
 Regardless of the mechanism of proof construction, it needs a type constructor
 as a parameter.
 This concept is foreign to the type system of Pure and HOL---%
@@ -94,8 +98,6 @@ we already referred to the fact that type constructors are fixed.
 Another issue is the lack of polymorphism in the inner logic:
 We cannot have, say, a schematic variable \textit{?pure} and use it with
 different types within the same proposition or proof.
-From this we conclude that we cannot prove lifting inside the logic as a
-inference rule that could be applied directly to equations.
 
 One solution is to define a custom logic, including a term language, axioms
 and meta theorems, and formalize it using the available specification tools.
@@ -147,27 +149,40 @@ The system still verifies the soundness of the synthesized proofs.
 On the other hand, one has to assert externally that the construction algorithm
 itself is correct, i.e., complete.
 The main part of this report therefore justifies these algorithms.
-% TODO untyped NF theory?
 
-
-% TODO reorganize below
 
 \subsection{User Interface}\label{subsec:interface}
 
-Since Isabelle's core logic does not allow parameterization of type constructors,
-we need a custom mechanism for registering applicative functors with the
-system.
-In order to apply the proof method, the user must provide beforehand
-\begin{enumerate}
-	\item corresponding $\pure$ and $\ap$ instances, and
-	\item a proof of the applicative functor laws, optionally with extended
-	properties.
-\end{enumerate}
-Lifted constants may be registered with an attribute, which can be applied to
-facts $\mathit{lhs} = \mathit{rhs}$, where $\mathit{rhs}$ is an idiomatic
-expression.
-These must be suitable for rewriting.
+We provide a command to declare applicative functors.
+Its syntax is
+\begin{isabelle}
+	\textbf{applicative} \textit{name} (\textit{combinator}, \dots) \\
+	\textbf{for} \\
+	\iindent pure: "$\pure_f$" \\
+	\iindent ap: "$\ap_f$" \\
+	\textit{proof}
+\end{isabelle}
+The idiom will be made available under the \textit{name}.
+It can be used to refer to the idiom manually in proofs.
+The name is followed by an optional list of a subset of the symbols C, K, and W.
+These declare additional properties which are described in Section~\ref{sec:combinators}.
+The functions $\pure$ and $\ap$ imply the type scheme, see also the next
+section.
+Finally, the idiom laws need to be proven.
+The system presents the user with corresponding goals, which are solved by the
+proof.
+After the command has been issued, the functor can be used in subsequent
+commands.
+The data is stored in the theory context and thus is imported along other
+theory data.
+This allows the construction of a reusable idiom library.
 
+Lifted constants may be registered with the attribute \emph{applicative\_unfold},
+which can be applied to facts $\mathit{lhs} = \mathit{rhs}$, where $\mathit{rhs}$
+is an idiomatic expression.
+The equation must be suitable for rewriting.
+
+% TODO below
 The complete set of subgoal forms to support has not been determined yet.
 \todo{}
 As a minimal requirement, after unfolding lifted constants, HOL equations of
@@ -192,6 +207,9 @@ Continuing with the set idiom from Example~\ref{exmp:set-intro}, assume that
 the user wants to prove an instantiation of the associativity law for $\oplus$
 as part of a larger proof.
 $\mathit{set}$ and $\oplus$ have been declared to the enclosing theory.
+\begin{isabelle}
+	\textbf{definition} [applicative\_unfold] "$X \oplus Y = \pure (+) \ap X \ap Y$"
+\end{isabelle}
 The current Isabelle goal state is
 \[ 1. \quad (X \oplus Y) \oplus f Z = X \oplus (Y \oplus f Z). \]
 The variables $X$, $Y$ and $Z$ have been fixed in the proof context, and $f$ is
@@ -206,39 +224,67 @@ The corresponding Isabelle/Isar fragment could be
 	\textbf{fix} $X$ $Y$ $Z$ \\
 	\dots \\
 	\textbf{have} "$(X \oplus Y) \oplus f Z = X \oplus (Y \oplus f Z)$"
-		\textbf{by} \textit{af\_lifting} \textit{algebra}
+		\textbf{by} \textit{applicative\_lifting} \textit{algebra}
 \end{isabelle}
-\textit{af\_lifting} is our new proof method, and the standard \textit{algebra}
-method completes the subproof.
-% TODO check with final implementation
+\textit{applicative\_lifting} is our new proof method, and the standard
+\textit{algebra} method completes the subproof (it solves the base equation).
 \end{example}
+
 
 \subsection{Proof Strategy}\label{subsec:proof-strategy}
 
-The proof method starts with testing the first subgoal for the expected
-structure.
-If the test succeeds, the applicative functor $f$ is known, such that the
-relevant theorems can be accessed subsequently.
+The ML code of the package can be considered in two parts.
+One is concerned with registration of idioms and access to the recorded
+information, the other provides the actual proof methods.
+We start with a summary of the former component.
+It does not only store the idioms declared with the \textbf{applicative}
+command, but also deals with the high degree of polymorphism.
+First, we need to represent the concept of an idiom.
+Instead of a plain type constructor we use type schemes $f[\tvar{a}]$, which
+are simply normal HOL types with (in this case) one distinguished type variable
+$\tvar{a}$.
+This variable has to be tracked externally in ML because of the lack of
+type quantifiers in the type system.
+The lifted type of $\alpha$ is then obtained by substitution of $\tvar{a}$ by
+$\alpha$ in $f[\tvar{a}]$.
+The functions $\pure_f$ and $\ap_f$ thus have types
+$\tvar{a} \funT f[\tvar{a}]$ and $f[\tvar{a} \funT \tvar{b}] \funT f[\tvar{a}] \funT f[\tvar{b}]$,
+respectively.
+We allow additional type variables in functor signatures, which therefore
+represent families of functors.
+These are always instantiated with the same types throughout a proof.
+This is useful for idioms like the sum type $\alpha + \beta$.
+As a further refinement, all type variables may be constrained by a sort.
+Sorts in Pure are type classes~\cite{implementation-ref}.
+The sort of the distinguished variable in $f$ must be compatible with the
+function type constructor.
+
+Above parts form the signature of the idiom $f$.
+Using it, we define functions which compose and destruct types and terms
+related to $f$.
+One problem is identifying terms of the form $\pure \_$ and $\_ \ap \_$ in
+the first place.
+We do not want to restrict the term structure of the functor ``constants'',
+since some useful predefined concepts in the HOL libraries are abbreviations of
+compound terms.
+Isabelle's higher-order matching appears to be a proper solution in practice,
+using $\pure v$ (or $v_1 \ap v_2$) with new variables $v$ ($v_1$, $v_2$) as the
+pattern.
+
+The remaining code uses these functions to provide several layers of
+conversions and tactics.
+We start at the top.
+A wrapper tactic prepares the subgoal to solve.
+This includes dealing with universal quantifiers $\forall$ and local premises.
 We then rewrite the subgoal using the declared rules for lifted constants.
 Only those related to $f$ are used, the reason being that overeager, unwanted
 unfolding may be difficult to reverse.
-% TODO might not be true in the final version
-The result of this preparation is a subgoal which is simple equation of two
+The result of this preparation is a subgoal which is a simple equation of two
 idiomatic expressions.
-
-The following step depends on which additional properties of $f$ have been
-provided.
-All approaches have in common that both expressions are replaced by others in
+We implement two approaches for the core step.
+The tactics have in common that both expressions are replaced by others in
 \emph{canonical form}:
 \[ \pure{g} \ap s_1 \ap \cdots \ap s_m = \pure{h} \ap t_1 \ap \cdots \ap t_n, \]
-If either $m \ne n$ or $t_i \ne s_i$ for some $i$ (as terms modulo
-$\alpha\beta\eta$-conversion), the proof method fails.
-Otherwise, we apply appropriate congruence rules until the subgoal is reduced
-to $g = h$.
-Since $g$ and $h$ are at least $n$-ary functions, we can further apply
-extensionality, reaching the subgoal
-\[ \All{x_1 \dots x_n}{g x_1 \cdots x_n = h x_1 \cdots x_n}. \]
-This is the transformed proof state presented to the user.
 
 Hinze's Normal Form Lemma~\cite[7]{hinze10} asserts the existence of a certain
 normal form for idiomatic expressions where each variable occurs only once.
@@ -264,3 +310,12 @@ of opaque terms prior to the transformations.
 The set of available combinators further limits the admissible sequences.
 Because this relationship cannot be generalized easily, we restrict ourselves
 to certain combinator sets.
+
+After any of the two, we apply appropriate congruence rules until the subgoal is
+reduced to $g = h$.
+If either $m \ne n$ or $t_i \ne s_i$ for some $i$ (as terms modulo
+$\alpha\beta\eta$-conversion), the proof method fails.
+Since $g$ and $h$ are at least $n$-ary functions, we can further apply
+extensionality, reaching the subgoal
+\[ \All{x_1 \dots x_n}{g x_1 \cdots x_n = h x_1 \cdots x_n}. \]
+This is the transformed proof state presented to the user.
