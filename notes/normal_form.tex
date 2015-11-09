@@ -637,34 +637,3 @@ If the term is part of an equation, the variables of the reduced base equation
 will also be called $x$, $x_a$, and $x_b$.
 This creates unnecessary confusion, and to help the user, we try to preserve the
 variable names of the input term.
-
-%Now let us identify idiomatic terms $\mathcal{I}$ with HOL terms.
-%While the implementation of the normal form conversion does not create an
-%internal representation in the style of $\mathcal{I}$, this discussion links
-%the abstract properties described earlier to the ML algorithm.
-%Assume that the applicative functor is fixed, i.e., there is a type scheme
-%$f[\tvar{a}]$ and corresponding terms $\pure$, $(\ap)$.
-%A type scheme is simply a normal HOL type with (in this case) one distinguished
-%type variable $\tvar{a}$.
-%This variable has to be tracked externally in ML, because of the lack of
-%type quantifiers in Pure.%
-%\footnote{We allow additional type variables in functor signatures, which
-%therefore represent families of functors.}  % TODO move out/clarify
-%The lifted type of $\alpha$ is then obtained by substitution of $\tvar{a}$ by
-%$\alpha$ in $f[\tvar{a}]$.
-%The mapping $\ldb\_\rdb$ from idiomatic terms to HOL terms can now be stated as
-%\[ \ldb\sterm x\rdb = x, \quad \ldb\spure x\rdb = \pure x, \quad
-%	\ldb f \sap x \rdb = \ldb f\rdb \ap \ldb x\rdb; \]
-%with a side condition for well-typedness.
-%For the inverse mapping, we demand that $\spure$- and $\sap$-nodes are created
-%eagerly.
-%Otherwise, it would suffice to map every term $x$ to $\sterm x$, for example.
-%Another problem is identifying terms of the form $\pure \_$ and $\_ \ap \_$ in
-%the first place.
-%We do not want to restrict the term structure of the functor ``constants'',
-%since some useful predefined concepts in the HOL libraries are abbreviations of
-%compound terms.
-%Isabelle's higher-order matching appears to be a proper solution in practice,
-%using $\pure v$ (or $v_1 \ap v_2$) with variables $v$ ($v_1$, $v_2$) as the
-%pattern.
-%% TODO ?
