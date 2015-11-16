@@ -64,6 +64,22 @@ which lift a single object and the notion of function application, respectively.
 Applicative functors must also satisfy some properties, which we restate in
 Section~\ref{subsec:applicative}.
 
+Every monad is an applicative functor.
+Monads are a common mechanism for handling effects in functional
+programming~\cite{wadler95}.
+Such being the case, they are also useful for modelling in the context of
+verification.
+The difference between monads and applicative functors is that the latter
+do not allow sub-computations to depend on previous results.
+From there we can borrow quite a few examples of applicative functors:
+Sum types with one variable type (known as \textsf{Either} in Haskell),
+the reader monad or environment functor, the exception/backtracking list
+monad~\cite{wadler85}, the state monad, and parser combinators.
+Hinze originally worked on streams (infinite lists) and infinite
+trees~\cite{hinze08,hinze09}.
+We conclude that there are indeed relevant applicative functors, which supports
+the argument that this kind of lifting is a useful abstraction.
+
 \addtocounter{example}{-1}
 \begin{example}[continued]
 Back to sets, we obtain an applicative functor if $\pure$ is the singleton set
@@ -85,7 +101,7 @@ associative properties \eqref{eq:plus-assoc} and~\eqref{eq:set-plus-assoc}%
 ---the lifted form can be proven for all applicative functors, not just
 $\mathit{set}$.
 Moreover, this is possible for other equations as well, but not all equations
-can be lifted in all idioms, though.
+can be lifted in all functors.
 Stronger conditions are required if the list of quantified variables is
 different for each side of the equation.
 (The left-to-right order is relevant, but not the nesting within the terms.)
@@ -96,38 +112,65 @@ which is not equal to $\pure x$ for any $x$.
 Hinze showed that sufficient conditions can be expressed in terms of combinators
 as known from combinatory logic.
 
+These findings justify direct proofs of lifted equations.
+It desirable to enable such reasoning in a proof assistant.
+
 \begin{example}\label{exmp:set-counterexmp}
 We try to lift the fact that zero is a left absorbing element for
-multiplication of integers, $\all{x \oftype \mathit{int}}{0 \cdot x = 0}$,
+multiplication of natural numbers, $\all{x \oftype \mathit{nat}}{0 \cdot x = 0}$,
 to sets.
 Note that the variable $x$ occurs only on the left.
 But the lifted equation does not hold: If $x$, now generalized to
-$\mathit{int}\,\mathit{set}$, is instantiated with the empty set, then
+$\mathit{nat}\,\mathit{set}$, is instantiated with the empty set, then
 \[ \pure{(\cdot)} \ap \pure 0 \ap \{\} = \{\} \ne \pure 0. \]
 Here the effect of $\{\}$ is that it cancels out everything else if it occurs
-somewhere in an idiomatic expression.
+somewhere in an lifted expression.
 This makes it impossible to lift any equation with a variable occuring only on
 one side to $\mathit{set}$.
 We will see that other functors permit this lifting.
 \end{example}
+
+
+\subsection{Contributions and Overview}\label{subsec:contrib-overview}
 
 Our primary goal is to provide an Isabelle/HOL proof method which reduces
 lifted equations to their base form.
 The method can be instantiated for arbitrary applicative functors.
 Then the user is able to prove the lifted equations directly without having to
 invent a specific proof strategy, or even simulate the approach taken here.
-We have further extended the idea of combinators as building blocks for lifting.
-The package supports several combinator sets which functors may exhibit,
-each capable of lifting different sets of equations.
-
 Apart from the theoretical appeal of the method, the resulting proof text is
 usually more concise, due to the higher level of abstraction.
-Applicative functors are in fact quite common, thus we hope that our tool
-can be reused elsewhere.
-A particular motivation are arithmetic operations on streams (infinite lists)
+Together with some infrastructure, the proof method forms a basic package
+for reasoning with applicative functors.
+
+Hinze's work is the basis for the package.
+He has identified the suitability of applicative functors and shown
+necessary conditions for lifting of equations.
+However, we needed to adapt the details to the HOL environment in order to
+construct actual proofs.
+This construction is directly programmed on top of Isabelle's ML interface.
+We have therefore derived the correctness and some other properties of our
+approach formally using a simplified calculus.
+Moreover, we have further extended the idea of combinators as building blocks
+for lifting, generalizing Hinze's model conditions.
+Consequently, the package supports several combinator sets which functors may
+exhibit, each capable of lifting different sets of equations.
+A particular motivation for our package are arithmetic operations on streams
 and infinite trees.
-We have proven some of their properties as an example of our package.
-\todo
+We have proven some of their properties as a usage example.
+
+The remainder of this report is organized as follows:
+The present section concludes with some background information on Isabelle/HOL,
+applicative functors, and a concrete definition of lifting.
+Section~\ref{sec:design} describes the design considerations, discusses the
+choice of embedding, and provides a high-level overview of the proof method.
+In the next two sections, we present the details of the two strategies we
+have implemented:
+Section~\ref{sec:normal-form} shows an implementation of the normal form of
+lifted expressions;
+Section~\ref{sec:combinators} is concerned with combinators and the application
+of bracket abstraction to applicative terms.
+\todo\ application example, related work, conclusion
 
 
 \subsection{Proving with Isabelle/HOL}\label{subsec:isabelle}
@@ -381,23 +424,3 @@ Some of Hinze's proofs make use of these definitions.
 Dealing with product types can be a bit cumbersome in HOL, though.
 The curried interface therefore seems to be a better choice, and we will
 focus solely on that.
-
-Every monad is an applicative functor.
-Monads are a common mechanism for handling effects in functional
-programming~\cite{wadler95}.
-Such being the case, they are also useful for modelling in the context of
-verification.
-The difference between monads and applicative functors is that the latter
-do not allow sub-computations to depend on previous results.
-From there we get quite a few example idioms:
-Sum types with one variable type (known as \textsf{Either} in Haskell),
-the reader monad or environment functor, the state monad, and parser combinators.
-Hinze originally worked on streams and infinite trees~\cite{hinze08,hinze09},
-which we already mentioned.
-We conclude that there are indeed relevant instances of idioms to which we
-can apply our proof method.
-
-
-\subsection{Contributions and Overview}\label{subsec:contrib-overview}
-
-\todo
