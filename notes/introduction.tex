@@ -265,106 +265,74 @@ Internally, quantifiers are represented as constants applied to lambda
 abstractions, which handle the variable binding.
 \end{example}
 
-In order to achieve the goal of supporting different object-logics,
-Isabelle contains an immediate layer, the meta-logic Pure.
+In order to support different object-logics, Isabelle contains an immediate
+layer, the meta-logic Pure (see e.g. \cite[Chapter~2]{implementation-ref}).
 It is an ``intuitionistic fragment of higher-order logic''~\cite[27]{isar-ref}.
-In Pure itself there is only the type $\mathit{prop}$ of propositions.
-A term of this type combined with a proof relative to some context forms a
-\emph{theorem}.
-For now, the context is an abstract entity which may contain local hypotheses.
-Assumptions can also be recorded explicitly in a proposition, using
-meta-implication $\Imp$.
-Note that this is technically different from HOL's implication $\imp$,
-though there are theorems which allow conversion between the two.
-The meta-quantifier $\bigwedge$ denotes universal quantification (with a
-similar relationship to $\forall$); it is used to restrict the scope of
-variables in assumptions.
-Meta-equality $\equiv$ is the third main operator of Pure.
-The generic rewriting and simplification tools work with such equations.
-Again, conversion with $=$ is possible.
-Object-logics embed their own notion of a proposition into Pure via
-a truth judgement.
-In HOL, this is the constant $\mathit{Trueprop} \oftype \mathit{bool \funT prop}$,
-which turns an object-level formula into a proposition stating that said
-formula is indeed true.
-It is usually left implicit.
-See \cite[Chapter~2]{implementation-ref} for further details about Pure.
-
 Pure has two main uses within the Isabelle framework: representation and
 manipulation of deduction rules, and goal states.
-For the former, consider the traditional introduction rule for conjunction,
-\[ \frac{\Gamma_1 \vdash P \qquad \Gamma_2 \vdash Q}{\Gamma_1 \cup \Gamma_2 \vdash P \land Q}, \]
-which we want to turn into a theorem.
-Deduction in Isabelle handles the contexts $\Gamma_i$ automatically, and
-therefore do not have to be stated in the corresponding proposition.
-The dependency of the conclusion $P \land Q$ on the hypotheses $P$ and $Q$
-translates to repeated meta-implication.
-This gives us the proposition
-\[ \All{P Q}{P \Imp Q \Imp P \land Q} \]
-(the $\mathit{Trueprop}$ markers have been omitted, and $P$, $Q$ range over
-$\mathit{bool}$).
-There is one quirk, however.
-The outermost meta-quantified variables (and all type variables) % FIXME
+While our user interface is intended to be used with HOL, the underlying
+theorems are always represented as propositions of Pure.
+Therefore it plays an ancillary role in our tool.
+The following operators are separate from those of HOL:
+meta-quantification $\bigwedge$ instead of the universal quantifier $\forall$,
+and meta-equality $\equiv$ instead of $=$.
+Each of these are logically equivalent, though.
+In particular, the generic rewriting and simplification tools work with $\equiv$.
+As an example of Pure, consider the symmetry axiom for $\equiv$ in traditional
+rule format,
+\[ \frac{\Gamma \vdash x \equiv y}{\Gamma \vdash y \equiv x}. \]
+Deduction in Isabelle handles the context $\Gamma$ automatically, and
+therefore does not have to be stated in the corresponding proposition.
+The dependency of the conclusion on the hypothesis translates to
+meta-implication;
+the outermost meta-quantified variables (and all type variables) % FIXME
 are turned into schematic variables, which are free variables distinguished by
-
 the prefix $\svar{}$.
-Thus, the introduction rule as it is supplied by HOL appears as
-\[ \mathtt{conjI}:\quad \svar{P} \Imp \svar{Q} \Imp \svar{P} \land \svar{Q}. \]
-Schematic (type) variables are eligible for instantiation during
-\emph{resolution}, which is Isabelle's primary tool for proof construction.
-Resolution combines two rules (theorems), identifying an assumption of the
-second with the conclusion of the first by higher-order unification.
-Additionally, the first rule is brought into the context of that assumption.
+Thus, the symmetry axiom appears as the theorem
+\[ \mathtt{symmetric}:\quad \svar{x} \equiv \svar{y} \Imp \svar{y} \equiv \svar{x}. \]
+Schematic (type) variables are eligible for instantiation by some core
+functions. % FIXME
 
-A goal state is a theorem that represents a partially completed proof of some
-proposition, the goal.
-While the proof is incomplete, the remaining subgoals are tracked as
-assumptions.
-Proof steps transform the goal state.
-The proof is finished once only the goal remains.
-
-% TODO ML
+Isabelle is an LCF-style prover, i.e., proofs are composed by invoking
+trusted, primitive inferences programmed in the implementation language
+SML, at least on the lowest level.
+For instance, the symmetry axiom is available in combination with modus ponens
+as the function \verb|Thm.symmetric|, which takes a theorem $x \equiv y$ and
+returns a new theorem $y \equiv x$.
+The function is part of the large SML interface of Isabelle, which not only
+constitutes its implementation, but can also be used for new tools.
 
 In contemporary use of Isabelle, user input to the system is expressed in
 the Isar language~\cite{wenzel99,wenzel02,isar-ref}.
 It aims to encode proofs in a way that is formal, i.e. has precise semantics,
 but still resembles informal patterns of reasoning.
-The basic organization unit in Isar is a \emph{theory}.
+The basic organization unit in Isar is a theory.
 The body of a theory consists of a sequence of commands, which consecutively
 augment the logical context by declarations of various kinds.
 Other theories may be imported in the beginning, leading to a acyclic graph
 of theory dependencies.
+The set of data stored within a theory can be extended through the programming
+interface.
+This is relevant to us, because it allows us to register applicative
+functors in the theory context.
+
 Commands constitute the so-called outer syntax of Isar.
 Terms and types occuring within them are parsed separately, according to the
 inner syntax.
-They are usually embedded in quotes `\texttt{"}\dots\texttt{"}' to disambiguate
-them.
 In certain cases, a command may put the theory state into proof mode.
-% TODO goal, subgoal, nesting
-After a proof is finished, the associated goal becomes a \emph{fact}.
-% TODO facts by assumption
-
-Some commonly used specifications are:
-\begin{itemize}
-\item The \textbf{definition} command introduces new constants by means of
-	defining equations.
-\item \todo{} \textbf{datatype}, \textbf{primrec}
-\item Facts can be given names for further use in proofs.
-	The canonical command for this is \textbf{lemma} and its variants
-	\textbf{theorem} and \textbf{corollary}.
-\item \todo{} \textbf{locale}?
-\end{itemize}
-
-Finally, there two syntactical categories which are repeatedly used in commands:
-\emph{Proof methods} denote (possibly parameterized) operations on the goal state.
-\emph{Attributes} invoke further processing steps on facts, either transforming
-them or causing additional declarations.
-
-% TODO
-% - Isar example
-
-% TODO
-% LCF => extensibility?
+After the proof is finished, the associated goal becomes a fact, which can be
+further handled by some associated code.
+The important \textbf{lemma} family of commands works this way, for example.
+New commands are frequently introduced for specifications.
+For example, algebraic datatypes can be defined with the \textbf{datatype} command.
+Finally, there two other extensible syntactical categories which are commonly
+used in Isar:
+Proof methods denote (possibly parameterized) operations on the goal state
+within a regular Isar proof.
+These operations are provided by arbitrary code and thus can be arbitrarily
+complex.
+Attributes invoke further processing steps on already proven facts, either
+transforming them or causing additional declarations to the context.
 
 
 \subsection{Applicative Functors and Lifting}\label{subsec:applicative}
