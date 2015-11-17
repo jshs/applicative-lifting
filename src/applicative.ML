@@ -669,16 +669,16 @@ fun consolidate ctxt af (t1, t2) =
 
     fun align _ [] = NONE
       | align ((i, t), d) (((i', t'), d')::xs) = if d = d'
-          then SOME [((i @ i', t), d)]
-          else Option.map (cons ((i', t'), d')) (align ((i, t), d) xs);
+          then SOME ([((i @ i', t), d)], xs)
+          else Option.map (apfst (cons ((i', t'), d'))) (align ((i, t), d) xs);
     fun merge ([], ys) = ys
       | merge (xs, []) = xs
-      | merge ((((is1, t1), d1)::xs), (((is2, t2), d2)::ys)) = if d1 = d2
-          then ((is1 @ is2, t1), d1) :: merge (xs, ys)
+      | merge ((xs as ((is1, t1), d1)::xs'), ys as (((is2, t2), d2)::ys')) = if d1 = d2
+          then ((is1 @ is2, t1), d1) :: merge (xs', ys')
           else case (align ((is2, t2), d2) xs, align ((is1, t1), d1) ys) of
-              (SOME zs, NONE) => zs @ merge (xs, ys)
-            | (NONE, SOME zs) => zs @ merge (xs, ys)
-            | _ => ((is1, t1), d1) :: ((is2, t2), d2) :: merge (xs, ys);
+              (SOME (zs, xs''), NONE) => zs @ merge (xs'', ys')
+            | (NONE, SOME (zs, ys'')) => zs @ merge (xs', ys'')
+            | _ => ((is1, t1), d1) :: ((is2, t2), d2) :: merge (xs', ys');
 
     fun unbalanced vs = error ("Unbalanced opaque terms " ^
       commas_quote (map (Syntax.string_of_term ctxt o #2 o #1) vs));
