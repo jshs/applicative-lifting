@@ -1,0 +1,80 @@
+\section{Usage Examples}\label{sec:examples}
+
+\subsection{User Interface}\label{subsec:detail-example}
+
+We provide a command to declare applicative functors.
+Its syntax is
+\begin{isabelle}
+	\textbf{applicative} \textit{name} (\textit{combinator}, \dots) \\
+	\textbf{for} \\
+	\iindent pure: "$\pure_f$" \\
+	\iindent ap: "$\ap_f$" \\
+	\textit{proof}
+\end{isabelle}
+The idiom will be made available under the \textit{name}.
+It can be used to refer to the idiom manually in proofs.
+The name is followed by an optional list of a subset of the symbols C, K, and W.
+These declare additional properties which are described in Section~\ref{sec:combinators}.
+The functions $\pure$ and $\ap$ imply the type scheme, see also the next
+section.
+Finally, the idiom laws need to be proven.
+The system presents the user with corresponding goals, which are solved by the
+proof.
+After the command has been issued, the functor can be used in subsequent
+commands.
+The data is stored in the theory context and thus is imported along other
+theory data.
+This allows the construction of a reusable idiom library.
+
+Lifted constants may be registered with the attribute \emph{applicative\_unfold},
+which can be applied to facts $\mathit{lhs} = \mathit{rhs}$, where $\mathit{rhs}$
+is an idiomatic expression.
+The equation must be suitable for rewriting.
+
+% TODO below
+The complete set of subgoal forms to support has not been determined yet.
+\todo{}
+As a minimal requirement, after unfolding lifted constants, HOL equations of
+idiomatic expressions shall be handled.
+Only the outermost functor $f$ is considered per invocation.
+The conceptual variables of the lifted expressions may be instantiated with
+arbitrary terms.
+However, the method actually proves the fully universally quantified form---%
+for every subterm not matching $\pure_f{\_}$ or $\_ \ap_f \_$, a new, locally
+quantified variable is introduced.
+We call these subterms \emph{opaque}.
+The method attempts to transform the first subgoal to the base form of the
+equation, in other words, its identity functor interpretation.
+Variable names shall be preserved, if possible.
+Finally, it is desirable to have some kind of debugging facility for tracing
+intermediate steps.
+This may be especially useful if the proof fails because additional laws are
+required.
+
+\begin{example}\label{exmp:set-usage}
+Continuing with the set idiom from Example~\ref{exmp:set-intro}, assume that
+the user wants to prove an instantiation of the associativity law for $\oplus$
+as part of a larger proof.
+$\mathit{set}$ and $\oplus$ have been declared to the enclosing theory.
+\begin{isabelle}
+	\textbf{definition} [applicative\_unfold] "$X \oplus Y = \pure (+) \ap X \ap Y$"
+\end{isabelle}
+The current Isabelle goal state is
+\[ 1. \quad (X \oplus Y) \oplus f Z = X \oplus (Y \oplus f Z). \]
+The variables $X$, $Y$ and $Z$ have been fixed in the proof context, and $f$ is
+some constant, all of appropriate type.
+This illustrates how we allow a larger variety of propositions, making it
+easier to apply the method without too much preparation.
+After applying the proof method, the new proof obligation reads
+\[ 1. \quad \All{x y u}{(x + y) + u = x + (y + u)}, \]
+which is easily discharged.
+The corresponding Isabelle/Isar fragment could be
+\begin{isabelle}
+	\textbf{fix} $X$ $Y$ $Z$ \\
+	\dots \\
+	\textbf{have} "$(X \oplus Y) \oplus f Z = X \oplus (Y \oplus f Z)$"
+		\textbf{by} \textit{applicative\_lifting} \textit{algebra}
+\end{isabelle}
+\textit{applicative\_lifting} is our new proof method, and the standard
+\textit{algebra} method completes the subproof (it solves the base equation).
+\end{example}
