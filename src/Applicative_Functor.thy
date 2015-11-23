@@ -156,8 +156,8 @@ applicative set (C)
 for
   pure: "\<lambda>x. {x}"
   ap: ap_set
-unfolding single_def ap_set_def
-by fastforce+
+unfolding ap_set_def
+by fast+
 
 
 subsection \<open>Lists\<close>
