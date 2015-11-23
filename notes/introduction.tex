@@ -86,10 +86,14 @@ Back to sets, we obtain an applicative functor if $\pure$ is the singleton set
 constructor $x \mapsto \{x\}$;
 $F \ap X$ takes a set of functions $F$ and a set of arguments $X$
 with compatible type, applying each function to each argument:
-\[ F \ap X = \set{f x}{f \in F,\, x \in X}. \]
+\begin{equation}\label{eq:set-ap}
+	F \ap X = \set{f x}{f \in F,\, x \in X}.
+\end{equation}
 Now we can express lifted addition directly in terms of the base operation:%
 \footnote{As customary in HOL, we treat binary operators as curried functions.}
-\[ X \oplus Y = \pure{(+)} \ap X \ap Y. \]
+\begin{equation}\label{eq:set-plus}
+	X \oplus Y = \pure{(+)} \ap X \ap Y.
+\end{equation}
 (The operator $\ap$ is left-associative.)
 This definition is equivalent to the previous one \eqref{eq:set-plus-exp},
 but not specific to sets anymore.
