@@ -16,13 +16,11 @@ consts
 
 subsection \<open>Environment functor\<close>
 
-definition "const x = (\<lambda>_. x)"
-definition "apf x y = (\<lambda>z. x z (y z))"
+definition [simp]: "const x = (\<lambda>_. x)"
+definition [simp]: "apf x y = (\<lambda>z. x z (y z))"
 
 adhoc_overloading pure const
 adhoc_overloading ap apf
-
-lemmas [simp] = const_def apf_def
 
 applicative env (C, K, W)
 for
@@ -158,8 +156,8 @@ applicative set (C)
 for
   pure: "\<lambda>x. {x}"
   ap: ap_set
-unfolding single_def ap_set_def
-by fastforce+
+unfolding ap_set_def
+by fast+
 
 
 subsection \<open>Lists\<close>
