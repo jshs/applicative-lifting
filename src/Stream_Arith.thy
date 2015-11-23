@@ -11,7 +11,7 @@ begin
 
 section \<open>Pointwise arithmetic on streams\<close>
 
-subsection \<open>Streams are applicative\<close>
+subsection \<open>Streams as an applicative functor\<close>
 
 primcorec ap_stream :: "('a \<Rightarrow> 'b) stream \<Rightarrow> 'a stream \<Rightarrow> 'b stream"
 where
