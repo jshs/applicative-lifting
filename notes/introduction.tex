@@ -1,6 +1,6 @@
 \section{Introduction}\label{sec:introduction}
 
-\subsection{Motivation}\label{subsec:motivation} % TODO change?
+\subsection{Motivation}\label{subsec:motivation}
 
 Interactive theorem provers emphasize the human aspect of mathematical work.
 Rather than relying on fully automatic proof search, the user guides
@@ -69,8 +69,6 @@ Monads are a common mechanism for handling effects in functional
 programming~\cite{wadler95}.
 Such being the case, they are also useful for modelling in the context of
 verification.
-The difference between monads and applicative functors is that the latter
-do not allow sub-computations to depend on previous results.
 From there we can borrow quite a few examples of applicative functors:
 Sum types with one variable type (known as \textsf{Either} in Haskell),
 the reader monad or environment functor, the exception/backtracking list
@@ -104,6 +102,8 @@ One of Hinze's results is that a fundamental relationship exists between the
 associative properties \eqref{eq:plus-assoc} and~\eqref{eq:set-plus-assoc}%
 ---the lifted form can be proven for all applicative functors, not just
 $\mathit{set}$.
+The proof uses a certain normal form, which separates the lifted operation from
+the variables.
 Moreover, this is possible for other equations as well, but not all equations
 can be lifted in all functors.
 Stronger conditions are required if the list of quantified variables is
@@ -146,6 +146,7 @@ Apart from the theoretical appeal of the method, the resulting proof text is
 usually more concise, due to the higher level of abstraction.
 Together with some infrastructure, the proof method forms a basic package
 for reasoning with applicative functors.
+It targets version Isabelle 2015.
 
 Hinze's work is the basis for the package.
 He has identified the suitability of applicative functors and shown
@@ -159,12 +160,14 @@ Moreover, we have further extended the idea of combinators as building blocks
 for lifting, generalizing Hinze's model conditions.
 Consequently, the package supports several combinator sets which functors may
 exhibit, each capable of lifting different sets of equations.
-A particular motivation for our package are arithmetic operations on streams
+A particular motivation to implement this package are algebraic properties.
+The HOL theories provide a collection of type classes for structures like
+monoids, groups, etc.
+We could simplify a large subset of their proofs when lifted to streams
 and infinite trees.
-We have proven some of their properties as a usage example.
 
 The remainder of this report is organized as follows:
-The present section concludes with some background information on Isabelle/HOL,
+The present section continues with some background information on Isabelle/HOL,
 applicative functors, and a concrete definition of lifting.
 Section~\ref{sec:design} describes the design considerations, discusses the
 choice of embedding, and provides a high-level overview of the proof method.
@@ -174,7 +177,10 @@ Section~\ref{sec:normal-form} shows an implementation of the normal form of
 lifted expressions;
 Section~\ref{sec:combinators} is concerned with combinators and the application
 of bracket abstraction to applicative terms.
-\todo\ application example, related work, conclusion
+Section~\ref{sec:examples} illustrates how the proof method is applied, and
+gives examples of what we have proven with it.
+Finally, we conclude this report in Section~\ref{sec:conclusion} with a
+comparison of related packages and an outlook on possible extensions.
 
 
 \subsection{Proving with Isabelle/HOL}\label{subsec:isabelle}
@@ -364,6 +370,13 @@ McBride and Paterson coined the term ``idiom'' to refer to a particular
 interpretation of such terms.
 In line with Hinze, we will use ``applicative functor'' and ``idiom''
 interchangeably.
+Also note the difference between $\ap_f$ and the bind operation of a monad $m$.
+Both take an enhanced function ($(\alpha \funT \beta) f$ versus
+$\alpha \funT \beta m$), but with bind, the result of the function affects
+the monadic level.
+A function lifted by a functor is oblivious of its augmented context.
+In particular, its result cannot influence the overall structure of the
+computation.
 
 The identity type constructor defined by $\alpha\,\mathit{id} = \alpha$ is a
 trivial applicative functor for $\pure{x} = x$, $f \ap x = f x$.
