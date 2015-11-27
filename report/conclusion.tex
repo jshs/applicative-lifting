@@ -1,0 +1,115 @@
+\section{Conclusion}\label{sec:conclusion}
+
+\subsection{Related Work}\label{subsec:related-work}
+
+There already exist libraries for Isabelle/HOL which perform certain kinds of
+lifting.
+In this section, we want to highlight two of them and discuss how they compare
+to our solution.
+The first package~\cite{huffman05} implements a ``transfer principle''
+specifically designed for nonstandard analysis (NSA).
+It focuses on a fixed target type constructor, $\alpha\,\mathit{star}$.
+Certain instances of $\alpha\,\mathit{star}$ constitute the nonstandard number
+types.
+For instance, the hypernatural numbers are elements of $\mathit{nat}\,\mathit{star}$.
+Arithmetic operators and their properties have to be lifted in order to develop
+their theory, which is automated by the transfer tactic.
+This goal is indeed very similar to ours, but just focused on one application.
+Interestingly, the author of the NSA transfer package made use of the applicative
+structure of $\alpha\,\mathit{star}$ to define lifted operators, and also predicates.
+The latter is something the package presented in this report does not support.
+We will briefly discuss it as a potential extension in the next section.
+
+The automated lifting of properties is not generic over idioms, though.
+This makes it possible to state all required rules directly as polymorphic
+HOL theorems.
+The tactic takes some lifted proposition, tries to find the base form by
+deleting certain constants (compare this to our unfolding approach), and then
+shows logical equivalence of the two by backchaining with suitable transfer
+rules.
+There is only little control by the ML implementation, as the process is mainly
+guided by resolution with rule patterns.
+Note that all parts of the input proposition go through the same process,
+including logical operators such as quantifiers and equality.
+This is a good place to mention that $\alpha\,\mathit{star}$ is based
+on the function type $\mathit{nat} \funT \alpha$.
+Therefore, all combinators can be lifted; variables can be handled by
+resolution, because their order or duplication do not matter; all logical
+operators are preserved by lifting (the lifted type can be thought of
+as a collection of parameterized copies of the base formula).
+
+We observe that the NSA transfer package is a lot more general than ours with
+respect to lifted propositions, but is restricted to one particular idiom.
+Many of the additional logical operators can only be lifted because of its
+special properties.
+
+The other package collection we want to discuss provides quotient types.
+A quotient type is created from an existing type, the representation, and an
+equivalence relation on it; its elements are isomorphic to the equivalence
+classes.
+The \emph{Lifting} and \emph{Transfer} packages~\cite{huffman13} constitute a
+modular infrastructure for transferring results from the representation level
+to the new type.
+\emph{Transfer} finds and proves equivalences or implications between
+propositions according to an extensible set of transfer rules.
+These describe how two different functions (or type instances of the same
+function) are related, given relations of their arguments.
+Transfer is heavily driven by the type structure, following the principle of
+relational parametricity.
+The goal of \emph{Lifting} is to automate the specification of constants lifted
+to quotient types.
+Because this kind of lifting preserves properties by construction, these should
+be carried over as well.
+Therefore, the package uses transfer to relate the new constant with its
+representation.
+
+The relations used by transfer cannot express lifting to applicative functors.
+Values of the latter are usually more complex than those of the base type,
+instead of more abstract.
+We would need to find relations which are strong enough to lift arbitrary
+predicates.
+This is clearly not possible for functors with effects.
+To summarize, the actual lifting step of our package is very simple, because it
+just considers pairs of extensionally equal functions;
+the whole automation is necessary to extract these functions from idiomatic
+expressions in the first place.
+Transfer, on the other hand, preserves the term structure, but relates each
+component of the term, and composes these relations according to the
+transfer rules.
+
+
+\subsection{Summary and Future Extensions}\label{subsec:summary-future}
+
+We have successfully implemented Hinze's applicative lifting as a proof method
+for Isabelle/HOL.
+It can be instantiated for arbitrary idioms, making it a (hopefully) reusable
+tool.
+Since it supports several combinator sets, we take advantage of the individual
+properties of the idioms.
+The proof methods has been used to produce direct proofs of various algebraic
+laws for streams and infinite binary trees.
+
+The choice of a shallow embedding led to a rather compact implementation,
+next to the registration infrastructure, which is necessary either way.
+The highly polymorphic situation demands constant care for type parameter
+instantations, which is tedious.
+On the other hand, this is a problem for a deep embedding as well.
+
+The current implementation is restricted to equations.
+As we have seen above, certain idioms can lift quite a lot more.
+A practical example are cancellation laws of a lifted binary operator, which
+have the structure $\_ = \_ \implies \_ = \_$ (see also
+Section~\ref{subsec:lifted-algebra}).
+We had to prove these manually for the stream and cotree theories.
+Again, variables make our live difficult:
+The lifted assumption does not necessarily imply the base assumption for
+\emph{all} instances, and we cannot eliminate the implication to continue
+with the conclusion only.
+It is not obvious which additional conditions are necessary or sufficient to
+lift such properties.
+We have seen that the ``power'' of the various idioms differs with respect to
+combinators.
+Those which are homomorphic to the environment functor (streams \dots) seem to
+be the most versatile.
+It might be interesting to survey possible categorizations and how they lead
+to further proof automation.

@@ -3,7 +3,9 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 
-\usepackage{lmodern}
+\usepackage{roboto}
+\usepackage{mathptmx}
+\usepackage{tgtermes}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{stmaryrd}
@@ -44,9 +46,12 @@
 \tikzset{subtrmn/.style={subtrm,level distance=4mm,sibling distance=6.67mm}}
 \tikzset{abbrv/.style={dashed}}
 
+\usepackage[english]{babel}
+\hyphenation{Isa-belle}
+
 \usepackage[
 	style=numeric,
-	sorting=none,
+%	sorting=none,
 	doi=false,
 	urldate=long,
 ]{biblatex}
@@ -64,6 +69,7 @@
 \newcommand{\abs}[2]{\lambda #1.\>#2}
 \newcommand{\Imp}{\Longrightarrow}
 \newcommand{\imp}{\longrightarrow}
+\newcommand{\Iff}{\Longleftrightarrow}
 \newcommand{\All}[2]{\bigwedge #1.\>#2}
 \newcommand{\all}[2]{\forall #1.\>#2}
 \newcommand{\tvar}[1]{{'\!\textit{#1}}}
@@ -87,20 +93,67 @@
 \DeclareMathOperator{\abseq}{abs}
 
 
-\hyphenation{Isa-belle}
-
-\title{Applicative Functors in Isabelle/HOL: Notes}
+\title{Applicative Functors in Isabelle/HOL}
 \author{Joshua Schneider}
 
 \begin{document}
 
-\maketitle
+\begin{titlepage}\sf\large\raggedleft
+\makeatletter
+{\huge\bfseries\@title} \\
+\vspace{7mm}
+{\Large\@author} \\
+\vspace{2cm}
+Bachelor Thesis \\
+(11-947-173) \\
+\vspace{7mm}
+\@date
+\makeatother
+
+\vspace{\fill}
+Advisors: \\
+Prof.\ Dr.\ David Basin \\
+Dr.\ Andreas Lochbihler \\
+\vspace{1cm}
+Department of Computer Science, ETH Zürich
+\end{titlepage}
+
+\section*{Abstract}
+
+Applicative functors can be found in different contexts.
+In functional programming, they abstract the addition of effects to types.
+But also rather mathematical constructs like sets and infinite containers
+are examples.
+The key property of applicative functors is that they lift functions
+to effectful computations.
+
+We present a proof method based on applicative lifting, implemented for the
+Isabelle/HOL proof assistant.
+Hinze showed that properties of functions are often preserved when lifted.
+While functors are represented naturally in the types of HOL, it is not
+directly possible to reason based on this insight.
+We propose an algorithm which computes a certain normal form of applicative
+expressions, together with a checked proof of equivalence.
+We explain formally how this normal form solves lifted equations.
+For further flexibility, we take some ideas from combinatory logic:
+Variables can be eliminated from applicative expressions by means of abstraction
+algorithms.
+This second approach takes the nuances of the particular functors into
+consideration.
+Together, we provide the development as a ready-to-use package for Isabelle.
+We demonstrate it on algebraic structures lifted to streams and cotrees.
+
+
+\pagebreak
+\tableofcontents
+\pagebreak
 \input{introduction}
 \input{design}
 \input{normal_form}
 \input{combinators}
 \input{examples}
 \input{conclusion}
+\pagebreak
 \printbibliography
 
 \end{document}
