@@ -45,6 +45,8 @@ begin
   instance ..
 end
 
+thm add.assoc[applicative_lifted set]
+
 instantiation set :: (semigroup_add) semigroup_add
 begin
   instance proof

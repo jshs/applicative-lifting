@@ -43,4 +43,8 @@ attribute_setup applicative_unfold =
   {* Scan.lift (Scan.option Parse.xname >> Applicative.add_unfold_attrib) *}
   "register rules for unfolding to applicative expressions"
 
+attribute_setup applicative_lifted =
+  {* Scan.lift (Parse.xname >> Applicative.forward_lift_attrib) *}
+  "lift an equation to an applicative functor"
+
 end
