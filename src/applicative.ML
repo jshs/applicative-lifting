@@ -29,6 +29,7 @@ sig
   val normalize_eq_tac: Proof.context -> afun -> int -> tactic
   val general_normalform_conv: Proof.context -> afun -> cterm * cterm -> thm * thm
   val general_normalize_eq_tac: Proof.context -> afun -> int -> tactic
+  val forward_lift_rule: Proof.context -> afun -> thm -> thm
   val unfold_wrapper_tac: Proof.context -> afun option -> int -> tactic
   val fold_wrapper_tac: Proof.context -> afun option -> int -> tactic
   val normalize_wrapper_tac: Proof.context -> afun option -> int -> tactic
@@ -37,6 +38,7 @@ sig
   val applicative_cmd: binding -> string -> string -> string list -> local_theory -> Proof.state
   val print_afuns: Proof.context -> unit
   val add_unfold_attrib: xstring option -> attribute
+  val forward_lift_attrib: xstring -> attribute
   val parse_opt_afun: afun option context_parser
 end;
 
@@ -623,21 +625,21 @@ val normalize_eq_tac = hol_eq_conv_tac o apply2 oo normalform_conv;
 
 datatype apterm =
     Pure of term  (* includes pure application *)
-  | Var of int * term  (* unique index, instantiated term *)
+  | ApVar of int * term  (* unique index, instantiated term *)
   | Ap of apterm * apterm;
 
 fun apterm_vars (Pure _) = I
-  | apterm_vars (Var v) = cons v
+  | apterm_vars (ApVar v) = cons v
   | apterm_vars (Ap (t1, t2)) = apterm_vars t1 #> apterm_vars t2;
 
 fun occurs_any _ (Pure _) = false
-  | occurs_any vs (Var (i, _)) = exists (fn j => i = j) vs
+  | occurs_any vs (ApVar (i, _)) = exists (fn j => i = j) vs
   | occurs_any vs (Ap (t1, t2)) = occurs_any vs t1 orelse occurs_any vs t2;
 
 fun term_of_apterm ctxt af t =
   let
     fun tm_of (Pure t) = t
-      | tm_of (Var (_, t)) = t
+      | tm_of (ApVar (_, t)) = t
       | tm_of (Ap (t1, t2)) = lift_comb ctxt af (tm_of t1, tm_of t2);
   in tm_of t end;
 
@@ -647,7 +649,7 @@ fun apterm_of_term ctxt af t =
         SOME (t1, t2) => i |> aptm_of t1 ||>> aptm_of t2 |>> Ap
       | NONE => if can (dest_pure ctxt af) t
           then (Pure t, i)
-          else (Var (i, t), i + 1);
+          else (ApVar (i, t), i + 1);
   in aptm_of t end;
 
 fun consolidate ctxt af (t1, t2) =
@@ -711,7 +713,7 @@ fun squash_atoms ctxt af tt =
   let
     val {merge, ...} = facts_of_afun af;
     fun squash (Pure t) = SOME (Thm.reflexive (Thm.cterm_of ctxt t))
-      | squash (Var _) = NONE
+      | squash (ApVar _) = NONE
       | squash (Ap (tt1, tt2)) = case squash tt1 of
           NONE => NONE
         | SOME thm1 => case squash tt2 of
@@ -768,7 +770,7 @@ fun eliminate ctxt af tt (v, v_tm) =
       in (Ap (extract_comb 2 thm, tt), thm) end;
     fun unreachable _ = raise ASSERT "eliminate: assertion failed";
     fun elim (Pure _) = unreachable ()
-      | elim (Var (i, t)) = if exists (fn x => x = i) v then I_step t else unreachable ()
+      | elim (ApVar (i, t)) = if exists (fn x => x = i) v then I_step t else unreachable ()
       | elim (Ap (t1, t2)) = (case (occurs_any v t1, occurs_any v t2) of
             (false, false) => unreachable ()
           | (false, true) => B_step (refl_step t1) (elim t2)
@@ -868,6 +870,51 @@ fun head_cong_tac ctxt af = SUBGOAL (fn (goal, i) =>
       else K all_tac;
   in (resolve_tac ctxt [rule] THEN' post_tac) i end
   handle TERM _ => no_tac | TYPE _ => no_tac);
+
+
+(* Forward lifting *)
+
+fun forward_lift_rule ctxt af thm =
+  let
+    val sign = sign_of_afun af;
+    val prop = Thm.prop_of thm;
+    val tvars = Term.add_tvars prop [];
+    val ((Ts, Us), ctxt') = ctxt
+      |> mk_TFrees (map #2 tvars)
+      ||>> mk_TFrees (#param_sorts sign);
+    val prop' = Term.subst_atomic_types (map TVar tvars ~~ Ts) prop;
+    val (var_names, var_Ts) = split_list (Term.add_vars prop' []);
+    val (free_names, ctxt'') = Variable.variant_fixes (map #1 var_names) ctxt';
+    val frees = map (fn (var, T) => Free (var, lift_type af Us T)) (free_names ~~ var_Ts);
+    val var_map = var_names ~~ frees;
+
+    fun is_pure t = null (Term.add_vars t []);
+
+    fun lift_term (Const c) = lift af Us (Const c)
+      | lift_term (Abs a) = lift af Us (Abs a)
+      | lift_term (Var (var, _)) = the (AList.lookup (op =) var_map var)
+      | lift_term (s $ t) = (case (is_pure s, is_pure t) of
+              (true, true) => lift af Us (s $ t)
+            | (true, false) => lift_comb ctxt'' af (lift af Us s, lift_term t)
+            | (false, true) => lift_comb ctxt'' af (lift_term s, lift af Us t)
+            | (false, false) => lift_comb ctxt'' af (lift_term s, lift_term t))
+      | lift_term t = raise TERM ("forward_lift_rule", [t]);
+
+    val (lhs, rhs) = prop' |> HOLogic.dest_Trueprop |> HOLogic.dest_eq;
+    val lifted_prop = HOLogic.mk_eq (lift_term lhs, lift_term rhs) |> HOLogic.mk_Trueprop;
+    val tac = general_normalize_eq_tac ctxt'' af THEN'
+      head_cong_tac ctxt'' af THEN'
+      resolve_tac ctxt'' [thm];
+    val idiomatic = singleton (Variable.export ctxt'' ctxt)
+      (Goal.prove ctxt'' [] [] lifted_prop (K (tac 1)));
+    val fold_tac = Raw_Simplifier.fold_goals_tac ctxt (unfolds_of_afun af);
+  in the (SINGLE fold_tac idiomatic) end;
+
+fun forward_lift_attrib name =
+  let fun rule context thm =
+    let val af = afun_of_generic context (intern context name)
+    in forward_lift_rule (Context.proof_of context) af thm end;
+  in Thm.rule_attribute rule end;
 
 
 (* High-level tactics *)
