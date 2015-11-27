@@ -37,8 +37,8 @@ These must have some structure as well such that the applicative laws can be
 expressed.
 It should also be possible to have ``opaque'' idiomatic subterms, which cannot
 (or should not) be written as a combination of $\pure$ and $\ap$.
-This is primarily useful for variables ranging over lifted types, but as
-demonstrated in Example~\ref{exmp:set-usage}, more complex terms may occur too.
+This is primarily useful for variables ranging over lifted types, but more
+complex terms may occur too.
 Therefore it makes sense to refer to general lambda terms in both cases;
 then we can define semantics consistently.
 Types are ignored here for simplicity.
@@ -493,7 +493,7 @@ By Lemma~\ref{thm:unlift-head} and the condition on the opaque subterms, it
 follows that $s' \termeq t'$ and further $s \simeq t$.
 \end{proof}
 
-\subsection{Implementation}\label{subsec:nf-implementation}  % TODO title?
+\subsection{Implementation}\label{subsec:nf-implementation}
 
 We introduced an algorithm for computing the normal form of an idiomatic term,
 and argued for its central role in lifting.
@@ -549,7 +549,7 @@ representing unknowns which may be instantiated.
 Rule \texttt{B\_pure} is easily proven by rewriting with \texttt{B\_intro} and
 \texttt{merge}.
 The other rules are the applicative laws and thus are available from the
-registration infrastructure, see also \todo. % TODO ref to design section
+registration infrastructure.
 Applying a transformation to a term means instantiating the rule such that the
 left hand side is equal to that term.
 Isabelle provides a low-level reasoning framework for combining \emph{conversions}~
