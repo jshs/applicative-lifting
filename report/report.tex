@@ -135,21 +135,24 @@ Applicative functors can be found in different contexts.
 In functional programming, they abstract the addition of effects to types.
 But also rather mathematical constructs like sets and infinite containers
 are examples.
-The key property of applicative functors is that they lift functions
-to effectful computations.
+The key property of applicative functors is that they lift functions to
+augmented computations.
+These can chain effects, for example, or process many values in parallel.
 
 We present a proof method based on applicative lifting, implemented for the
 Isa\-belle/HOL proof assistant.
-Hinze showed that properties of functions are often preserved when lifted.
+Hinze has shown that equations are often preserved when lifted to an applicative
+functor.
 While functors are represented naturally in the types of HOL, it is not
-directly possible to reason based on this insight.
-We propose an algorithm which computes a certain normal form of applicative
+directly possible to reason based on Hinze's findings.
+We propose an algorithm which computes a normal form of applicative
 expressions, together with a checked proof of equivalence.
-We explain formally how this normal form relates base and lifted equations.
+We explain formally how this normal form relates equations and their lifted
+counterpart.
 Because not all equations can be handled this way, we apply abstraction
 algorithms, as known from combinatory logic, to applicative expressions.
-Depending on the functor, different combinators can be lifted, which the
-increases the flexibility of our proof method.
+Depending on the functor, different combinators can be lifted, which increases
+the flexibility of our proof method.
 We choose a fixed collection of combinators, which we consider to cover
 relevant cases.
 Scope and implementation of each case are discussed.
