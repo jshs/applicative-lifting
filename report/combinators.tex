@@ -1,6 +1,6 @@
-\section{Lifting with Combinators}\label{sec:combinators}
+\chapter{Lifting with Combinators}\label{sec:combinators}
 
-\subsection{Motivation}\label{subsec:combinator-motivation}
+\section{Motivation}\label{subsec:combinator-motivation}
 
 The normalization approach to solving lifted equations works only if the
 opaque terms on both sides coincide.
@@ -103,7 +103,7 @@ Therefore we will restrict ourselves to certain sets (``bases'') with
 fixed algorithms, while understanding that the scope can be extended 
 if needed.
 
-\subsection{Generic Lifting}\label{subsec:generic-lifting}
+\section{Generic Lifting}\label{subsec:generic-lifting}
 
 We start with the relationship of combinators and lambda terms.
 The equations in Table~\ref{tab:combinators} can be expressed as abstractions
@@ -293,7 +293,7 @@ a subset of the rules $(i)$--$(t)$ and $(i')$--$(t')$, respectively.
 Let $t' \in \mathcal{I}'$ be a generic idiomatic term, and $x_1,\dots,x_n$
 a permutation of the variables $\vars(t')$, or a superset thereof.
 If $f = [x_1]\cdots[x_n]\unlift{t'}$ is defined for $A$, then
-\begin{enumerate}
+\begin{enumerate}\raggedright
 \item $[x_1]'\cdots[x_n]'t'$ consists only of applications of pure terms, and
 \item the unique canonical form of $[x_1]'\cdots[x_n]'t'$ is $\spure f$;
 \item $\spure f \sap \sivar x_1 \sap \cdots \sap \sivar x_n$ is a canonical
@@ -367,7 +367,7 @@ The function $\abseq_C(s,t)$ will denote the chosen sequence for terms $s$, $t$
 in the context of base $C$.
 % TODO talk about the examples in the table
 
-\subsubsection*{$\mathbf{BI}$}\label{subsec:base-bi}
+\subsection*{$\mathbf{BI}$}\label{subsec:base-bi}
 
 This is the minimal base which is available for all idioms.
 We already know from Section~\ref{subsec:idiomatic-calculus} that there is only
@@ -385,7 +385,7 @@ $x_i$ occurs in the right subterm, and rule $(b)$ is used successfully.
 Otherwise, there can be no variable in the right subterm, so $(t)$ applies.
 This confirms that algorithm $(ibt)$ is indeed acceptable for this base.
 
-\subsubsection*{$\mathbf{BIC}$}\label{subsec:base-bic}
+\subsection*{$\mathbf{BIC}$}\label{subsec:base-bic}
 
 Bunder shows~\cite{bunder96} that $\mathbf{BIC}$-definable lambda terms are
 those where each bound variable occurs excatly once, irrespective of their order.
@@ -413,7 +413,7 @@ representation.
 We use this particular algorithm in order to simplify the implementation,
 such that as much code as possible can be shared between the bases. 
 
-\subsubsection*{$\mathbf{BCK}$ and $\mathbf{BICW}$}\label{subsec:base-bck-bicw}
+\subsection*{$\mathbf{BCK}$ and $\mathbf{BICW}$}\label{subsec:base-bck-bicw}
 
 These cases were also analyzed by Bunder.
 For $\mathbf{BCK}$, the definable terms are those where each bound variable occurs
@@ -443,7 +443,7 @@ The only other difference is the position of $(k)$ in the list.
 But $(k)$ on one side and $(i)$ and $(\eta)$ on the sider work with disjoint
 sets of terms, so this is not an issue.
 
-\subsubsection*{$\mathbf{BCKW}$}\label{subsec:base-bckw}
+\subsection*{$\mathbf{BCKW}$}\label{subsec:base-bckw}
 
 This base, which is logically equivalent to $\mathbf{SK}$, has some useful
 properties:
@@ -456,7 +456,7 @@ term restriction is rescinded.
 As for the abstraction algorithm, we use a variation of $(ik\eta bcs)$
 from~\cite{curry68}.
 
-\subsubsection*{$\mathbf{BIK}$, $\mathbf{BIW}$ and $\mathbf{BKW}$}\label{subsec:base-odd}
+\subsection*{$\mathbf{BIK}$, $\mathbf{BIW}$ and $\mathbf{BKW}$}\label{subsec:base-odd}
 
 These bases do not appear to be significantly covered in the literature.
 Since there is at least one useful example of an idiom with $\mathbf{BIW}$
@@ -533,7 +533,7 @@ should be chosen like those of $\mathbf{BI}$ and $\mathbf{BIK}$, respectively;
 but for each variable, a single span of repetitions in $\varseq(s)$ and
 $\varseq(t)$ is allowed and treated like a single instance.
 
-\subsection{Implementation}\label{subsec:combinator-implementation}
+\section{Implementation}\label{subsec:combinator-implementation}
 
 The implementation of generic unlifting essentially has to compute bracket
 abstractions, i.e., recursively select the correct rule for a term.

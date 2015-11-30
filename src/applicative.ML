@@ -905,10 +905,10 @@ fun forward_lift_rule ctxt af thm =
     val tac = general_normalize_eq_tac ctxt'' af THEN'
       head_cong_tac ctxt'' af THEN'
       resolve_tac ctxt'' [thm];
-    val idiomatic = singleton (Variable.export ctxt'' ctxt)
+    val thm' = singleton (Variable.export ctxt'' ctxt)
       (Goal.prove ctxt'' [] [] lifted_prop (K (tac 1)));
-    val fold_tac = Raw_Simplifier.fold_goals_tac ctxt (unfolds_of_afun af);
-  in the (SINGLE fold_tac idiomatic) end;
+    val thm'' = Raw_Simplifier.fold_rule ctxt (unfolds_of_afun af) thm';
+  in thm'' end;
 
 fun forward_lift_attrib name =
   let fun rule context thm =

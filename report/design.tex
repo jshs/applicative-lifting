@@ -1,6 +1,6 @@
-\section{Requirements and Basic Design}\label{sec:design}
+\chapter{Requirements and Basic Design}\label{sec:design}
 
-\subsection{Requirements}
+\section{Requirements}\label{subsec:requirements}
 
 Our primary goal is to implement an Isabelle/HOL proof method which reduces
 lifted equations to their base form.
@@ -76,7 +76,7 @@ Furthermore, the registration infrastructure and the basic proof approach are
 explained.
 
 
-\subsection{Choice of Embedding}\label{subsec:embedding}
+\section{Choice of Embedding}\label{subsec:embedding}
 
 The basic way of proof composition in Isabelle is resolution with a proven
 theorem, using it as a rule of inference.
@@ -150,7 +150,7 @@ itself is correct, i.e., complete.
 The main part of this report therefore justifies these algorithms.
 
 
-\subsection{Proof Strategy}\label{subsec:proof-strategy}
+\section{Proof Strategy}\label{subsec:proof-strategy}
 
 The ML code of the package can be considered in two parts.
 One is concerned with registration of idioms and access to the recorded
