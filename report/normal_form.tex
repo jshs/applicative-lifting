@@ -1,4 +1,4 @@
-\section{Normal Form Conversion}\label{sec:normal-form}
+\chapter{Normal Form Conversion}\label{sec:normal-form}
 
 McBride and Paterson~\cite{mcbride08} noted that idiomatic expressions can
 be transformed into an application of a pure function to a sequence of impure
@@ -27,7 +27,7 @@ Unlike Hinze, we use the $\pure$/$\ap$ formalism.
 Then we describe the implementation of the normalization procedure in
 Isabelle/ML.
 
-\subsection{The Idiomatic Calculus}\label{subsec:idiomatic-calculus}
+\section{The Idiomatic Calculus}\label{subsec:idiomatic-calculus}
 
 In Section~\ref{subsec:applicative}, we introduced idiomatic expressions built
 from $\pure$ and $\ap$ constants of an applicative functor.
@@ -198,7 +198,7 @@ In pattern-matching style, the transformation `pure-nf' reads
 		\operatorname{pure-nf}{(\spure{(\mathbf{B} g)} \sap f)} \sap x \\
 	\operatorname{pure-nf}(\spure f \sap \spure x) &= \spure{(f x)}
 \end{align}
-\begin{lemma}\label{thm:pure-nf}
+\begin{lemma}\label{thm:pure-nf}\raggedright
 For all $g \in \mathcal{T}$ and $t \in \mathcal{C}$,
 $\operatorname{pure-nf}(\spure g \sap t)$ is well-defined, and%
 \/\footnote{$a \in S \simeq b$ abbreviates ``$a \in S$ and $a \simeq b$''.}
@@ -207,7 +207,7 @@ $\operatorname{pure-nf}(\spure g \sap t) \in \mathcal{C} \simeq \spure g \sap t$
 \begin{proof}
 We prove all claims simultaneously by induction on $t \in \mathcal{C}$,
 where $g$ is arbitrary.
-\begin{prfcases}
+\begin{prfcases}\raggedright
 \item Assume $t = \spure x$ for some $x \in \mathcal{T}$.
 	Only the second equation applies, so we have
 	\[ \operatorname{pure-nf}(\spure g \sap t) = \spure{(g \sapp x)}. \]
@@ -493,7 +493,7 @@ By Lemma~\ref{thm:unlift-head} and the condition on the opaque subterms, it
 follows that $s' \termeq t'$ and further $s \simeq t$.
 \end{proof}
 
-\subsection{Implementation}\label{subsec:nf-implementation}
+\section{Implementation}\label{subsec:nf-implementation}
 
 We introduced an algorithm for computing the normal form of an idiomatic term,
 and argued for its central role in lifting.

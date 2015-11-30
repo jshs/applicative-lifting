@@ -1,6 +1,6 @@
-\section{Conclusion}\label{sec:conclusion}
+\chapter{Conclusion}\label{sec:conclusion}
 
-\subsection{Related Work}\label{subsec:related-work}
+\section{Related Work}\label{subsec:related-work}
 
 There already exist libraries for Isabelle/HOL which perform certain kinds of
 lifting.
@@ -78,7 +78,7 @@ component of the term, and composes these relations according to the
 transfer rules.
 
 
-\subsection{Summary and Future Extensions}\label{subsec:summary-future}
+\section{Summary and Future Extensions}\label{subsec:summary-future}
 
 We have successfully implemented Hinze's applicative lifting as a proof method
 for Isabelle/HOL.
@@ -100,7 +100,7 @@ As we have seen above, certain idioms can lift quite a lot more.
 A practical example are cancellation laws of a lifted binary operator, which
 have the structure $\_ = \_ \implies \_ = \_$ (see also
 Section~\ref{subsec:lifted-algebra}).
-We had to prove these manually for the stream and cotree theories.
+We had to prove these manually for the stream and infinite tree theories.
 Again, variables make our live difficult:
 The lifted assumption does not necessarily imply the base assumption for
 \emph{all} instances, and we cannot eliminate the implication to continue
@@ -109,7 +109,7 @@ It is not obvious which additional conditions are necessary or sufficient to
 lift such properties.
 We have seen that the ``power'' of the various idioms differs with respect to
 combinators.
-Those which are homomorphic to the environment functor (streams \dots) seem to
+Those which are homomorphic to the environment functor (streams, \dots) seem to
 be the most versatile.
 It might be interesting to survey possible categorizations and how they lead
 to further proof automation.

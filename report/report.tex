@@ -1,8 +1,13 @@
-\documentclass[a4paper,draft]{article}
+\documentclass[a4paper,11pt,draft]{memoir}
+
+\semiisopage
+\checkandfixthelayout
+\chapterstyle{tandh}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 
+\usepackage{lmodern}
 \usepackage{roboto}
 \usepackage{mathptmx}
 \usepackage{tgtermes}
@@ -18,20 +23,24 @@
 \declaretheorem{corollary}
 \declaretheorem[style=definition,qed=$\blacktriangle$]{example}
 \declaretheorem[style=definition,qed=$\blacktriangle$]{definition}
-\numberwithin{equation}{section}
 
 \usepackage{enumitem}
 \setlist[enumerate,1]{label=\alph*)}
 \newlist{prfcases}{enumerate}{1}
-\setlist[prfcases,1]{label={\it Case \arabic*.},align=left,leftmargin=\parindent,itemindent=*}
-
-\newenvironment{isabelle}{\list{}{}\item\relax}{\endlist}
-\newcommand{\iindent}{\-\hspace{1em}}
+\setlist[prfcases,1]{label={\itshape Case \arabic*.},align=left,leftmargin=\parindent,itemindent=*}
 
 \usepackage{algorithm}
 \usepackage[final]{listings}
-\lstset{numbers=left,firstnumber=1,stepnumber=5,numberfirstline,
-	basicstyle=\ttfamily\small,keywordstyle=\ttfamily\small\itshape,columns=flexible}
+\lstset{
+	numbers=left,
+	firstnumber=1,
+	stepnumber=5,
+	numberfirstline,
+	basicstyle=\ttfamily\small,
+	keywordstyle=\ttfamily\small\bfseries,
+	numberstyle=\footnotesize,
+	columns=flexible
+}
 
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric,matrix,decorations.pathreplacing}
@@ -51,13 +60,13 @@
 
 \usepackage[
 	style=numeric,
-%	sorting=none,
 	doi=false,
 	urldate=long,
 ]{biblatex}
+\DeclareFieldFormat{url}{\newline\url{#1}}
 \addbibresource{bibliography.bib}
 
-\usepackage[hidelinks]{hyperref}
+\usepackage[final,hidelinks]{hyperref}
 
 
 \newcommand{\ldb}{\llbracket}
@@ -92,34 +101,36 @@
 \newcommand{\varseq}{\overrightarrow{\vars}}
 \DeclareMathOperator{\abseq}{abs}
 
+\newenvironment{isabelle}{\list{}{}\item\relax}{\endlist}
+\newcommand{\iindent}{\-\hspace{1em}}
 
-\title{Applicative Functors in Isabelle/HOL}
-\author{Joshua Schneider}
 
 \begin{document}
 
-\begin{titlepage}\sf\large\raggedleft
-\makeatletter
-{\huge\bfseries\@title} \\
+\begin{titlingpage}
+\calccentering{\unitlength}
+\begin{adjustwidth*}{\unitlength}{-\unitlength}
+\sffamily\large\raggedleft
+{\huge\bfseries Applicative Functors in Isabelle/HOL} \\
 \vspace{7mm}
-{\Large\@author} \\
+{\Large Joshua Schneider} \\
 \vspace{2cm}
 Bachelor Thesis \\
 (11-947-173) \\
 \vspace{7mm}
-\@date
-\makeatother
+\makeatletter\@date\makeatother
 
 \vspace{\fill}
 Advisors: \\
 Prof.\ Dr.\ David Basin \\
 Dr.\ Andreas Lochbihler \\
-\vspace{1cm}
+\vspace{7mm}
 Department of Computer Science, ETH Zürich
-\end{titlepage}
+\end{adjustwidth*}
+\end{titlingpage}
 
-\section*{Abstract}
-
+\pagestyle{plain}
+\begin{abstract}
 Applicative functors can be found in different contexts.
 In functional programming, they abstract the addition of effects to types.
 But also rather mathematical constructs like sets and infinite containers
@@ -128,32 +139,38 @@ The key property of applicative functors is that they lift functions
 to effectful computations.
 
 We present a proof method based on applicative lifting, implemented for the
-Isabelle/HOL proof assistant.
+Isa\-belle/HOL proof assistant.
 Hinze showed that properties of functions are often preserved when lifted.
 While functors are represented naturally in the types of HOL, it is not
 directly possible to reason based on this insight.
 We propose an algorithm which computes a certain normal form of applicative
 expressions, together with a checked proof of equivalence.
-We explain formally how this normal form solves lifted equations.
-For further flexibility, we take some ideas from combinatory logic:
-Variables can be eliminated from applicative expressions by means of abstraction
-algorithms.
-This second approach takes the nuances of the particular functors into
-consideration.
-Together, we provide the development as a ready-to-use package for Isabelle.
-We demonstrate it on algebraic structures lifted to streams and cotrees.
+We explain formally how this normal form relates base and lifted equations.
+Because not all equations can be handled this way, we apply abstraction
+algorithms, as known from combinatory logic, to applicative expressions.
+Depending on the functor, different combinators can be lifted, which the
+increases the flexibility of our proof method.
+We choose a fixed collection of combinators, which we consider to cover
+relevant cases.
+Scope and implementation of each case are discussed.
+We provide the combined development as a ready-to-use package for Isabelle, and
+demonstrate its usability on algebraic structures lifted to streams and
+infinite trees.
+\end{abstract}
 
+\cleartorecto
+\tableofcontents*
 
-\pagebreak
-\tableofcontents
-\pagebreak
+\pagestyle{plain}
 \input{introduction}
 \input{design}
 \input{normal_form}
 \input{combinators}
 \input{examples}
 \input{conclusion}
-\pagebreak
-\printbibliography
+
+\cleartorecto
+\emergencystretch 1em
+\printbibliography[heading=bibintoc]
 
 \end{document}

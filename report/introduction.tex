@@ -1,6 +1,6 @@
-\section{Introduction}\label{sec:introduction}
+\chapter{Introduction}\label{sec:introduction}
 
-\subsection{Motivation}\label{subsec:motivation}
+\section{Motivation}\label{subsec:motivation}
 
 Interactive theorem provers emphasize the human aspect of mathematical work.
 Rather than relying on fully automatic proof search, the user guides
@@ -135,7 +135,7 @@ We will see that other functors permit this lifting.
 \end{example}
 
 
-\subsection{Contributions and Overview}\label{subsec:contrib-overview}
+\section{Contributions and Overview}\label{subsec:contrib-overview}
 
 Our primary goal is to provide an Isabelle/HOL proof method which reduces
 lifted equations to their base form.
@@ -165,6 +165,8 @@ The HOL theories provide a collection of type classes for structures like
 monoids, groups, etc.
 We could simplify a large subset of their proofs when lifted to streams
 and infinite trees.
+On the user level, the new proofs are no longer dependent on the particular
+type.
 
 The remainder of this report is organized as follows:
 The present section continues with some background information on Isabelle/HOL,
@@ -183,7 +185,7 @@ Finally, we conclude this report in Section~\ref{sec:conclusion} with a
 comparison of related packages and an outlook on possible extensions.
 
 
-\subsection{Proving with Isabelle/HOL}\label{subsec:isabelle}
+\section{Background: Proving with Isabelle/HOL}\label{subsec:isabelle}
 
 Isabelle was originally designed as a framework for interactive theorem
 proving, without being restricted to a specific logical system~\cite{paulson90}.
@@ -345,7 +347,7 @@ Attributes invoke further processing steps on already proven facts, either
 transforming them or causing additional declarations to the context.
 
 
-\subsection{Applicative Functors and Lifting}\label{subsec:applicative}
+\section{Background: Applicative Functors and Lifting}\label{subsec:applicative}
 
 Applicative functors were introduced by McBride and Paterson~\cite{mcbride08}
 in order to abstract a recurring theme they observed in the programming language

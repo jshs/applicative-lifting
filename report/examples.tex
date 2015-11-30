@@ -1,6 +1,6 @@
-\section{Usage Examples}\label{sec:examples}
+\chapter{Usage Examples}\label{sec:examples}
 
-\subsection{User Interface}\label{subsec:user-interface}
+\section{User Interface}\label{subsec:user-interface}
 
 \begin{figure}
 \textbf{lemma} set\_plus\_assoc: $(X \oplus Y) \oplus Z = X \oplus (Y \oplus Z)$ \\
@@ -115,7 +115,7 @@ This situation may occur when the lifted property has to be shown as a part of
 a larger proof, for example.
 
 
-\subsection{Lifted Algebra}\label{subsec:lifted-algebra}
+\section{Lifted Algebra}\label{subsec:lifted-algebra}
 
 Examples of operators with associated properties can be found in algebra.
 The HOL library contains a hierarchy of type classes which represent algebraic
@@ -124,6 +124,17 @@ Type classes~\cite{haftmann07} augment types with overloaded operators and
 related assumptions, and enable abstract reasoning based on these.
 In order to show that a type is an instance of such a class, the assumptions
 have to be proven.
+Conversely, we obtain these assumptions as theorems if a type (or type variable)
+is constrained to the class.
+Therefore, we can lift class instances to individual functors.
+Note that this has to be done separately for each class, even if there is a
+subclass relationship.
+For example, assume that class $B$ is a subclass of class $A$.
+If we have proven that a certain idiom preserves instances of $B$,
+we do not necessarily know that it preserves $A$ as well
+(however, the lifted variant of a type of class $B$ is certainly an instance of
+$A$, which is a different proposition).
+
 We lift addition and multiplication to two similar datatypes, streams and
 infinite binary trees.
 Both can be modelled as codatatypes in Isabelle, using the revised datatype
@@ -134,7 +145,7 @@ The following class instances are directly provable:
 \begin{itemize}
 \item semigroup, abelian semigroup,
 \item monoid, commutative monoid,
-\item commutative monoid with subtraction (\texttt{comm\_monoid\_diff}),
+\item commutative monoid with bounded subtraction (\texttt{comm\_monoid\_diff}),
 \item group,
 \item semiring,
 \item multiplicative zero.
@@ -159,3 +170,5 @@ scope of our package: The laws
 \All{a b c}{b + a &= c + a \Longrightarrow b = c}
 \end{align*}
 are not plain equations.
+For the reason outlined above, just lifting the group class (a subclass) is not
+sufficient to derive this instance.
