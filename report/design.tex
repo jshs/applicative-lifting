@@ -2,10 +2,8 @@
 
 \section{Requirements}\label{subsec:requirements}
 
-Our primary goal is to implement an Isabelle/HOL proof method which reduces
-lifted equations to their base form.
-This proof method should be generic and work with arbitrary idioms.
-The following is the minimal set of user actions we shall support:
+The following is the minimal set of user actions our Isabelle package shall
+support:
 
 \begin{enumerate}
 \item Declare applicative functors to the theory context.
@@ -18,15 +16,15 @@ The following is the minimal set of user actions we shall support:
 	equation $\all{\vec{y}}{a[\vec{y}] = b[\vec{y}]}$.
 	More precisely, if there is a subgoal stating the former, applying the
 	proof methods transforms the goal state to the latter.
-	The functor should be either detected automatically, or specified by
-	the user.
+	The functor should either be detected automatically, or be specified
+	by the user.
 \end{enumerate}
 
 The first requirement ensures that our package is reusable, while the second
 is the core functionality.
 However, usability is also a concern: In the realm of interactive theorem
 proving, it is not sufficient to just verify formal objects---we are not
-extending the logic, after all, but providing a shortcut for a certain
+extending the logic, after all, but providing a shortcut following a certain
 principle.
 We must balance the clarity of the resulting proof document and the amount of
 work that the user has to put into developing a proof.
@@ -39,18 +37,18 @@ The following features are possible extensions which may help in this regard:
 	Generally speaking, if a term $t$ with free variables $v_i$ can be expressed
 	as $\pure t' \ap v_1 \ap \cdots \ap v_n$ for some $t'$, then the
 	corresponding equation can be registered.
-	The lifting proof methods rewrites with these equations at the beginning,
+	The proof methods rewrite with these equations at the beginning,
 	such that the base equation will refer to $t'$.
 	This way, the user does not have to transform everything into idiomatic
 	format first.
 \item\label{itm:feat-flex}
 	More flexibility regarding the logical structure of the input proposition.
 	This includes bound variables (quantified by $\forall$ or $\bigwedge$),
-	complex subgoals with premises, and cases where the conceptual variables
-	of the lifted equation have been subsituted by some terms.
+	complex subgoals with premises, and cases where the variables of the lifted
+	equation have been substituted by some terms.
 \item\label{itm:feat-tools}
 	Related proof methods and attributes, for example for forward lifting
-	of proven base equations.
+	of facts stating a base equation.
 \item\label{itm:feat-debug}
 	Inspection and tracing output.
 	This is particular useful if something does not work as expected.
@@ -62,14 +60,12 @@ The following features are possible extensions which may help in this regard:
 	We can interpret it in different domains, e.g., for integers and for
 	streams of integers with element-wise addition.
 	In this example, the law is true for both interpretations.
-	We are not able to handle such propositions with just a method for
-	equations, though.
-	% TODO example may fit better somewhere else?
+	We are not able to handle such propositions with a method just for
+	equations.
 \end{enumerate}
 
 The current version at the time writing supports \ref{itm:feat-const} and
-\ref{itm:feat-flex}, as well as \ref{itm:feat-tools} and \ref{itm:feat-debug}
-to some extent.
+\ref{itm:feat-flex}, as well as the forward lifting described in~\ref{itm:feat-tools}.
 In the remainder of this section, we will explain the design decisions we
 have made in order to fulfill the requirements.
 Furthermore, the registration infrastructure and the basic proof approach are
@@ -78,7 +74,7 @@ explained.
 
 \section{Choice of Embedding}\label{subsec:embedding}
 
-The basic way of proof composition in Isabelle is resolution with a proven
+The basic principle of proof composition in Isabelle is resolution with a proven
 theorem, using it as a rule of inference.
 Here we argue that it is not possible to prove lifting as a single theorem, and
 then we discuss potential remedies.
@@ -87,9 +83,9 @@ is based on the standard function space.
 Therefore, each idiom comes with a type family which is indexed by a
 distinguished type variable, and the related functions and laws are polymorphic
 in this index.
-This is the natural form of idioms in the HOL libraries; all examples
-in~\ref{subsec:applicative} are parametric datatypes.
-The proof method should work directly with equations of these idioms.
+This is the natural form of idioms in the HOL libraries; all examples mentioned
+in Section~\ref{subsec:motivation} are parametric datatypes.
+The proof method should work directly with equations involving these.
 Regardless of the mechanism of proof construction, it needs a type constructor
 as a parameter.
 This concept is foreign to the type system of Pure and HOL---%
@@ -101,7 +97,7 @@ different types within the same proposition or proof.
 One solution is to define a custom logic, including a term language, axioms
 and meta theorems, and formalize it using the available specification tools.
 In our case, the language is that of idiomatic expressions,%
-\footnote{Base equations can be interpreted as expressions of the identity idiom.}
+\footnote{Base equations can be interpreted as expressions in the identity idiom.}
 the axioms describe an equality judgment which is compatible with the
 applicative functor laws, and lifting of equations is a theorem.
 This is a \emph{deep embedding} of the logic~\cite{wildmoser04}.
@@ -123,14 +119,14 @@ though.
 The package for nonfree datatypes~\cite{schropp13} is deeply embedded as well.
 Its constructions must work with arbitrary types.
 In the underlying framework, Schropp~\cite{schropp12} proposed the use of a
-``pseudo-universe'', a sum type combining all these types.
+``pseudo-universe'', a sum type combining all relevant types.
 The meta-theory of the package carries a type parameter which is instantiated
 with a suitable pseudo-universe for every construction.
 It may be possible to use the same approach for idiomatic expressions, since the
 number of types occuring in an idiomatic expression is finite.
 This number can be linear in the size of the expression, though, which bloats
 the intermediate terms during reflection.
-A bigger problem is the generic axiomatization of idioms.
+A bigger problem is the axiomatization of idioms.
 For instance, the identity law would refer to a function of type $\alpha \funT \alpha$
 for each type $\alpha$ in the pseudo-universe.
 Thus, the universe needs to be closed under function types.
@@ -161,7 +157,7 @@ command (see Section~\ref{subsec:user-interface}), but also deals with the high
 degree of polymorphism.
 First, we need to represent the concept of an idiom.
 Instead of a plain type constructor we use type schemes $f[\tvar{a}]$, which
-are simply normal HOL types with (in this case) one distinguished type variable
+are normal HOL types with (in this case) one distinguished type variable
 $\tvar{a}$.
 This variable has to be tracked externally in ML because of the lack of
 type quantifiers in the type system.
@@ -172,17 +168,16 @@ $\tvar{a} \funT f[\tvar{a}]$ and $f[\tvar{a} \funT \tvar{b}] \funT f[\tvar{a}] \
 respectively.
 We allow additional type variables in functor signatures, which therefore
 represent families of functors.
-These are always instantiated with the same types throughout a proof.
+These variables are always instantiated with the same types throughout a proof.
 This is useful for idioms based on sum types $\alpha + \beta$, for instance.
 As a further refinement, all type variables may be constrained by a sort.
 Sorts in Pure are type classes~\cite{implementation-ref}.
 The sort of the distinguished variable in $f$ must be compatible with the
 function type constructor.
 
-Above parts form the signature of the idiom $f$.
-Using it, we define functions which compose and destruct types and terms
-related to $f$.
-One problem is identifying terms of the form $\pure \_$ and $\_ \ap \_$ in
+These logical entities together form the signature of the idiom $f$.
+We define functions which compose and destruct types and terms related to $f$.
+One problem is to identify terms of the form $\pure \_$ and $\_ \ap \_$ in
 the first place.
 We do not want to restrict the term structure of the functor ``constants'',
 since some useful predefined concepts in the HOL libraries are abbreviations of
@@ -194,8 +189,8 @@ pattern.
 The remaining code uses these functions to provide several layers of
 conversions and tactics.
 A wrapper tactic prepares the subgoal to solve.
-This includes dealing with universal quantifiers $\forall$ and local premises.
-We then rewrite the subgoal using the declared rules for lifted constants.
+This includes dealing with universal quantifiers and local premises.
+Then, we rewrite the subgoal using the declared rules for lifted constants.
 Only those related to $f$ are used, the reason being that overeager, unwanted
 unfolding may be difficult to reverse.
 The result of this preparation is a subgoal which is a simple equation of two
@@ -203,16 +198,16 @@ idiomatic expressions.
 We provide two variants of the basic lifting step.
 They have in common that both expressions are transformed into \emph{canonical form}:
 \[ \pure{g} \ap s_1 \ap \cdots \ap s_m = \pure{h} \ap t_1 \ap \cdots \ap t_n, \]
-We then apply appropriate congruence rules until the subgoal is reduced to $g = h$.
+We apply appropriate congruence rules until the subgoal is reduced to $g = h$.
 If either $m \ne n$ or $s_i \ne t_i$ for some $i$ (as terms modulo
 $\alpha\beta\eta$-conversion), the proof method fails.
 Since $g$ and $h$ are at least $n$-ary functions, we can further apply
-extensionality, reaching the subgoal
+extensionality, and obtain the subgoal
 \[ \All{x_1 \dots x_n}{g x_1 \cdots x_n = h x_1 \cdots x_n}. \]
 This is the transformed proof state presented to the user.
 
-Hinze's Normal Form Lemma~\cite[7]{hinze10} asserts the existence of a certain
-normal form for idiomatic expressions where each variable occurs only once.
+Hinze's Normal Form Lemma~\cite[7]{hinze10} asserts the existence of a normal
+form for idiomatic expressions where each variable occurs only once.
 As it turns out, we can compute it for arbitrary expressions.
 This normal form is a canonical form.
 Therefore, the first variant simply replaces both sides of the equation with
@@ -222,7 +217,7 @@ Section~\ref{sec:normal-form}.
 There we will also show that the transformed equation is indeed the base form
 of the original equation.
 The other implementation is a superset of the normal form approach.
-Instead of using the unique normal form, we construct the canonical forms
+Instead of using the unique normal form, we construct canonical forms
 explicitly such that the condition $\vec s = \vec t$ is satisfied.
 The idiom under consideration limits the set of equivalent canonical forms,
 though.

@@ -1,8 +1,11 @@
-\documentclass[a4paper,11pt,draft]{memoir}
+\documentclass[a4paper,11pt,final]{memoir}
 
 \semiisopage
 \checkandfixthelayout
 \chapterstyle{tandh}
+
+\usepackage{chngcntr}
+\counterwithout{footnote}{chapter}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -14,6 +17,7 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{stmaryrd}
+\DeclareMathAlphabet{\mathcal}{OMS}{cmsy}{m}{n}
 
 \usepackage{mathtools}
 \usepackage{amsthm}
@@ -33,9 +37,6 @@
 \usepackage[final]{listings}
 \lstset{
 	numbers=left,
-	firstnumber=1,
-	stepnumber=5,
-	numberfirstline,
 	basicstyle=\ttfamily\small,
 	keywordstyle=\ttfamily\small\bfseries,
 	numberstyle=\footnotesize,
@@ -56,7 +57,7 @@
 \tikzset{abbrv/.style={dashed}}
 
 \usepackage[english]{babel}
-\hyphenation{Isa-belle}
+\hyphenation{i-sa-belle}
 
 \usepackage[
 	style=numeric,
@@ -111,6 +112,7 @@
 \calccentering{\unitlength}
 \begin{adjustwidth*}{\unitlength}{-\unitlength}
 \sffamily\large\raggedleft
+\vspace*{1cm}
 {\huge\bfseries Applicative Functors in Isabelle/HOL} \\
 \vspace{7mm}
 {\Large Joshua Schneider} \\
@@ -118,7 +120,7 @@
 Bachelor Thesis \\
 (11-947-173) \\
 \vspace{7mm}
-\makeatletter\@date\makeatother
+November 30, 2015
 
 \vspace{\fill}
 Advisors: \\

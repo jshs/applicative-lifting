@@ -27,7 +27,7 @@ Lifting their defining equations (see Table~\ref{tab:combinators}) gives us
 the identity and composition laws, respectively.
 If the lifted combinator performs the same rearrangement with arbitrary
 functorial values, one can translate that particular term structure between the
-two layers.
+two levels.
 In this case, we simply say that the combinator \emph{exists}.
 To continue with~\eqref{eq:comb-intro1}, we could attempt to change the order of
 $Y$ and $X$ on the right-hand side.
@@ -49,7 +49,7 @@ But now the argument lists on both sides coincide.
 We reduce to
 \[ \abs{xy}{x + y} = \abs{xy}{y + x}, \]
 which is extensionally equivalent to the base equation $x + y = y + x$.
-The availability of equation~\eqref{eq:flip-lifted} is a quite powerful
+The availability of equation~\eqref{eq:flip-lifted} is a rather powerful
 condition, because it will allow us to permute opaque terms freely.
 If permutations exist such that both sides of an equation in canonical form
 align regarding their opaque terms, reduction by congruence is possible again.
@@ -63,12 +63,10 @@ Symbol & Reduction \\
 \hline
 $\mathbf{B}$ & $\mathbf{B} x y z = x (y z)$ \\
 $\mathbf{I}$ & $\mathbf{I} x = x$ \\
-\hline
 $\mathbf{C}$ & $\mathbf{C} x y z = x z y$ \\
 $\mathbf{K}$ & $\mathbf{K} x y = x$ \\
 $\mathbf{W}$ & $\mathbf{W} x y = x y y$ \\
 $\mathbf{S}$ & $\mathbf{S} x y z = x z (y z)$ \\
-$\mathbf{H}$ & $\mathbf{H} x y z = x y (z y)$ \\
 \end{tabular}
 \caption{Useful combinators.}
 \label{tab:combinators}
@@ -76,13 +74,12 @@ $\mathbf{H}$ & $\mathbf{H} x y z = x y (z y)$ \\
 
 Combinators appeared originally in the context of logic~\cite{curry68}.
 They were studied because it is possible to write logical formulas without
-variables using only applications of suitable combinators, as opposed to the
-usual lambda calculus.
+variables, using only applications of suitable combinators.
 Table~\ref{tab:combinators} lists all combinators which are used throughout
 this text, together with their defining equations.
 There are certain sets of combinators which are sufficient to express all
 lambda terms, $\{\mathbf{S,K}\}$ being one of them.
-In other sets, only a limited part of terms is representable.
+With other sets, only a part of terms is representable.
 Hinze's Lifting Lemma shows that all terms and thus all equations can be
 lifted while preserving the variable structure if $\mathbf{S}$ and $\mathbf{K}$
 exist.
@@ -93,13 +90,13 @@ can be lifted.
 
 The original proof of the Lifting~Lemma~\cite[11--14]{hinze10} uses induction
 on the structure of idiomatic terms; it is not entirely obvious how it can
-be generalized to other combinators sets, as it depends on the availability
+be generalized to other combinator sets, as it depends on the availability
 of $\mathbf{K}$ to lift tuple projections.
 In this section we present an implementation of this generalized lifting,
 whose underlying concept works with arbitrary combinators.
 However, it depends on an abstraction algorithm and the structure of
 representable terms, which are difficult to derive automatically.
-Therefore we will restrict ourselves to certain sets (``bases'') with
+Therefore, we will restrict ourselves to certain sets (``bases'') with
 fixed algorithms, while understanding that the scope can be extended 
 if needed.
 
@@ -108,7 +105,7 @@ if needed.
 We start with the relationship of combinators and lambda terms.
 The equations in Table~\ref{tab:combinators} can be expressed as abstractions
 $\mathbf{I} = \abs{x}{x}$ etc.
-If we substitute occurrences of combinators in a term (signified by $=_\delta$),
+If we substitute occurrences of combinators in a term (indicated by $=_\delta$),
 new abstractions are introduced, which may be beta-reduced afterwards:
 \[ \mathbf{WB} =_\delta (\abs{fx}{fxx})(\abs{gfx}{g(fx)}) =_\beta \abs{xy}{x(xy)}. \]
 The question arises when and how this process can be reversed, meaning that
@@ -174,11 +171,11 @@ $(i)$--$(s)$ is sufficient.
 Next, we attempt to transfer these concepts to idiomatic terms.
 On the one hand, this is quite intuitive since the latter are also formed by
 an application operator, and pure terms can be identified with constants.
-But we do not have any ``idiomatic abstractions''.
+But we do not have ``idiomatic abstractions''.
 Hinze actually defines these in terms of abstract combinators and an
 extensionality property of the idiom.
 For our purpose it is sufficient to work directly with bracket abstraction,
-and we assume that all combinators are lifted, i.e. expressible as a pure term.
+and we assume that all combinators are lifted, i.e., expressible as a pure term.
 To clarify the following discussion, we adjust our $\mathcal{I}$ formalism
 and replace opaque terms $\sterm x$ with variables.
 
@@ -210,8 +207,6 @@ are:
 In general, the algorithm $A'$ on idiomatic terms is obtained from algorithm
 $A$ on regular terms by lifting its rules in this fashion, preserving order.
 
-Before we show the connection to the canonical form, there is one thing which
-remains to be considered.
 The interchange law allows us to move a variable out of the left subterm of
 an application, given that the right subterm is pure.
 This is not captured by rules $(b')$ and $(i')$, which are the only ones from
@@ -230,7 +225,7 @@ rule for the $\mathbf{W}$ combinator.
 Without the interchange law, it could only be used for terms
 $t \sap \sivar x \sap \sivar x$, i.e. those where the same variable is applied
 twice in direct succession.
-In an idiom, there may be arbitrary pure terms ``inbetween'' the variables.
+In an idiom, there may be arbitrary pure terms inbetween the variables.
 We use the $(w)$ rule when the variable occurs in both operands of an application,
 just like the $(s)$ rule.
 \begin{alignat}{2}
@@ -284,7 +279,7 @@ The successful abstraction of all variables in an idiomatic term leaves a
 single pure term, per the homomorphism law.
 Moreover, that term is equivalent to the result of applying the same abstraction
 algorithm to the ``unlifted term''.
-In principle, this works with arbitrary rules, as long as the statements of
+In principle, this works with arbitrary rules, as long as the conclusions of
 Lemma~\ref{thm:bracket-lifting} hold true.
 
 \begin{theorem}\label{thm:unlifting}
@@ -322,7 +317,7 @@ If $f = [x_1]\cdots[x_n]\unlift{t'}$ is defined for $A$, then
 $\mathbf{BI}$ & $(ibt)$ & state, list \\
 $\mathbf{BIC}$ & $(ibtc)$ & set \\
 $\mathbf{BIK}$ & $(kibt)$ & \\
-$\mathbf{BIW}$ & $(ibtw)$ & either \\
+$\mathbf{BIW}$ & $(ibtw)$ & sum type \\
 $\mathbf{BCK}$ & $(kibtc)$ & \\
 $\mathbf{BKW}$ & $(kibtw)$ & \\
 $\mathbf{BICW}$ & $(ibtcs)$ & maybe \\
@@ -355,7 +350,7 @@ This highlights the connection with combinatorial logic, where some of those
 bases have been studied.
 
 The algorithms have been chosen in order to simplify the implementation, by
-using the rules conditionally depending on the available combinators:
+activating the rules depending on the available combinators:
 If $\mathbf{K}$ exists, start with $k$.
 Then, for all bases, perform $ibt$.
 If $\mathbf{C}$ (or $\mathbf{W}$) exists, add $c$ (or $w$), respectively.
@@ -365,7 +360,8 @@ in each base, and we justify the abstraction algorithms, meaning that the
 preconditions of Theorem~\ref{thm:unlifting} are satisfied.
 The function $\abseq_C(s,t)$ will denote the chosen sequence for terms $s$, $t$
 in the context of base $C$.
-% TODO talk about the examples in the table
+We write $\langle\rangle$ for the empty sequence, and $x \cdot \vec y$ means
+that element $x$ is in front of the sequence $\vec y$.
 
 \subsection*{$\mathbf{BI}$}\label{subsec:base-bi}
 
@@ -387,7 +383,7 @@ This confirms that algorithm $(ibt)$ is indeed acceptable for this base.
 
 \subsection*{$\mathbf{BIC}$}\label{subsec:base-bic}
 
-Bunder shows~\cite{bunder96} that $\mathbf{BIC}$-definable lambda terms are
+Bunder shows in~\cite{bunder96} that $\mathbf{BIC}$-definable lambda terms are
 those where each bound variable occurs excatly once, irrespective of their order.
 His definition of a $C$-definable term $t$ (with combinator base $C$)
 implies that there exists an abstraction algorithm such that $[x]s$ is defined
@@ -422,7 +418,7 @@ In terms of bracket abstraction, $[x]y$ is then also defined if $x$ is not free
 in $y$.
 This allows us to extend the sequence with other variables.
 We make use of this to deal with variables which only occur on one side of
-an equation---it does not hurt to abstract over those too.
+an equation---it does not hurt to abstract over those, too.
 Hence, $\abseq_\mathbf{BCK}(s,t)$ can be any arrangement of the
 set $\vars(s) \cup \vars(t)$.
 The implementation uses a total order on the set of variables.
@@ -440,7 +436,7 @@ $(i\eta bcs)$ for $\mathbf{BICW}$; our rules are $(kibtc)$ and $(ibtcs)$,
 respectively.
 The comments on $(\eta)$ and $(t)$ from above apply here as well.
 The only other difference is the position of $(k)$ in the list.
-But $(k)$ on one side and $(i)$ and $(\eta)$ on the sider work with disjoint
+But $(k)$ on one side and $(i)$ and $(\eta)$ on the other work with disjoint
 sets of terms, so this is not an issue.
 
 \subsection*{$\mathbf{BCKW}$}\label{subsec:base-bckw}
@@ -481,8 +477,8 @@ For the other bases, we simply take the abstraction algorithms as granted.
 Based on that we analyze the set of defined bracket abstractions.
 Since $\mathbf{W}$ duplicates variables, one might conjecture that a single
 variable may now occur repeatedly.
-No other variable may be interspersed in the lexical order, though, because
-none of the available combinators reorder their arguments.
+No other variable may be interspersed, because none of the available combinators
+reorder their arguments.
 The following lemma proves that this intuition is correct.
 In order to express it on the level of lambda terms, we overload $\varseq(x)$
 in the obvious way.
@@ -495,7 +491,7 @@ With algorithm $(ibtw)$, $[x]t$ is defined iff there is a natural number
 $n \geq 1$ and a variable sequence $v$ such that
 $\varseq(t) = v \mathbin{@} \langle x \rangle^n$, where $x$ does not appear in $v$.
 The same statement holds true for algorithm $(kibtw)$, except that $n$ may be
-zero as well.
+zero.
 \end{lemma}
 \begin{proof}
 The first part of the proof is concerned with the direction where $[x]t$ is
@@ -543,8 +539,8 @@ theorem representing
 However, we also add a heuristic that tries to determine how variables have
 been instantiated in the supplied equation.
 First, arbitrary opaque terms take the place of variables.
-We can work directly with these, but it becomes less clear which subterms are
-the same, meaning that they should be abstracted simultaneously.
+We can work directly with these, but it becomes less clear which come from the
+same variables, meaning that they should be abstracted simultaneously.
 Consider a base equation with two, universally quantified variables $x$ and $y$.
 If the lifted version can be proven, it will also have two variables.
 Now, the user might want to prove a proposition which is equivalent to the
@@ -558,13 +554,13 @@ What would happend if we normalize the equation?
 Normalization treats each instance of a opaque subterm separately, thus we will
 get something of the form $\pure f \ap z \ap z = \pure g \ap z \ap z$.
 By magic, the functions $f$ and $g$ have been equipped with two arguments!
-In the base $\mathbf{BI}$, generic unlifting is not more powerful than
+In the base $\mathbf{BI}$, generic unlifting is no more powerful than
 normal form conversion, but we expect it not to be weaker either.
 We solve the problem by handling each opaque subterm as if it were a different
 variable.
 For other bases, we need to be more clever, or we would lose the advantage
 that generic unflifting was supposed to give us.
-For example, idempotency of an operator $\circ$, $x \circ x = x$
+For example, idempotency of an operator $\circ$, $x \circ x = x$,
 can be lifted if $\mathbf{W}$ exists;
 when proving a lifted instance like $f(x) \hat\circ f(x) = f(x)$, the two
 copies of $f(x)$ on the left-hand side must be identified.
@@ -603,15 +599,15 @@ The resulting equation is then chained with the third rule.
 Similar to our use of conversion combinators in Section~\ref{subsec:nf-implementation},
 we employ \texttt{rewr\_subst\_ap} to handle the recursive nature of most
 abstraction rules.
-As an example refer to Figure~\ref{fig:b-impl}.
-It takes as arguments two pairs of an idiomatic term and a theorem, the results
+As an example refer to Figure~\ref{fig:b-impl}, which shows rule $(b')$.
+It takes two pairs of an idiomatic term and a theorem as arguments, the results
 of abstracting the two subterms of an application.
-Here, the key transformation is again provided by \texttt{B\_intro} from
+The main transformation is again provided by \texttt{B\_intro} from
 Table~\ref{tab:normalize-rules}.
 We must also update the \texttt{apterm} structure.
-New combinator terms are introduced, which also need proper type instantiation.
-Because these combinator are part of the equation we have computed, it seems
-to be the easiest method to extract the term from that equation.
+New combinator terms are introduced, which need proper type instantiation.
+Because these combinators are part of the equation we have computed, it seems
+to be the easiest method to extract the terms from that equation.
 The integer supplied to \texttt{extract\_comb} indicates how deeply nested to
 the left the combinator is.
 
@@ -692,8 +688,7 @@ for two idiomatic terms.
 It begins with creating a left-to-right list of the variables for each term.
 Then an additional tag is added such that two list elements have the same
 tag iff we consider the instantiated terms equal.
-In the current implementation, the equality predicate is plain alpha
-convertibility.
+In the current implementation, the equality predicate is alpha convertibility.
 The next steps depend on the combinator base:
 \begin{enumerate}
 \item If $\mathbf{C}$ exists, each list is sorted according to the tag.
@@ -718,7 +713,7 @@ The next steps depend on the combinator base:
 	length and contain the same sequence of tags, or an error condition is raised.
 	Again, the position lists within both lists are zipped.
 \end{enumerate}
-% TODO full code in appendix?
+
 We should investigate whether this algorithm is consistent with the theoretical
 development in Section~\ref{subsec:generic-lifting}, and also with the
 criteria regarding variable instantiation.
@@ -727,7 +722,7 @@ criteria regarding variable instantiation.
 	over a single position at a time.
 	Aborting due to a sequence mismatch is basically the single difference to
 	normal form conversion.
-	However, there we will just get a likely unprovable result, so this
+	However, there we likely get an unprovable result, so this
 	behavior is justified.
 \item $\mathbf{BIC}$: As before; sorting produces a suitable sequence if one
 	exists.
@@ -740,7 +735,7 @@ criteria regarding variable instantiation.
 	solution.
 	If the sanity check at the end fails, then the set of variables for both
 	sides of the equation must differ, and the precondition for this base is
-	violated. % TODO rev
+	violated.
 \item $\mathbf{BCKW}$ differs from the previous case in the last step.
 	As expected, we now accept every pair of terms.
 	It should not happen that we will get a duplicate variable tag, in other words,
@@ -750,8 +745,8 @@ criteria regarding variable instantiation.
 	variables which do not occur in both terms, because the lists are sorted.
 \item $\mathbf{BCK}$: The lack of $\mathbf{W}$ implies that all positions
 	have to be abstracted individually.
-	However, it is interesting to see what the last step does with respect to
-	consolidating both sides of the equation.
+	However, it is interesting to see what the $\mathbf{K}$ step does with
+	respect to consolidating both sides of the equation.
 	Again by induction we see that as many pairings as possible between the
 	two sides of the equation are created.
 	The difference to $\mathbf{BCKW}$ is that the same term may occur repeatedly
@@ -773,5 +768,3 @@ criteria regarding variable instantiation.
 	Due to a lack of example idioms for these bases, we decided against this
 	extra effort.
 \end{itemize}
-
-% TODO driver (general_normalform_conv)?

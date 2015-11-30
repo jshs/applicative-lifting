@@ -8,15 +8,16 @@ In this section, we want to highlight two of them and discuss how they compare
 to our solution.
 The first package~\cite{huffman05} implements a ``transfer principle''
 specifically designed for nonstandard analysis (NSA).
-It focuses on a fixed target type constructor, $\alpha\,\mathit{star}$.
-Certain instances of $\alpha\,\mathit{star}$ constitute the nonstandard number
+It focuses on a fixed target type constructor, $\alpha\>\mathit{star}$.
+Certain instances of $\alpha\>\mathit{star}$ constitute the nonstandard number
 types.
-For instance, the hypernatural numbers are elements of $\mathit{nat}\,\mathit{star}$.
+For instance, the hypernatural numbers are elements of $\mathit{nat}\>\mathit{star}$.
 Arithmetic operators and their properties have to be lifted in order to develop
 their theory, which is automated by the transfer tactic.
-This goal is indeed very similar to ours, but just focused on one application.
+Its goal is indeed very similar to ours, but just focused on one application.
 Interestingly, the author of the NSA transfer package made use of the applicative
-structure of $\alpha\,\mathit{star}$ to define lifted operators, and also predicates.
+structure of $\alpha\>\mathit{star}$ to define lifted operators, as well as
+predicates.
 The latter is something the package presented in this report does not support.
 We will briefly discuss it as a potential extension in the next section.
 
@@ -31,7 +32,7 @@ There is only little control by the ML implementation, as the process is mainly
 guided by resolution with rule patterns.
 Note that all parts of the input proposition go through the same process,
 including logical operators such as quantifiers and equality.
-This is a good place to mention that $\alpha\,\mathit{star}$ is based
+This is a good place to mention that $\alpha\>\mathit{star}$ is based
 on the function type $\mathit{nat} \funT \alpha$.
 Therefore, all combinators can be lifted; variables can be handled by
 resolution, because their order or duplication do not matter; all logical
@@ -109,7 +110,7 @@ It is not obvious which additional conditions are necessary or sufficient to
 lift such properties.
 We have seen that the ``power'' of the various idioms differs with respect to
 combinators.
-Those which are homomorphic to the environment functor (streams, \dots) seem to
+Those which are homomorphic to the environment functor (streams, etc.) seem to
 be the most versatile.
 It might be interesting to survey possible categorizations and how they lead
 to further proof automation.

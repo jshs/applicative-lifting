@@ -13,8 +13,8 @@ the most general approach regarding functors (but not regarding lifted
 equalities).
 We will later show that all transformations based on the applicative laws yield
 a unique canonical form, modulo $\alpha\beta\eta$-conversion.
-Therefore, we follow Hinze and denote by \emph{normal form} this particular
-canonical form.
+Therefore, we follow Hinze and refer to this particular canonical form as
+the \emph{normal form}.
 The distinction is necessary, as we will consider other canonical forms in
 Section~\ref{sec:combinators}, which are justified by additional laws.
 
@@ -33,12 +33,12 @@ In Section~\ref{subsec:applicative}, we introduced idiomatic expressions built
 from $\pure$ and $\ap$ constants of an applicative functor.
 This structure maps straightforward to a recursive datatype, given that there
 is a representation for arguments of $\pure$.
-These must have some structure as well such that the applicative laws can be
+These must have some structure as well, such that the applicative laws can be
 expressed.
 It should also be possible to have ``opaque'' idiomatic subterms, which cannot
-(or should not) be written as a combination of $\pure$ and $\ap$.
+(or should not) be written as a combination of $\pure$ and~$\ap$.
 This is primarily useful for variables ranging over lifted types, but more
-complex terms may occur too.
+complex terms can occur too.
 Therefore it makes sense to refer to general lambda terms in both cases;
 then we can define semantics consistently.
 Types are ignored here for simplicity.
@@ -175,7 +175,7 @@ Therefore we need a more controlled algorithm.
 As we have said before, we use \emph{normal form} to refer to the particular
 canonical form derived from those equations.
 Consider an idiomatic term $t$.
-If $t$ is a single pure term, then it is already in normal form.
+If $t$ is a single pure term, it is already in normal form.
 The case $t = \sterm x$ is also easy:
 Due to \eqref{eq:iterm-id}, we have $t \simeq \spure{(\sabs{x}{x})} \sap t$,
 which is in normal form.
@@ -361,8 +361,8 @@ By induction on $t$, Lemma~\ref{thm:nf-nf}, and equation \eqref{eq:iterm-id}.
 At this point, we know that it is always possible to obtain a certain canonical
 form.
 This is not sufficient to setup the complete proving process, though.
-We need to learn a bit more about the structure of idiomatic terms and how it
-relates to lifting.
+We need to learn a bit more about the structure of idiomatic terms and how the
+normal form relates to lifting.
 
 \begin{definition}[Opaque subterms]\label{def:opaque-seq}
 The sequence of opaque subterms of an idiomatic term is defined by the
@@ -394,26 +394,27 @@ where
 The definition of $\downarrow$ may need some explanation.
 Consider the idiomatic term
 \[ t \equiv \spure{f} \sap x \sap (\spure{g} \sap y \sap z). \]
-Its unlifted term is
+The unlifted term is
 \[ \unlift{t} = \sabs{a}\sabs{b}\sabs{c}{f \sapp a \sapp (g \sapp b \sapp c)}. \]
 The applicative structure is the same, but all opaque terms have been
-substituted for new bound variables, which are assigned from left to right.
+substituted by new bound variables, which are assigned from left to right.
 We do not define lifting formally here, but it should be clear that this is
 some sort of inverse operation, given that variables appear only once.
 \end{example}
 
 The interesting properties about these two concepts is that they are preserved
-by the equivalence relation $\simeq$, and can be directly read from the
+by the equivalence relation $\simeq$, and can be read directly from the
 canonical form.
-Furthermore, we can leverage them to show the uniqueness of the normal form.
+Furthermore, we leverage them to show the uniqueness of the normal form.
 
 \begin{lemma}\label{thm:unlift-equiv}
 For equivalent terms $s \simeq t$, the sequences of opaque terms are equivalent
-w.r.t $\termeq$, and $\unlift{s} \termeq \unlift{t}$.
+w.r.t. $\termeq$, and $\unlift{s} \termeq \unlift{t}$.
 \end{lemma}
 \begin{proof} (Sketch.)
 By induction on the relation $s \simeq t$, where we show
-$\operatorname{vary}_i s \termeq \operatorname{vary}_i t$ instead.
+$\operatorname{vary}_i s \termeq \operatorname{vary}_i t$ instead of
+$\unlift{s} \termeq \unlift{t}$.
 The index $i$ is arbitrary.
 The part regarding opaque terms is shown easily for each case:
 We note that in \eqref{eq:iterm-id}--\eqref{eq:iterm-xchng}, the opaque terms
@@ -504,8 +505,8 @@ In Isabelle, this means constructing a theorem $t = t'$, where $t'$ is the
 normal form of $t$.
 We observe that in Algorithm~\ref{alg:normalize} each equation can be recast
 in the following way:
-The input term is first transformed in a fixed way that changes the outermost
-constitution.
+The input term is first transformed such that the outermost constitution is
+changed.
 Then, the whole term or subterms thereof are substituted by other functions%
 ---or recursively---, possibly multiple times.
 For instance, in the first equation \eqref{eq:nf-nf1} for nf-nf, the term
@@ -542,10 +543,9 @@ It is no coincidence that these are the well-known equivalences
 were used in the correctness proofs.
 Each transformation has been augmented with the corresponding HOL equation.
 The mapping from syntactic idiomatic terms to HOL terms is obvious;
-$\pure$ and $(\ap)$ are the concrete constants of the idiom under consideration.
+$\pure$ and $\ap$ are the concrete constants of the idiom under consideration.
 The variables standing for arbitrary opaque terms become new schematic variables,
 representing unknowns which may be instantiated.
-%$\mathbf{B}$ has been unfolded, ...
 Rule \texttt{B\_pure} is easily proven by rewriting with \texttt{B\_intro} and
 \texttt{merge}.
 The other rules are the applicative laws and thus are available from the
@@ -556,27 +556,24 @@ Isabelle provides a low-level reasoning framework for combining \emph{conversion
 \cite{paulson83}, which we use here.
 A conversion is a function which takes a term $t$ and returns a theorem
 $t = u$ for some $u$.%
-\footnote{Isabelle's conversions use the Pure equality $\equiv$.}
+\footnote{Isabelle's conversions use Pure equality $\equiv$.}
 The ML function \verb+Conv.rewr_conv+ turns a proven equation into such a
 conversion function.
 When the resulting conversion is applied, it attempts to instantiate the
 schematic variables in the equation.
-Note that conversions can fail; here if there is no match.
+Note that conversions can fail; this may happen here if there is no match.
 Basic conversion combinators are the \verb+then_conv+ operator, which chains
 two conversions sequentially (and fails if any of these does),
 and the \verb+else_conv+ operator, which attempts to apply the first conversion,
 but uses the second if the first fails.
-%\verb+Conv.all_conv+ is the identity of \verb+then_conv+; ...
 Because rewrite conversions act like pattern matching guards, we combine them
 with \verb+else_conv+ to recreate the case switching of the algorithm.
 Combinators like \verb+Conv.arg1_conv+ facilitate the rewriting of subterms---%
-this one takes a conversions and modifies it such that it applies to the left
-operand of a binary operator.
+this one takes a conversion and applies it to the left operand of a binary operator.
 With these tools at hand, we can construct the normal form conversion.
-The recursive pieces can be expressed just as recursive auxiliary functions.
-However, we lose a bit of generality by using \verb+Conv.arg1_conv+ to access
-the left operand of $(\ap)$, because it requires that $(\ap)$ is not a
-beta-redex.
+The recursive parts can be expressed as recursive auxiliary functions.
+However, we lose some generality by using \verb+Conv.arg1_conv+ to access
+the left operand of $\ap$, because it requires that $\ap$ is not a beta-redex.
 This could be solved by creating a specialized combinator, which does pattern
 matching instead of simple term deconstruction.
 
