@@ -103,15 +103,15 @@ The equation must be suitable for rewriting.
 
 Finally, we are able to compress the proof to a single invocation of the new
 proof method \emph{applicative\_lifting}.
-The base equation is provided as a fact and is used automatically by the
-supporting Isar framework:
+The base equation is provided as a fact, and the Isar framework uses it
+automatically:
 \begin{isabelle}
 \textbf{lemma} set\_plus\_assoc: $(X \oplus Y) \oplus Z = X \oplus (Y \oplus Z)$ \\
 \textbf{using} add.assoc \textbf{by} applicative\_lifting
 \end{isabelle}
 The proof method can also be used when the variables in the lifted equation
 have been instantiated with other terms.
-This situation may occur when the lifted property has to be shown as a part of
+This situation may occur when the lifted property needs to be shown as a part of
 a larger proof, for example.
 
 

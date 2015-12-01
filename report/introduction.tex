@@ -17,8 +17,8 @@ for the Isabelle/HOL proof assistant~\cite{npw02}.
 The term ``lifting'' is used in different contexts, often informally.
 It vaguely refers to the transfer of mathematical objects between domains,
 while preserving a certain relationship.
-A concrete example are lifts of paths in topology. % TODO cite
-There is also an existing Isabelle package~\cite{huffman13}, which lifts
+A concrete example are lifts of paths in topology.
+There is also an existing Isabelle package~\cite{huffman13} which lifts
 definitions to quotient types.
 Here we consider a slightly different meaning of lifting:
 The transfer of operations and their properties to generic structures.
@@ -29,7 +29,7 @@ Let us look at a simple example.
 \begin{example}\label{exmp:set-intro}
 For each type $\alpha$ there is a corresponding type $\alpha\,\mathit{set}$
 of sets with elements from $\alpha$.
-Addition $(+)$ is a binary operator defined on natural numbers, amongst others.
+Addition is a binary operator $+$ defined on natural numbers, amongst others.
 How could addition of sets of natural numbers be defined, such that some
 relation to $+$ remains?
 The canonical way to combine two sets into a set of pairs is the cartesian
@@ -40,7 +40,7 @@ Therefore, we define
 \end{equation}
 We interpret $\oplus$ as the lifting of $+$ to sets.
 Note that similar definitions are possible for other operators like
-multiplication, and also other element types such as real numbers.
+multiplication, and other element types such as real numbers.
 A property of addition is associativity,
 \begin{equation}\label{eq:plus-assoc}
 	\all{x y z}{(x + y) + z = x + (y + z)}.
@@ -52,7 +52,7 @@ It can be translated to sets of natural numbers,
 where it holds as well, as one can check with a slightly laborious proof.
 The two sides of the latter equation can be regarded as functions with three
 arguments.
-They are the lifted counterparts of the former equation.
+They are the lifted counterparts of the former equation~\eqref{eq:plus-assoc}.
 \end{example}
 
 Hinze~\cite{hinze10} came across similar patterns and proceeded to investigate
@@ -67,9 +67,8 @@ Section~\ref{subsec:applicative}.
 Every monad is an applicative functor.
 Monads are a common mechanism for handling effects in functional
 programming~\cite{wadler95}.
-Such being the case, they are also useful for modelling in the context of
-verification.
-From there we can borrow quite a few examples of applicative functors:
+Such being the case, they are also useful for modelling and verification.
+From this context we can borrow quite a few examples of applicative functors:
 Sum types with one variable type (known as \textsf{Either} in Haskell),
 the reader monad or environment functor, the exception/backtracking list
 monad~\cite{wadler85}, the state monad, and parser combinators.
@@ -105,7 +104,7 @@ $\mathit{set}$.
 The proof uses a certain normal form, which separates the lifted operation from
 the variables.
 Moreover, this is possible for other equations as well, but not all equations
-can be lifted in all functors.
+can be lifted to all functors.
 Stronger conditions are required if the list of quantified variables is
 different for each side of the equation.
 (The left-to-right order is relevant, but not the nesting within the terms.)
@@ -117,7 +116,7 @@ Hinze showed that sufficient conditions can be expressed in terms of combinators
 as known from combinatory logic.
 
 These findings justify direct proofs of lifted equations.
-It desirable to enable such reasoning in a proof assistant.
+It desirable to provide these automatically in a proof assistant.
 
 \begin{example}\label{exmp:set-counterexmp}
 We try to lift the fact that zero is a left absorbing element for
@@ -125,12 +124,12 @@ multiplication of natural numbers, $\all{x \oftype \mathit{nat}}{0 \cdot x = 0}$
 to sets.
 Note that the variable $x$ occurs only on the left.
 But the lifted equation does not hold: If $x$, now generalized to
-$\mathit{nat}\,\mathit{set}$, is instantiated with the empty set, then
+$\mathit{nat}\>\mathit{set}$, is instantiated with the empty set, then
 \[ \pure{(\cdot)} \ap \pure 0 \ap \{\} = \{\} \ne \pure 0. \]
 Here the effect of $\{\}$ is that it cancels out everything else if it occurs
 somewhere in an lifted expression.
-This makes it impossible to lift any equation with a variable occuring only on
-one side to $\mathit{set}$.
+This makes it impossible to lift any equation to $\mathit{set}$ if a variable
+occurs only on one side.
 We will see that other functors permit this lifting.
 \end{example}
 
@@ -140,20 +139,20 @@ We will see that other functors permit this lifting.
 Our primary goal is to provide an Isabelle/HOL proof method which reduces
 lifted equations to their base form.
 The method can be instantiated for arbitrary applicative functors.
-Then the user is able to prove the lifted equations directly without having to
+The user is then able to prove the lifted equations directly without having to
 invent a specific proof strategy, or even simulate the approach taken here.
 Apart from the theoretical appeal of the method, the resulting proof text is
-usually more concise, due to the higher level of abstraction.
-Together with some infrastructure, the proof method forms a basic package
-for reasoning with applicative functors.
-It targets version Isabelle 2015.
+usually more concise due to the higher level of abstraction.
+Together with some supporting infrastructure, the proof method forms a basic
+package for reasoning with applicative functors.
+It targets Isabelle version 2015.
 
 Hinze's work is the basis for the package.
 He has identified the suitability of applicative functors and shown
 necessary conditions for lifting of equations.
 However, we needed to adapt the details to the HOL environment in order to
 construct actual proofs.
-This construction is directly programmed on top of Isabelle's ML interface.
+This construction is programmed directly on top of Isabelle's ML interface.
 We have therefore derived the correctness and some other properties of our
 approach formally using a simplified calculus.
 Moreover, we have further extended the idea of combinators as building blocks
@@ -198,7 +197,7 @@ Isabelle/HOL (or HOL from here~on) is arguably the most popular object-logic
 of Isabelle, as it comes with an extensive library of readily formalized
 mathematics.
 It also supports modelling of functional programs by means of datatypes and
-recursive functions, making it suitable for verification tasks. % TODO cite?
+recursive functions, making it suitable for verification tasks.
 
 The basis of HOL is a slightly extended variant of simply-typed lambda calculus.
 Therefore, every object (and every term representing such an object) has a
@@ -209,11 +208,11 @@ The language of types consists of base types, type variables, and compound
 types.
 Base types are represented by their name and include fundamental types like
 the booleans $\mathit{bool}$ and the natural numbers $\mathit{nat}$.
-Type variables stand for an arbitrary types.
-In Isabelle syntax, they are distinguished by a prefixed `$'$', e.g.
+Type variables stand for arbitrary types.
+In Isabelle syntax, they are distinguished by a prefixed prime, e.g.
 $\tvar{a}$, $\tvar{b}$, $\tvar{c}$.
-The polymorphism in HOL is quite restricted, though, because higher-ranked
-types cannot be expressed:
+The polymorphism in HOL is quite restricted, since higher-ranked types cannot
+be expressed:
 There is no explicit quantifier on the type level.
 This rules out functions which take a polymorphic function as an argument and
 apply it to values of different types.
@@ -223,12 +222,12 @@ For example, the unary type constructor $\mathit{set}$ denotes sets with
 elements of a certain type.
 The argument is written on the left as in $\mathit{nat\,set}$, the type of
 sets of natural numbers.
-Multiple types are written in parentheses: $(\alpha, \beta) \mathit{fun}$.
+Multiple types are written in parentheses: $(\alpha, \beta)\,\mathit{fun}$.
 $\mathit{fun}$ is the special type constructor for (total) functions from
 $\alpha$ to $\beta$.
 More commonly, the infix operator $\funT$ is used.
 It is right-associative, i.e. $\alpha \funT \beta \funT \gamma$ is notation for
-$(\alpha, (\beta, \gamma) \mathit{fun}) \mathit{fun}$.
+$(\alpha, (\beta, \gamma)\,\mathit{fun})\,\mathit{fun}$.
 Note that type constructors are different from types and must always be
 concrete.
 In particular, it is not possible to use a variable in place of a type
@@ -250,21 +249,16 @@ comes with extensible notation support.
 
 \begin{example}\label{exmp:hol-terms}
 We already introduced the type $\mathit{nat}$.
-Number literals can be used directly.
 Common arithmetic operators are available, like%
 \footnote{These functions actually have a more generic type (they are
 overloaded).}
 $\mathit{plus} \oftype \mathit{nat} \funT \mathit{nat} \funT \mathit{nat}$.
-We can also use infix operators:
+We can also write infix operators:
 \[ \abs{(x \oftype \mathit{nat})\,y}{1 + x * y} \]
 is a function which multiplies two natural numbers and adds one to the result.
 Another important type family are sets.
 They can be specified as finite collections $\{\}$, $\{a, b, c\}$ etc., and
-by using set comprehension:
-Let $P$ be a predicate $\alpha \funT \mathit{bool}$.
-Then $\{x.\; P x\}$ is the set of those values $x \oftype \alpha$ such that
-$P x$ is true, and $\set{f x}{x.\; P x}$ is the image of that set under $f$.
-
+by using set comprehension.
 Logical formulas are centered around truth values.
 Thus, the usual connectives like conjunction $\land$ and implication $\imp$
 operate on type $\mathit{bool}$.
@@ -273,19 +267,17 @@ Quantifiers work just as expected: The term
 states that addition of natural numbers is commutative.
 Note that $=$ is just another operator of polymorphic type
 $\tvar{a} \funT \tvar{a} \funT \mathit{bool}$.
-Internally, quantifiers are represented as constants applied to lambda
-abstractions, which handle the variable binding.
 \end{example}
 
 In order to support different object-logics, Isabelle contains an immediate
 layer, the meta-logic Pure (see e.g. \cite[Chapter~2]{implementation-ref}).
 It is an ``intuitionistic fragment of higher-order logic''~\cite[27]{isar-ref}.
 Pure has two main uses within the Isabelle framework: representation and
-manipulation of deduction rules, and goal states.
+manipulation of both deduction rules and goal states.
 While our user interface is intended to be used with HOL, the underlying
 theorems are always represented as propositions of Pure.
 Therefore it plays an ancillary role in our tool.
-The following operators are separate from those of HOL:
+The following operators are distinct from those of HOL:
 meta-quantification $\bigwedge$ instead of the universal quantifier $\forall$,
 and meta-equality $\equiv$ instead of $=$.
 Each of these are logically equivalent, though.
@@ -329,19 +321,19 @@ This is relevant to us, because it allows us to register applicative
 functors in the theory context.
 
 Commands constitute the so-called outer syntax of Isar.
-Terms and types occuring within them are parsed separately, according to the
+Types and terms that occur within them are parsed separately, according to the
 inner syntax.
 In certain cases, a command may put the theory state into proof mode.
-After the proof is finished, the associated goal becomes a fact, which can be
+After the proof is finished, the associated goal becomes a fact, which is
 further handled by some associated code.
 The important \textbf{lemma} family of commands works this way, for example.
-New commands are frequently introduced for specifications.
+New commands are frequently introduced for specification purposes.
 For example, algebraic datatypes can be defined with the \textbf{datatype} command.
-Finally, there are other extensible syntactical categories which are commonly
+Finally, the following two extensible syntactical categories are commonly
 used in Isar:
 Proof methods denote (possibly parameterized) operations on the goal state
 within a regular Isar proof.
-These operations are provided by arbitrary code and thus can be arbitrarily
+These operations are provided by code and thus can be arbitrarily
 complex.
 Attributes invoke further processing steps on already proven facts, either
 transforming them or causing additional declarations to the context.
@@ -376,7 +368,7 @@ Also note the difference between $\ap_f$ and the bind operation of a monad $m$.
 Both take an enhanced function ($(\alpha \funT \beta) f$ versus
 $\alpha \funT \beta m$), but with bind, the result of the function affects
 the monadic level.
-A function lifted by a functor is oblivious of its augmented context.
+A function lifted by an applicative functor is oblivious of its augmented context.
 In particular, its result cannot influence the overall structure of the
 computation.
 
@@ -392,13 +384,13 @@ However, the terms we are interested in can also contain variables:
 Equations such as~\eqref{eq:plus-assoc} are universally quantified.
 For the purpose of lifting, we ignore quantifiers and treat their variables
 as free.
-Like in Example~\ref{exmp:set-intro}, the variables of lifted equation should
+Like in Example~\ref{exmp:set-intro}, the variables of lifted equations should
 range over the lifted type.
 Note that these can take impure values.
 A term consisting only of $\pure$ and $\ap$ applications and free variables is
 then called an \emph{idiomatic expression}.
 
-Every idiom is a functor, of course, and thus can be mapped over.
+Every idiom is a functor, of course, and thus has a mapping function.
 One obtains an equivalent formalization of idioms:
 \begin{alignat*}{2}
 	\mathit{map}_f &\oftype (\alpha \funT \beta) \funT \alpha f \funT \beta f, &\qquad
