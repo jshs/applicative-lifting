@@ -368,11 +368,12 @@ normal form relates to lifting.
 The sequence of opaque subterms of an idiomatic term is defined by the
 recursive function
 \[
-	\operatorname{opaq}(\spure x) = [], \quad
-	\operatorname{opaq}(\sterm x) = [x], \quad
+	\operatorname{opaq}(\spure x) = \langle\rangle, \quad
+	\operatorname{opaq}(\sterm x) = \langle x \rangle, \quad
 	\operatorname{opaq}(s \sap t) = \operatorname{opaq} s @ \operatorname{opaq} t.
 \]
-$@$ denotes concatenation of lists.
+We write angle brackets around sequences.
+$@$ denotes concatenation.
 \end{definition}
 
 \begin{definition}[Unlifting]\label{def:unlifting}
