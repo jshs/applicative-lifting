@@ -1,0 +1,245 @@
+\documentclass{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{stmaryrd}
+
+\usepackage{setspace}
+\usepackage{listings}
+\lstset{columns=flexible,basicstyle=\ttfamily,keywordstyle=\color{blue}}
+
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+
+\newenvironment{reference}{\begingroup\scriptsize}{\endgroup}
+\DeclareMathOperator{\pure}{pure}
+\newcommand{\ap}{\diamond}
+
+\title{Applicative Functors in Isabelle/HOL}
+\author{Joshua Schneider \\ \texttt{joshuas@student.ethz.ch}}
+%\date{December 8, 2015}
+
+\begin{document}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\begin{frame}
+\frametitle{Outline}
+\tableofcontents
+\end{frame}
+
+\section{Applicative Functors} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}[fragile]
+\frametitle{Example: Tree Labels}
+
+\begin{lstlisting}[language=Haskell]
+data Tree a = Leaf a | Node (Tree a) (Tree a)
+\end{lstlisting}
+
+\begin{center}\begin{tikzpicture}[
+	inner/.style={inner sep=0},
+	leaf/.style={draw, circle},
+	subst/.style={dotted},
+	sibling distance=60, level distance=30, on grid]
+\node[inner] {}
+	child { node[leaf] (n1) {c} }
+	child { node[inner] {}
+		child { node[leaf] (n2) {a} }
+		child { node[leaf] (n3) {b} }
+	};
+\node[below=2 of n1] {1} edge[subst] (n1);
+\node[below=1 of n2] {2} edge[subst] (n2);
+\node[below=1 of n3] {3} edge[subst] (n3);
+\end{tikzpicture}\end{center}
+
+\vspace{\fill}
+\begin{reference}
+Inspired by
+G.\ Hutton and D.\ Fulger, ``Reasoning About Effects: Seeing the Wood Through the Trees.''
+in \emph{Proceedings of the Symposium on Trends in Functional Programming}, (Nijmegen, The Netherlands, 2008).
+\end{reference}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Composing Stateful Computations}
+Standard solution: state monad
+\vspace{5mm}
+\begin{lstlisting}[language=Haskell]
+fresh = do
+  x <- get
+  put (x + 1)
+  return x
+
+numberTree (Leaf _)   = do
+  x <- fresh
+  return (Leaf x)
+numberTree (Node l r) = do
+  l' <- numberTree l
+  r' <- numberTree r
+  return (Node l' r')
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Short Circuit Evaluation}
+
+\begin{center}\begin{tikzpicture}[
+	inner/.style={inner sep=0},
+	leaf/.style={draw, circle},
+	subst/.style={dotted},
+	sibling distance=60, level distance=30, on grid]
+\node[inner] {}
+	child { node[leaf] (n1) {c} }
+	child { node[inner] {}
+		child { node[leaf] (n2) {a} }
+		child { node[leaf] (n3) {b} }
+	};
+\node[below=2 of n1] (e1) {$f(\mathsf{c})$} edge[subst] (n1);
+\node[below=1 of n2] (e2) {$f(\mathsf{a})$} edge[subst] (n2);
+\node[below=1 of n3] (e3) {$f(\mathsf{b})$} edge[subst] (n3);
+\path (e1) -- node {$+$} (e2);
+\path (e2) -- node {$+$} (e3);
+\end{tikzpicture}\end{center}
+$f$ is partial! \hspace{5mm} \lstinline{f :: a -> Maybe Int}
+
+\begin{lstlisting}[language=Haskell]
+evalTree (Leaf x)   = f x
+evalTree (Node l r) = do
+  l' <- evalTree l
+  r' <- evalTree r
+  return (l' + r')
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Cue Applicative Functors}
+
+\begin{lstlisting}[language=Haskell]
+class Functor f => Applicative f where
+  pure  :: a -> f a
+  (<*>) :: f (a -> b) -> f a -> f b
+\end{lstlisting}
+
+\begin{lstlisting}[language=Haskell]
+numberTree (Leaf _)   = pure Leaf <*> fresh
+numberTree (Node l r) =
+  pure Node <*> numberTree l <*> numberTree r
+
+evalTree (Leaf x)   = f x
+evalTree (Node l r) =
+  pure (+) <*> evalTree l <*> evalTree r
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}
+\frametitle{The Laws}
+To do: Applicative functor laws \\
+To do: Notation $\pure$, $\ap$
+
+\vspace{\fill}
+\begin{reference}
+C.\ McBride and R.\ Paterson, ``Applicative Programming with Effects.''
+\emph{Journal of Functional Programming, 18} (1). 2008, 1--13.
+\end{reference}
+\end{frame}
+
+\section{Proving Lifted Equations} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}
+\frametitle{Lifting Terms and Equations}
+
+Lift the term $\operatorname{f} a + b$: \\
+
+\vspace{5mm}
+\begin{tabular}{rccrcccc}
+$(+)$      &       &(& f      &       & $a$) &       &$b$ \\
+pure $(+)$ & $\ap$ &(& pure f & $\ap$ & $a$) & $\ap$ & $b$
+\end{tabular}
+\\ To do: Idiomatic term
+
+\vspace{10mm}
+Lift an equation: Addition is commutative
+\[ x + y = y + x \]
+\[ \pure{(+)} \ap x \ap y = \pure{(+)} \ap y \ap x \]
+\end{frame}
+
+\begin{frame}
+\frametitle{Hinze's Lemmas (1)}
+
+\begin{lemma}[Normal Form]
+Let $e$ be an idiomatic term with variables $x_1,\dots,x_n$.
+There exists $f$ such that
+\[ e = \pure f \ap x_1 \ap \dots \ap x_n. \]
+\end{lemma}
+
+Can lift equations
+\begin{enumerate}
+\item where both sides have the same list of variables, and
+\item no variable is repeated.
+\end{enumerate}
+
+\vspace{\fill}
+\begin{reference}
+R.\ Hinze, ``Lifting Operators and Laws.'' 2010. Retrieved June 6, 2015,
+\url{http://www.cs.ox.ac.uk/ralf.hinze/Lifting.pdf}
+\end{reference}
+\end{frame}
+
+\begin{frame}
+\frametitle{Hinze's Lemmas (2)}
+
+\begin{lemma}[Lifting Lemma]
+To do.
+\end{lemma}
+\end{frame}
+
+\begin{frame}
+\frametitle{A Proof Method for Isabelle}
+
+\begin{block}{Project Goal}
+Implement a proof method for Isabelle/HOL which lifts equations to
+applicative functors.
+\[ \text{base equation} \Longrightarrow \text{lifted equation} \]
+\end{block}
+
+\vspace{5mm}
+Proof method: User interface for goal state transformation
+\[ \text{base equation} \longmapsfrom \text{lifted equation} \]
+\end{frame}
+
+\begin{frame}
+\frametitle{Overview of Operation}
+
+\[ e_1 = e_2 \]
+\begin{enumerate}
+\item Transform into \emph{canonical forms}
+\[ \Longleftarrow\quad \pure f \ap x_1 \ap \dots \ap x_n = \pure g \ap x_1 \ap \dots x_n \]
+\item \[ \Longleftarrow\quad f = g \]
+\item \[ \Longleftarrow\quad \forall y_1 \dots y_n. \; f y_1 \dots y_n = g y_1 \dots y_n \]
+\end{enumerate}
+\end{frame}
+
+
+\section{Spotlight: Combinators} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}
+\frametitle{Combinatory Logic}
+To do.
+\end{frame}
+
+\section{Demo and Conclusion} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}
+\frametitle{Instances of Applicative}
+To do.
+\end{frame}
+
+\begin{frame}
+\frametitle{To do}
+\end{frame}
+
+\end{document}
