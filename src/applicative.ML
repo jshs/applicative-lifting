@@ -930,6 +930,7 @@ fun WRAPPER tac ctxt opt_af =
       AUTO_AFUNS false (EVERY' o map (afun_unfold_tac ctxt)) ctxt opt_af 1 THEN
       AUTO_AFUN true (fn af =>
         afun_unfold_tac ctxt af THEN'
+        CONVERSION Thm.eta_conversion THEN'
         tac ctxt af THEN'
         head_cong_tac ctxt af) ctxt opt_af 1) ctxt;
 
