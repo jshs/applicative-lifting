@@ -3,3 +3,7 @@
 /report/report.*
 !/report/report.tex
 !/report/report.pdf
+
+/presentation/talk.*
+!/presentation/talk.tex
+!/presentation/talk.pdf
