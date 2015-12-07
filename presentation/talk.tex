@@ -1,25 +1,42 @@
-\documentclass{beamer}
+\documentclass[smaller,leqno]{beamer}
+
+\setbeamersize{text margin left=3.5mm, text margin right=3.5mm}
+\setbeamerfont{itemize/enumerate subbody}{size=\normalsize}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+\setbeamertemplate{blocks}[rounded]
+\setbeamercolor{block title}{bg=black!30}
+\setbeamercolor{block body}{bg=black!20}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
+\usepackage{sansmath}
+\usepackage{helvet}
+\usepackage{inconsolata}
 \usepackage{stmaryrd}
 
 \usepackage{setspace}
 \usepackage{listings}
 \lstset{columns=flexible,basicstyle=\ttfamily,keywordstyle=\color{blue}}
+\lstset{
+	language=Haskell,
+	deletekeywords={Monad,Functor},
+	emph={pure},
+	emphstyle=\color{red},
+	literate={<*>}{{\color{red}<*>}}3,
+	keepspaces}
 
 \usepackage{tikz}
 \usetikzlibrary{positioning}
 
-\newenvironment{reference}{\begingroup\scriptsize}{\endgroup}
+\newenvironment{reference}{\begingroup\scriptsize\singlespacing\color{gray}}{\par\endgroup}
 \DeclareMathOperator{\pure}{pure}
 \newcommand{\ap}{\diamond}
 \newcommand{\lba}[1]{\llbracket #1\rrbracket}
 
 \title{Applicative Functors in Isabelle/HOL}
 \author{Joshua Schneider \\ \texttt{joshuas@student.ethz.ch}}
-%\date{December 8, 2015}
+\date{December 8, 2015}
 
 \begin{document}
 
@@ -27,34 +44,31 @@
 \titlepage
 \end{frame}
 
-\begin{frame}
-\frametitle{Outline}
-\tableofcontents
-\end{frame}
-
-\section{Applicative Functors} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{frame}[fragile]
-\frametitle{Example: Tree Labels}
+\frametitle{Introduction: Tree Labels}
 
-\begin{lstlisting}[language=Haskell]
+\begin{lstlisting}
 data Tree a = Leaf a | Node (Tree a) (Tree a)
 \end{lstlisting}
 
 \begin{center}\begin{tikzpicture}[
-	inner/.style={inner sep=0},
-	leaf/.style={draw, circle},
-	subst/.style={dotted},
+	inner/.style={fill, circle, inner sep=2},
+	leaf/.style={draw, circle, minimum size=20},
+	subst/.style={dotted, thick},
 	sibling distance=60, level distance=30, on grid]
 \node[inner] {}
-	child { node[leaf] (n1) {c} }
+	child { node[leaf] (n1) {\alt<3>{1}{c}} }
 	child { node[inner] {}
-		child { node[leaf] (n2) {a} }
-		child { node[leaf] (n3) {b} }
+		child { node[leaf] (n2) {\alt<3>{2}{a}} }
+		child { node[leaf] (n3) {\alt<3>{3}{b}} }
 	};
+\uncover<2>{
 \node[below=2 of n1] {1} edge[subst] (n1);
 \node[below=1 of n2] {2} edge[subst] (n2);
 \node[below=1 of n3] {3} edge[subst] (n3);
+}
 \end{tikzpicture}\end{center}
 
 \vspace{\fill}
@@ -67,14 +81,19 @@ in \emph{Proceedings of the Symposium on Trends in Functional Programming}, (Nij
 
 \begin{frame}[fragile]
 \frametitle{Composing Stateful Computations}
-Standard solution: state monad
+
+\begin{columns}[t,onlytextwidth]
+\column{0.4\textwidth}
+Standard solution: \\state monad
 \vspace{5mm}
-\begin{lstlisting}[language=Haskell]
+\begin{lstlisting}
 fresh = do
   x <- get
   put (x + 1)
   return x
+\end{lstlisting}
 
+\begin{uncoverenv}<2->\begin{lstlisting}
 numberTree (Leaf _)   = do
   x <- fresh
   return (Leaf x)
@@ -82,97 +101,157 @@ numberTree (Node l r) = do
   l' <- numberTree l
   r' <- numberTree r
   return (Node l' r')
-\end{lstlisting}
-\end{frame}
+\end{lstlisting}\end{uncoverenv}
 
-\begin{frame}[fragile]
-\frametitle{Short Circuit Evaluation}
-
-\begin{center}\begin{tikzpicture}[
-	inner/.style={inner sep=0},
-	leaf/.style={draw, circle},
-	subst/.style={dotted},
-	sibling distance=60, level distance=30, on grid]
-\node[inner] {}
-	child { node[leaf] (n1) {c} }
-	child { node[inner] {}
-		child { node[leaf] (n2) {a} }
-		child { node[leaf] (n3) {b} }
-	};
-\node[below=2 of n1] (e1) {$f(\mathsf{c})$} edge[subst] (n1);
-\node[below=1 of n2] (e2) {$f(\mathsf{a})$} edge[subst] (n2);
-\node[below=1 of n3] (e3) {$f(\mathsf{b})$} edge[subst] (n3);
-\path (e1) -- node {$+$} (e2);
-\path (e2) -- node {$+$} (e3);
-\end{tikzpicture}\end{center}
-$f$ is partial! \hspace{5mm} \lstinline{f :: a -> Maybe Int}
-
-\begin{lstlisting}[language=Haskell]
-evalTree (Leaf x)   = f x
-evalTree (Node l r) = do
-  l' <- evalTree l
-  r' <- evalTree r
-  return (l' + r')
-\end{lstlisting}
-\end{frame}
-
-\begin{frame}[fragile]
-\frametitle{Cue Applicative Functors}
-
-\begin{lstlisting}[language=Haskell]
+\column<3->{0.55\textwidth}
+Applicative style
+\vspace{5mm}
+\begin{lstlisting}
+class Applicative m => Monad m where
+  ...
 class Functor f => Applicative f where
   pure  :: a -> f a
   (<*>) :: f (a -> b) -> f a -> f b
 \end{lstlisting}
 
-\begin{lstlisting}[language=Haskell]
-numberTree (Leaf _)   = pure Leaf <*> fresh
+\begin{uncoverenv}<4>\begin{lstlisting}
+numberTree (Leaf _)   =
+  pure Leaf <*> fresh
+
 numberTree (Node l r) =
-  pure Node <*> numberTree l <*> numberTree r
-
-evalTree (Leaf x)   = f x
-evalTree (Node l r) =
-  pure (+) <*> evalTree l <*> evalTree r
-\end{lstlisting}
-\end{frame}
-
-\begin{frame}
-\frametitle{The Laws}
-To do: Applicative functor laws \\
-To do: Notation $\pure$, $\ap$
+  pure Node <*>
+    numberTree l <*> numberTree r
+\end{lstlisting}\end{uncoverenv}
+\end{columns}
 
 \vspace{\fill}
-\begin{reference}
+\begin{uncoverenv}<3->\begin{reference}
 C.\ McBride and R.\ Paterson, ``Applicative Programming with Effects.''
-\emph{Journal of Functional Programming, 18} (1). 2008, 1--13.
-\end{reference}
+\emph{Journal of Functional Programming, 18}~(1). 2008, 1--13.
+\end{reference}\end{uncoverenv}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Renaming Trees and Lists}
+%\begin{center}\begin{tikzpicture}[
+%	inner/.style={fill, circle, inner sep=2},
+%	leaf/.style={draw, circle, minimum size=20},
+%	subst/.style={dotted, thick},
+%	every node/.style={transform shape},
+%	sibling distance=60, level distance=30, on grid, scale=0.7]
+%\node[inner] (a) {}
+%	child { node[leaf] (a1) {c} }
+%	child { node[inner] {}
+%		child { node[leaf] (a2) {a} }
+%		child { node[leaf] (a3) {b} }
+%	};
+%\node[inner, below=3 of a] (b) {}
+%	child { node[leaf] (b1) {1} }
+%	child { node[inner] {}
+%		child { node[leaf] (b2) {2} }
+%		child { node[leaf] (b3) {3} }
+%	};
+%\node[left=2 of b1] {\texttt{numberTree}};
+%\node[leaf, below=2.5 of b1] (x1) {1};
+%\node[leaf, below=1.5 of b2] (x2) {2} edge [<-] (x1);
+%\node[leaf, below=1.5 of b3] (x3) {3} edge [<-] (x2);
+%\node[left=2 of x1] {\texttt{labels}};
+%
+%\node[inner, right=7 of a] (c) {}
+%	child { node[leaf] (c1) {c} }
+%	child { node[inner] {}
+%		child { node[leaf] (c2) {a} }
+%		child { node[leaf] (c3) {b} }
+%	};
+%\node[leaf, below=3 of c1] (d1) {c};
+%\node[leaf, below=2 of c2] (d2) {a} edge [<-] (d1);
+%\node[leaf, below=2 of c3] (d3) {b} edge [<-] (d2);
+%\node[leaf, below=2.5 of d1] (y1) {1};
+%\node[leaf, below=2.5 of d2] (y2) {2} edge [<-] (y1);
+%\node[leaf, below=2.5 of d3] (y3) {3} edge [<-] (y2);
+%
+%\node[left=2 of d1] {$=$};
+%\end{tikzpicture}\end{center}
+%
+%\pause
+\begin{lstlisting}
+labels (Leaf x)   = [x]
+labels (Node l r) = labels l ++ labels r
+\end{lstlisting}
+
+\begin{uncoverenv}<2->\begin{lstlisting}
+numberList []     = pure []
+numberList (x:xs) = pure (:) <*> fresh <*> numberList xs
+
+numberTree (Leaf _)   = pure Leaf <*> fresh
+numberTree (Node l r) = pure Node <*> numberTree l <*> numberTree r
+\end{lstlisting}\end{uncoverenv}
+
+\begin{uncoverenv}<3>
+\begin{block}{Proposition}\begin{lstlisting}
+pure labels <*> numberTree t = numberList (labels t)
+\end{lstlisting}\end{block}
+
+Proof by induction on $t$. Leaf case:
+\begin{lstlisting}
+pure labels <*> (pure Leaf <*> fresh) = pure (:) <*> fresh <*> pure []
+\end{lstlisting}
+Compare with
+\begin{lstlisting}
+                      labels (Leaf x) = (:) x []
+\end{lstlisting}
+\end{uncoverenv}
 \end{frame}
 
 \section{Proving Lifted Equations} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\begin{frame}
-\frametitle{Lifting Terms and Equations}
+\begin{frame}[fragile]
+\frametitle{A Proof Method for Isabelle}
 
-Lift the term $\operatorname{f} a + b$: \\
+\begin{block}{Project Goal}
+Implement a proof method for Isabelle/HOL which lifts equations to
+applicative functors.
+\[ \text{base equation} \Longrightarrow \text{lifted equation} \]
+\end{block}
 
-\vspace{5mm}
-\begin{tabular}{rccrcccc}
-$(+)$      &       &(& f      &       & $a$) &       &$b$ \\
-pure $(+)$ & $\ap$ &(& pure f & $\ap$ & $a$) & $\ap$ & $b$
-\end{tabular}
-\\ To do: Idiomatic term
-
-\vspace{10mm}
-Lift an equation: Addition is commutative
-\[ x + y = y + x \]
-\[ \pure{(+)} \ap x \ap y = \pure{(+)} \ap y \ap x \]
+\pause\vspace{3mm}
+\begin{itemize}
+\item Proof method: User interface for goal state transformation
+\vspace{3mm}
+\item Applicative functor or \emph{idiom} given by \begin{itemize}
+	\item type constructor
+	\item constants $\pure$, $\ap$ (\lstinline|<*>| in Haskell)
+	\item proofs of applicative functor laws
+\end{itemize}
+\pause\vspace{3mm}
+\item Lifting an equation ($x$ is a variable): $[\,] \mathbin{@} x = x$
+\[ \begin{array}{rrcrcrcc}
+\text{base equation:}\quad & \mathit{append} && [\,] && x &= & x \\[1ex]
+\Longrightarrow\quad & \pure{\>\mathit{append}} &\ap& \pure{[\,]} &\ap& x & = & x
+\end{array} \]
+\end{itemize}
 \end{frame}
 
 \begin{frame}
-\frametitle{Hinze's Lemmas (1)}
+\frametitle{Overview of Operation}
+
+\begin{alignat*}{2}
+\intertext{Input: Lifted equation}
+&& e_1 &= e_2 \\
+\intertext{Transform into \emph{canonical forms}}
+&\Longleftarrow\quad & \pure f \ap x_1 \ap \dots \ap x_n &= \pure g \ap x_1 \ap \dots x_n
+\action<2->{\intertext{Reduce by congruence}}
+\action<2->{&\Longleftarrow\quad & f &= g}
+\action<2->{\intertext{Extensionality}}
+\action<2->{&\Longleftarrow\quad & \forall y_1 \dots y_n. \quad f y_1 \dots y_n &= g y_1 \dots y_n}
+\end{alignat*}
+\end{frame}
+
+\begin{frame}
+\frametitle{Hinze's Lemmas}
 
 \begin{lemma}[Normal Form]
-Let $e$ be an idiomatic term with variables $x_1,\dots,x_n$.
+Let $e$ be an idiomatic term with variables $x_1,\dots,x_n$, from left to right.
 There exists $f$ such that
 \[ e = \pure f \ap x_1 \ap \dots \ap x_n. \]
 \end{lemma}
@@ -183,6 +262,17 @@ Can lift equations
 \item no variable is repeated.
 \end{enumerate}
 
+\begin{uncoverenv}<2->
+\vspace{5mm}
+\begin{lemma}[Lifting Lemma, modified]
+Let $e'$ be the lifted term of $e$, with variables $x_1,\dots,x_n$.
+If the idiom satisfies additional properties, then
+\[ e' = \pure e \ap x_1 \ap \dots \ap x_n.  \]
+\end{lemma}
+
+Lifts any equation, but not to all applicative functors.
+\end{uncoverenv}
+
 \vspace{\fill}
 \begin{reference}
 R.\ Hinze, ``Lifting Operators and Laws.'' 2010. Retrieved June 6, 2015,
@@ -190,42 +280,7 @@ R.\ Hinze, ``Lifting Operators and Laws.'' 2010. Retrieved June 6, 2015,
 \end{reference}
 \end{frame}
 
-\begin{frame}
-\frametitle{Hinze's Lemmas (2)}
-
-\begin{lemma}[Lifting Lemma]
-To do.
-\end{lemma}
-\end{frame}
-
-\begin{frame}
-\frametitle{A Proof Method for Isabelle}
-
-\begin{block}{Project Goal}
-Implement a proof method for Isabelle/HOL which lifts equations to
-applicative functors.
-\[ \text{base equation} \Longrightarrow \text{lifted equation} \]
-\end{block}
-
-\vspace{5mm}
-Proof method: User interface for goal state transformation
-\[ \text{base equation} \longmapsfrom \text{lifted equation} \]
-\end{frame}
-
-\begin{frame}
-\frametitle{Overview of Operation}
-
-\[ e_1 = e_2 \]
-\begin{enumerate}
-\item Transform into \emph{canonical forms}
-\[ \Longleftarrow\quad \pure f \ap x_1 \ap \dots \ap x_n = \pure g \ap x_1 \ap \dots x_n \]
-\item \[ \Longleftarrow\quad f = g \]
-\item \[ \Longleftarrow\quad \forall y_1 \dots y_n. \; f y_1 \dots y_n = g y_1 \dots y_n \]
-\end{enumerate}
-\end{frame}
-
-
-\section{Spotlight: Combinators} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Combinators and Bracket Abstraction} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{frame}
 \frametitle{Combinatory Logic}
@@ -239,64 +294,91 @@ Proof method: User interface for goal state transformation
 \mathbf{K} x y &= x \\
 \mathbf{W} f x &= f x x
 \end{align*}
-\item If not all combinators are available, not all terms can be represented.
+\pause
+\item If not all combinators are available, not all terms can be represented
+\item Conversion by \emph{bracket abstraction} algorithms
 \end{itemize}
-\end{frame}
-
-\begin{frame}
-\frametitle{Bracket Abstraction}
-
-Turn lambda terms into combinator representation
-
-\begin{align*}
-\quad& \lambda x y.\> x (f y) \\
-=\quad& \lambda x.\> [y](x (f y)) \\
-=\quad& \lambda x.\> \mathbf{B} x [y](f y) \\
-=\quad& \lambda x.\> \mathbf{B} x f \\
-=\quad& [x](\mathbf{B} x f) \\
-=\quad& \mathbf{C} [x](\mathbf{B} x) f \\
-=\quad& \mathbf{C B} f
-\end{align*}
-
-\[ \mathbf{C B} f x y = x (f y) \]
 \end{frame}
 
 \begin{frame}
 \frametitle{Fancier Idioms}
 
-Some idioms satisfy additional laws, one or more of
+\begin{itemize}
+\item Some idioms satisfy additional laws, one or more of
 \begin{align*}
 \pure \mathbf{C} \ap f \ap x \ap y &= f \ap y \ap x \tag{c}\\
 \pure \mathbf{K} \ap x \ap y &= x \tag{k}\\
 \pure \mathbf{W} \ap f \ap x &= f \ap x \ap x \tag{w}
 \end{align*}
-
-Examples
+\item Hinze's Lifting Lemma requires all three
+\item Examples
 \begin{itemize}
-\item sum type $\alpha + \beta$: (w)
-\item environment functor $\beta \Rightarrow \alpha$: (c), (k), (w)
+\item state monad: none
+\item set (application via Cartesian product): (c)
+\item sum type, e.g. \lstinline|Either|: (w)
+\item option/\lstinline|Maybe|: (c), (w)
+\item environment functor, streams: (c), (k), (w)
 \end{itemize}
-
-\vspace{5mm}
-Interchange law?
-\[ \pure{(\lambda y g.\>g y)} \ap \pure x \ap f = f \ap \pure x \]
+\end{itemize}
 \end{frame}
 
 \begin{frame}
-\frametitle{Bracket Abstraction Revisited}
+\frametitle{Lifting Bracket Abstraction}
 
-Assume an applicative functors satisfies (c).
+\begin{itemize}
+\item Assume an applicative functors satisfies (c)
 \begin{alignat*}{2}
 \quad& \lambda x y.\> x (f y) & \quad& x \ap (\pure f \ap y) \\
-=\quad& \lambda x.\> [y](x (f y)) & \qquad=\quad& \lba{y}(x \ap (\pure f \ap y)) \ap y \\
-=\quad& \lambda x.\> \mathbf{B} x [y](f y) & \qquad=\quad& (\mathbf{B} \ap x \ap \lba{y}(\pure f \ap y)) \ap y \\
-=\quad& \lambda x.\> \mathbf{B} x f & \qquad=\quad& (\pure \mathbf{B} \ap x \ap \pure f) \ap y \\
-=\quad& [x](\mathbf{B} x f) & \qquad=\quad& \lba{x}(\pure \mathbf{B} \ap x \ap \pure f) \ap x \ap y \\
-=\quad& \mathbf{C} [x](\mathbf{B} x) f & \qquad=\quad& (\pure \mathbf{C} \ap \lba{x}(\pure \mathbf{B} \ap x) \ap \pure f) \ap x \ap y \\
-=\quad& \mathbf{C B} f & \qquad=\quad& \pure \mathbf{C} \ap \pure \mathbf{B} \ap \pure f \ap x \ap y \\
+=\quad& \mathbf{C B} f & \quad\qquad=\quad& \pure \mathbf{C} \ap \pure \mathbf{B} \ap \pure f \ap x \ap y \\
 & & \qquad=\quad& \pure{(\mathbf{C B} f)} \ap y \ap x \\
-& & \qquad=\quad& \underbrace{\pure{(\lambda x y.\> x (f y))} \ap y \ap x}_\text{a canonical form}
+& & \qquad=\quad& \pure{(\lambda x y.\> x (f y))} \ap y \ap x
 \end{alignat*}
+
+\item We obtain a canonical form if the base term is representable
+\pause\item Variable order for idiomatic terms? Remember
+\[ \pure f \ap x_1 \ap \dots \ap x_n = \pure g \ap x_1 \ap \dots x_n \]
+\end{itemize}
+\end{frame}
+
+\section{Usage and Conclusion} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}
+\frametitle{Usage (1)}
+\begin{center}
+\includegraphics[width=\textwidth]{screenshot1.png}
+\end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Usage (2)}
+\begin{center}
+\includegraphics[width=\textwidth]{screenshot2.png}
+\end{center}
+\end{frame}
+
+\begin{frame}
+\frametitle{Conclusion}
+\begin{itemize}
+\item Implemented applicative lifting in Isabelle/HOL
+\item Extended Hinze's results with bracket abstraction
+\item Use case: Algebra lifted to streams and infinite trees
+\end{itemize}
+
+\vspace{10mm}
+\begin{center}\large Questions?\end{center}
+\end{frame}
+
+\appendix %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}
+\frametitle{Applicative Functor Laws}
+
+\begin{align*}
+	\tag{identity} \pure{\mathbf{I}} \ap u &= u \\[1ex]
+	\tag{composition} \pure{\mathbf{B}} \ap u \ap v \ap w &= u \ap (v \ap w) \\[1ex]
+	\tag{homomorphism} \pure{f} \ap \pure x &= \pure{(f x)} \\[1ex]
+	\tag{interchange} u \ap \pure{x} &= \pure{(\lambda f.\> f x)} \ap u
+\end{align*}
 \end{frame}
 
 \begin{frame}
@@ -316,16 +398,5 @@ What if we want to prove the latter, but can only represent the former?
 \end{itemize}
 \end{frame}
 
-
-\section{Demo and Conclusion} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\begin{frame}
-\frametitle{Instances of Applicative}
-To do.
-\end{frame}
-
-\begin{frame}
-\frametitle{To do}
-\end{frame}
 
 \end{document}
