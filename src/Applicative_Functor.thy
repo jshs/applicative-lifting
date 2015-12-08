@@ -218,6 +218,8 @@ qed (simp add: cons_ap_list)
 
 subsection \<open>State monad\<close>
 
+type_synonym ('a, 's) state = "'s \<Rightarrow> 'a \<times> 's"
+
 definition "ap_state f x = (\<lambda>s. case f s of (g, s') \<Rightarrow> case x s' of (y, s'') \<Rightarrow> (g y, s''))"
 
 adhoc_overloading pure Pair
@@ -226,7 +228,7 @@ adhoc_overloading ap ap_state
 applicative state
 for
   pure: Pair
-  ap: "ap_state :: ('s \<Rightarrow> ('a \<Rightarrow> 'b) \<times> 's) \<Rightarrow> ('s \<Rightarrow> 'a \<times> 's) \<Rightarrow> 's \<Rightarrow> 'b \<times> 's"
+  ap: "ap_state :: ('a \<Rightarrow> 'b, 's) state \<Rightarrow> ('a, 's) state \<Rightarrow> ('b, 's) state"
 unfolding ap_state_def
 by (auto split: split_split)
 
