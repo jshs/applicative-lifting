@@ -3,7 +3,7 @@
 section \<open>Lifting with Applicative Functors\<close>
 
 theory Applicative
-imports Fun
+imports Main
 keywords "applicative" :: thy_goal and "print_applicative" :: diag
 begin
 
@@ -48,5 +48,15 @@ attribute_setup applicative_unfold =
 attribute_setup applicative_lifted =
   {* Scan.lift (Parse.xname >> Applicative.forward_lift_attrib) *}
   "lift an equation to an applicative functor"
+
+subsection \<open>Overloaded applicative operators\<close>
+
+consts pure :: "'a \<Rightarrow> 'b"
+
+consts ap :: "'a \<Rightarrow> 'b \<Rightarrow> 'c"
+locale applicative_syntax begin
+  notation ap (infixl "\<diamond>" 70)
+end
+hide_const (open) ap
 
 end
