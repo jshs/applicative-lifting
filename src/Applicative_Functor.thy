@@ -14,4 +14,6 @@ theory Applicative_Functor imports
   Applicative_PMF
 begin
 
+print_applicative
+
 end

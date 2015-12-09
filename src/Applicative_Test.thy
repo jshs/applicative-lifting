@@ -1,10 +1,19 @@
-theory Normal_Form
-imports "../src/Applicative_Functor" "../src/Stream_Arith" Abstract_AF
+(* Author: Joshua Schneider, ETH Zurich *)
+
+section \<open>Regression tests for applicative lifting\<close>
+
+theory Applicative_Test imports
+  Stream_Algebra
+  Applicative_Set
+  Applicative_Sum
+  Abstract_AF
 begin
 
-section {* Normal form conversion *}
+interpretation applicative_syntax .
 
-subsection {* Example: Abstract functor *}
+subsection {* Normal form conversion *}
+
+subsubsection {* Abstract functor *}
 
 notepad
 begin
@@ -36,8 +45,7 @@ lemma "\<And>f x::'a af. f \<diamond> x = x"
 apply applicative_nf
 oops
 
-
-subsection {* Example: Sets *}
+subsection {* Sets *}
 
 instantiation set :: (plus) plus
 begin
@@ -45,41 +53,38 @@ begin
   instance ..
 end
 
-thm add.assoc[applicative_lifted set]
+lemma "(a :: _ :: semigroup_add set) + b + c = a + (b + c)"
+by(fact add.assoc[applicative_lifted set])
 
-instantiation set :: (semigroup_add) semigroup_add
-begin
-  instance proof
-    fix X Y Z :: "'a set"
-    from add.assoc
-    show "X + Y + Z = X + (Y + Z)" by applicative_lifting
-  qed
+instantiation set :: (semigroup_add) semigroup_add begin
+instance proof
+  fix X Y Z :: "'a set"
+  from add.assoc
+  show "X + Y + Z = X + (Y + Z)" by applicative_lifting
+qed
 end
 
-instantiation set :: (ab_semigroup_add) ab_semigroup_add
-begin
-  instance proof
-    fix X Y :: "'a set"
-    from add.commute
-    show "X + Y = Y + X" by applicative_lifting
-  qed
+instantiation set :: (ab_semigroup_add) ab_semigroup_add begin
+instance proof
+  fix X Y :: "'a set"
+  from add.commute
+  show "X + Y = Y + X" by applicative_lifting
+qed
 end
 
-
-subsection {* Example: Sum type (a.k.a. either) *}
+subsection {* Sum type (a.k.a. either) *}
 
 lemma "Inl plus \<diamond> (x :: nat + 'e list) \<diamond> x = Inl (\<lambda>x. 2 * x) \<diamond> x"
 by applicative_lifting simp
 
 
-subsection {* Example: Streams *}
+subsection {* Streams *}
 
 lemma "(x::int stream) * sconst 0 = sconst 0"
 by applicative_lifting simp
 
 lemma "(x::int stream) * (y + z) = x * y + x * z"
-apply applicative_lifting
-by algebra
+by applicative_lifting algebra
 
 
 definition "lift_streams xs = foldr (smap2 Cons) xs (sconst [])"

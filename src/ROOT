@@ -9,3 +9,5 @@ session Applicative (AFP) = "HOL-Probability" +
     Applicative_Functor
     Applicative_Examples
     Idiomatic_Terms
+  theories [document=false]
+    Applicative_Test
