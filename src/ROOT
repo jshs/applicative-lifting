@@ -14,3 +14,4 @@ session Applicative (AFP) = "HOL-Probability" +
     Applicative_Test
   document_files
     "root.tex"
+    "root.bib"
