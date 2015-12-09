@@ -242,45 +242,41 @@ by (induction n) auto
 lemma wrap_abs_equiv: "s \<leftrightarrow> t \<Longrightarrow> wrap_abs s n \<leftrightarrow> wrap_abs t n"
 by (induction n) auto
 
-lemma list_equiv_refl[simp]: "listrelp (op \<leftrightarrow>) x x"
-by (induction x) (auto intro: listrelp.intros)
+lemma list_equiv_refl[simp]: "list_all2 (op \<leftrightarrow>) x x"
+by (induction x) (auto)
 
-lemma list_equiv_suffix: "listrelp (op \<leftrightarrow>) x y \<Longrightarrow> listrelp (op \<leftrightarrow>) (x @ z) (y @ z)"
-by (induction pred: listrelp) (auto intro: listrelp.intros)
+lemma list_equiv_suffix: "list_all2 (op \<leftrightarrow>) x y \<Longrightarrow> list_all2 (op \<leftrightarrow>) (x @ z) (y @ z)"
+by(rule list_all2_appendI) simp_all
 
-lemma list_equiv_prefix: "listrelp (op \<leftrightarrow>) x y \<Longrightarrow> listrelp (op \<leftrightarrow>) (z @ x) (z @ y)"
-by (induction z) (auto intro: listrelp.intros)
+lemma list_equiv_prefix: "list_all2 (op \<leftrightarrow>) x y \<Longrightarrow> list_all2 (op \<leftrightarrow>) (z @ x) (z @ y)"
+by(rule list_all2_appendI) simp_all
 
 
 lemma opaque_equiv:
   assumes "x \<simeq> y"
-    shows "listrelp (op \<leftrightarrow>) (opaque x) (opaque y)"
+    shows "list_all2 (op \<leftrightarrow>) (opaque x) (opaque y)"
 using assms proof induction
   case (base_cong x y)
   thus ?case by induction auto
 next
   case term_subst
-  thus ?case by (auto intro: listrelp.intros)
+  thus ?case by (auto)
 next
   case ap_congL
-  thus ?case by (auto intro: list_equiv_suffix)
+  thus ?case by (auto intro: list_all2_appendI)
 next
   case ap_congR
-  thus ?case by (auto intro: list_equiv_prefix)
+  thus ?case by (auto intro: list_all2_appendI)
 next
   case itrm_sym
-  thus ?case
-    using listrel_sym[to_pred] term_sym unfolding symp_def by blast
+  thus ?case using list.rel_conversep[of "op \<leftrightarrow>"] by(simp add: fun_eq_iff)
 next
   case itrm_trans
-  thus ?case
-    using listrel_trans[to_pred] term_trans unfolding transp_def by blast
+  show ?case by(rule list_all2_trans[OF _ itrm_trans.IH])(rule term_trans)
 qed simp_all
 
-lemma iorder_equiv:
-  assumes "x \<simeq> y"
-  shows "iorder x = iorder y"
-using assms opaque_equiv listrel_eq_len[to_pred] by blast
+lemma iorder_equiv: "x \<simeq> y \<Longrightarrow> iorder x = iorder y"
+by(blast dest: opaque_equiv list_all2_lengthD)
 
 lemma unlift'_equiv:
   assumes "x \<simeq> y"
@@ -331,7 +327,7 @@ next
 next
   case (ap_congR x x' f)
   from ap_congR.hyps have order_eq: "iorder x = iorder x'"
-    using opaque_equiv listrel_eq_len[to_pred] by blast
+    using opaque_equiv list_all2_lengthD by blast
   have "unlift' n (f \<diamond> x) i = unlift' n f (i + iorder x) \<degree> unlift' n x i"
     unfolding unlift_ap by simp
   moreover have "unlift' n (f \<diamond> x') i = unlift' n f (i + iorder x) \<degree> unlift' n x' i"
@@ -373,52 +369,29 @@ by (rule CF.cases) auto
 lemma term_not_cf[dest]: "Term x \<in> CF \<Longrightarrow> False"
 by (rule CF.cases) auto
 
-lemma listrelpE1:
-  assumes "listrelp p (x1 @ x2) z"
-  obtains z1 z2
-    where "z = z1 @ z2" and "listrelp p x1 z1" and "listrelp p x2 z2"
-using assms proof (induction x1 arbitrary: z thesis)
-  case Nil
-  thus ?case by (auto intro: listrelp.Nil)
-next
-  case (Cons x xs)
-  from `listrelp p ((x # xs) @ x2) z`
-  obtain z' zs where "z = z' # zs" and "p x z'" and "listrelp p (xs @ x2) zs"
-    by cases auto
-  with Cons.IH obtain z1 z2 where "zs = z1 @ z2" and "listrelp p xs z1" and "listrelp p x2 z2"
-    by blast
-  with `z = z' # zs` have "z = (z' # z1) @ z2" by simp
-  from `p x z'` and `listrelp p xs z1` have "listrelp p (x # xs) (z' # z1)"
-    by (rule listrelp.Cons)
-  with `listrelp p x2 z2` `z = (z' # z1) @ z2` show ?case using Cons.prems by blast
-qed
-
 lemma cf_similarI:
   assumes "x \<in> CF" "y \<in> CF"
-      and "listrelp (op \<leftrightarrow>) (opaque x) (opaque y)"
+      and "list_all2 (op \<leftrightarrow>) (opaque x) (opaque y)"
       and "CF_head x \<leftrightarrow> CF_head y"
     shows "x \<cong> y"
 using assms proof (induction arbitrary: y)
   case (pure_cf x)
-    hence "listrelp (op \<leftrightarrow>) [] (opaque y)" by simp
-    hence "opaque y = []" by cases auto
-    with `y \<in> CF` obtain y' where "y = Pure y'" by cases auto
-    with pure_cf.prems show ?case by (auto intro: itrm_cong.intros)
+  hence "opaque y = []" by auto
+  with `y \<in> CF` obtain y' where "y = Pure y'" by cases auto
+  with pure_cf.prems show ?case by (auto intro: itrm_cong.intros)
 next
   case (ap_cf f x)
-    from `listrelp (op \<leftrightarrow>) (opaque (f \<diamond> Term x)) (opaque y)`
-    obtain y1 y2 :: "dB list"
-      where "opaque y = y1 @ y2" and "listrelp (op \<leftrightarrow>) (opaque f) y1" and "listrelp (op \<leftrightarrow>) [x] y2"
-      by (auto elim: listrelpE1)
-    from `listrelp (op \<leftrightarrow>) [x] y2` obtain y' where "y2 = [y']" and "x \<leftrightarrow> y'"
-      by (blast elim: listrelp.cases)
-    with `y \<in> CF` and `opaque y = y1 @ y2` obtain g
-      where "opaque g = y1" and y_split: "y = g \<diamond> Term y'" "g \<in> CF"
-      by cases auto
-    with ap_cf.prems `listrelp (op \<leftrightarrow>) (opaque f) y1`
-      have "listrelp (op \<leftrightarrow>) (opaque f) (opaque g)" "CF_head f \<leftrightarrow> CF_head g" by auto
-    with ap_cf.IH `g \<in> CF` have "f \<cong> g" by simp
-    with ap_cf.prems y_split `x \<leftrightarrow> y'` show ?case by (auto intro: itrm_cong.intros ap_cong)
+  from `list_all2 (op \<leftrightarrow>) (opaque (f \<diamond> Term x)) (opaque y)`
+  obtain y1 y2 where "opaque y = y1 @ y2" and "list_all2 (op \<leftrightarrow>) (opaque f) y1" 
+    and "list_all2 (op \<leftrightarrow>) [x] y2"  by (auto simp add: list_all2_append1)
+  from `list_all2 (op \<leftrightarrow>) [x] y2` obtain y' where "y2 = [y']" and "x \<leftrightarrow> y'"
+    by(auto simp add: list_all2_Cons1)
+  with `y \<in> CF` and `opaque y = y1 @ y2` obtain g
+    where "opaque g = y1" and y_split: "y = g \<diamond> Term y'" "g \<in> CF" by cases auto
+  with ap_cf.prems `list_all2 (op \<leftrightarrow>) (opaque f) y1`
+  have "list_all2 (op \<leftrightarrow>) (opaque f) (opaque g)" "CF_head f \<leftrightarrow> CF_head g" by auto
+  with ap_cf.IH `g \<in> CF` have "f \<cong> g" by simp
+  with ap_cf.prems y_split `x \<leftrightarrow> y'` show ?case by (auto intro: itrm_cong.intros ap_cong)
 qed
 
 lemma cf_unlift:
@@ -449,7 +422,7 @@ qed
 lemma cf_similarD:
   assumes in_cf: "x \<in> CF" "y \<in> CF"
       and similar: "x \<cong> y"
-    shows "CF_head x \<leftrightarrow> CF_head y \<and> listrelp (op \<leftrightarrow>) (opaque x) (opaque y)"
+    shows "CF_head x \<leftrightarrow> CF_head y \<and> list_all2 (op \<leftrightarrow>) (opaque x) (opaque y)"
 using assms
 by (blast intro!: similar_equiv opaque_equiv cf_unlift unlift_equiv intro: term_trans term_sym)
 
@@ -461,7 +434,7 @@ lemma cf_unique:
       and equiv: "x \<simeq> y"
     shows "x \<cong> y"
 using in_cf proof (rule cf_similarI)
-  from equiv show "listrelp (op \<leftrightarrow>) (opaque x) (opaque y)" by (rule opaque_equiv)
+  from equiv show "list_all2 (op \<leftrightarrow>) (opaque x) (opaque y)" by (rule opaque_equiv)
 next
   from equiv have "unlift x \<leftrightarrow> unlift y" by (rule unlift_equiv)
   thus "CF_head x \<leftrightarrow> CF_head y"
@@ -583,26 +556,25 @@ using normalize_equiv normalize_in_cf ..
 subsection \<open>Proving lifted equations\<close>
 
 theorem nf_lifting:
-  assumes opaque: "listrelp (op \<leftrightarrow>) (opaque x) (opaque y)"
+  assumes opaque: "list_all2 (op \<leftrightarrow>) (opaque x) (opaque y)"
       and base_eq: "unlift x \<leftrightarrow> unlift y"
     shows "x \<simeq> y"
 proof -
   obtain n where "n \<simeq> x" and "n \<in> CF" by (rule normal_form)
   hence n_head: "CF_head n \<leftrightarrow> unlift x"
     using cf_unlift unlift_equiv by (blast intro: term_trans)
-  from `n \<simeq> x` have n_opaque: "listrelp (op \<leftrightarrow>) (opaque n) (opaque x)"
+  from `n \<simeq> x` have n_opaque: "list_all2 (op \<leftrightarrow>) (opaque n) (opaque x)"
     by (rule opaque_equiv)
   obtain n' where "n' \<simeq> y" and "n' \<in> CF" by (rule normal_form)
   hence n'_head: "CF_head n' \<leftrightarrow> unlift y"
     using cf_unlift unlift_equiv by (blast intro: term_trans)
-  from `n' \<simeq> y` have n'_opaque: "listrelp (op \<leftrightarrow>) (opaque n') (opaque y)"
+  from `n' \<simeq> y` have n'_opaque: "list_all2 (op \<leftrightarrow>) (opaque n') (opaque y)"
     by (rule opaque_equiv)
   from n_head n'_head base_eq have "CF_head n \<leftrightarrow> CF_head n'"
     by (blast intro: term_sym term_trans)
-  moreover from n_opaque n'_opaque opaque have "listrelp (op \<leftrightarrow>) (opaque n) (opaque n')"
-    using listrel_sym[to_pred] term_sym listrel_trans[to_pred] term_trans
-    unfolding symp_def transp_def
-    by metis
+  moreover from n_opaque n'_opaque opaque list.rel_conversep[of "op \<leftrightarrow>"]
+  have "list_all2 (op \<leftrightarrow>) (opaque n) (opaque n')"
+    by(auto simp add: fun_eq_iff elim!: list_all2_trans[where ?P2.0="op \<leftrightarrow>", rotated] intro: term_trans)
   moreover note `n \<in> CF` `n' \<in> CF`
   ultimately have "n \<cong> n'" by (blast intro: cf_similarI)
   hence "n \<simeq> n'" by (rule similar_equiv)
