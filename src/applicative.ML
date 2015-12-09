@@ -1,3 +1,5 @@
+(* Author: Joshua Schneider, ETH Zurich *)
+
 signature APPLICATIVE =
 sig
   type afun

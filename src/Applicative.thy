@@ -1,3 +1,5 @@
+(* Author: Joshua Schneider *)
+
 section \<open>Lifting with Applicative Functors\<close>
 
 theory Applicative
