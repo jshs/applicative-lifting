@@ -1,6 +1,7 @@
 chapter AFP
 
 session Applicative (AFP) = "HOL-Probability" +
+  options [document = pdf, document_output = "output"]
   theories [document=false]
     "~~/src/HOL/Library/Function_Division"
     "~~/src/HOL/Proofs/Lambda/Eta"
@@ -11,3 +12,5 @@ session Applicative (AFP) = "HOL-Probability" +
     Idiomatic_Terms
   theories [document=false]
     Applicative_Test
+  document_files
+    "root.tex"
