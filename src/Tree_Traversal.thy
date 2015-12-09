@@ -1,8 +1,9 @@
+(* Author: Joshua Schneider, ETH Zurich
+   Author: Andreas Lochbihler, ETH Zurich *)
+
 theory Tree_Traversal
 imports
-  Applicative
   Applicative_State
-  "~~/src/HOL/Library/Stream"
 begin
 
 (*
