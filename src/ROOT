@@ -1,0 +1,9 @@
+session Applicative = "HOL-Probability" +
+  theories [document=false]
+    "~~/src/Tools/Adhoc_Overloading"
+    "~~/src/HOL/Library/Function_Division"
+    "~~/src/HOL/Library/Stream"
+  theories
+    Applicative
+    Applicative_Functor
+    Applicative_Examples
