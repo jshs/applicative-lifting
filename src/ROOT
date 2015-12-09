@@ -3,7 +3,9 @@ chapter AFP
 session Applicative (AFP) = "HOL-Probability" +
   theories [document=false]
     "~~/src/HOL/Library/Function_Division"
+    "~~/src/HOL/Proofs/Lambda/Eta"
   theories
     Applicative
     Applicative_Functor
     Applicative_Examples
+    Idiomatic_Terms
