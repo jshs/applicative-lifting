@@ -294,14 +294,15 @@ R.\ Hinze, ``Lifting Operators and Laws.'' 2010. Retrieved June 6, 2015,
 \mathbf{K} x y &= x \\
 \mathbf{W} f x &= f x x
 \end{align*}
-\pause
+\begin{uncoverenv}<2->
 \item If not all combinators are available, not all terms can be represented
 \item Conversion by \emph{bracket abstraction} algorithms
+\end{uncoverenv}
 \end{itemize}
 
 \vspace{\fill}
 \begin{reference}
-H.\ B.\ Curry et.\ al. \emph{Combinatory Logic,} vol. 1.
+H.\ B.\ Curry et.\ al., \emph{Combinatory Logic,} vol. 1.
 North-Holland, Amsterdam, 1968.
 \end{reference}
 \end{frame}
@@ -388,6 +389,23 @@ environment functor, streams & (c) & (w) & (k)
 	\tag{homomorphism} \pure{f} \ap \pure x &= \pure{(f x)} \\[1ex]
 	\tag{interchange} u \ap \pure{x} &= \pure{(\lambda f.\> f x)} \ap u
 \end{align*}
+\end{frame}
+
+\begin{frame}
+\frametitle{Bracket Abstraction Rules}
+
+\begin{alignat*}{2}
+	\tag{$i$} [x]x &= \mathbf{I}, && \\
+	\tag{$k$} [x]t &= \mathbf{K} t &&\qquad\text{if $x$ not free in $t$}, \\
+	\tag{$\eta$} [x]tx &= t &&\qquad\text{if $x$ not free in $t$}, \\
+	\tag{$b$} [x]st &= \mathbf{B}s([x]t) &&\qquad\text{if $x$ not free in $s$}, \\
+	\tag{$c$} [x]st &= \mathbf{C}([x]s)t &&\qquad\text{if $x$ not free in $t$}, \\
+	\tag{$s$} [x]st &= \mathbf{S}([x]s)([x]t); && \\[2ex]
+\intertext{Special rules for idioms:}
+	\tag{$t$} [x]st &= \mathbf{T}t([x]s) &&\qquad\text{if $t$ contains no variables}, \\
+	\tag{$w$} [x]st &= \mathbf{W}(\mathbf{B}(\mathbf{T}[x]t)(\mathbf{B}\mathbf{B}[x]s))
+		&&\qquad\text{if $[x]t$ contains no variables}.
+\end{alignat*}
 \end{frame}
 
 \begin{frame}
