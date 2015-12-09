@@ -1,3 +1,5 @@
+(* Author: Joshua Schneider, ETH Zurich *)
+
 theory Beta_Eta
 imports "~~/src/HOL/Proofs/Lambda/Eta" Joinable
 begin

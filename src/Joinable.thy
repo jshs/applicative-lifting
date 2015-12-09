@@ -1,3 +1,5 @@
+(* Author: Joshua Schneider, ETH Zurich *)
+
 theory Joinable
 imports Main
 begin
