@@ -102,16 +102,8 @@ by (cases f) simp_all
 
 lemma (in semigroup) ap_sum_comp:
   "ap_sum f (ap_sum f (ap_sum f (Inl op o) h) g) x = ap_sum f h (ap_sum f g x)"
-apply (cases h, cases g, cases x)
-apply simp_all
-apply (cases x)
-apply simp_all
-apply (cases g, cases x)
-apply simp_all
-apply (cases x)
-apply simp_all
-apply (rule local.assoc)
-done
+by(cases h g x rule: sum.exhaust[case_product sum.exhaust, case_product sum.exhaust])
+  (simp_all add: local.assoc)
 
 interpretation const: semigroup const
 by unfold_locales simp
