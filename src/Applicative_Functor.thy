@@ -11,6 +11,7 @@ theory Applicative_Functor imports
   Applicative_List
   Applicative_State
   Applicative_Stream
+  Applicative_PMF
 begin
 
 end
