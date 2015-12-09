@@ -53,8 +53,7 @@ qed
 subsection \<open>Equivalence\<close>
 
 definition term_equiv :: "dB \<Rightarrow> dB \<Rightarrow> bool" (infixl "\<leftrightarrow>" 50)
-where
-  "term_equiv = joinablep beta_eta_reds"
+where "term_equiv = joinablep beta_eta_reds"
 
 lemma term_equivI:
   assumes "s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* u" and "t \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* u"

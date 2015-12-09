@@ -1,8 +1,15 @@
+(* Author: Joshua Schneider, ETH Zurich *)
+
+section \<open>Idiomatic terms -- Properties and operations\<close>
+
 theory Idiomatic_Terms
 imports Beta_Eta
 begin
 
-section \<open>Idiomatic terms -- Properties and operations\<close>
+text \<open>
+  This theory proves the correctness of the normalisation algorithm for
+  arbitrary applicative functors
+\<close>
 
 subsection \<open>Extensions to lambda terms\<close>
 
@@ -105,21 +112,19 @@ text \<open>Idiomatic terms are \emph{similar} iff they have the same structure,
   lambda terms are equivalent.\<close>
 
 abbreviation similar :: "itrm \<Rightarrow> itrm \<Rightarrow> bool" (infixl "\<cong>" 50)
-where
-  "x \<cong> y \<equiv> itrm_cong (\<lambda>_ _. False) x y"
+where "x \<cong> y \<equiv> itrm_cong (\<lambda>_ _. False) x y"
 
 lemma pure_similarE:
   assumes "Pure x' \<cong> y"
   obtains y' where "y = Pure y'" and "x' \<leftrightarrow> y'"
 proof -
-  from assms
   have "(\<forall>x''. Pure x' = Pure x'' \<longrightarrow> (\<exists>y'. y = Pure y' \<and> x'' \<leftrightarrow> y')) \<and>
     (\<forall>x''. y = Pure x'' \<longrightarrow> (\<exists>y'. Pure x' = Pure y' \<and> x'' \<leftrightarrow> y'))"
-    proof (induction)
-      case pure_subst thus ?case by (blast intro: term_sym)
-    next
-      case itrm_trans thus ?case by (fastforce intro: term_trans)
-    qed simp_all
+  using assms proof (induction)
+    case pure_subst thus ?case by (blast intro: term_sym)
+  next
+    case itrm_trans thus ?case by (fastforce intro: term_trans)
+  qed simp_all
   with that show thesis by blast
 qed
 
@@ -130,11 +135,11 @@ proof -
   from assms
   have "(\<forall>x''. Term x' = Term x'' \<longrightarrow> (\<exists>y'. y = Term y' \<and> x'' \<leftrightarrow> y')) \<and>
     (\<forall>x''. y = Term x'' \<longrightarrow> (\<exists>y'. Term x' = Term y' \<and> x'' \<leftrightarrow> y'))"
-    proof (induction)
-      case term_subst thus ?case by (blast intro: term_sym)
-    next
-      case itrm_trans thus ?case by (fastforce intro: term_trans)
-    qed simp_all
+  proof (induction)
+    case term_subst thus ?case by (blast intro: term_sym)
+  next
+    case itrm_trans thus ?case by (fastforce intro: term_trans)
+  qed simp_all
   with that show thesis by blast
 qed
 
@@ -145,13 +150,13 @@ proof -
   from assms
   have "(\<forall>x1' x2'. x1 \<diamond> x2 = x1' \<diamond> x2' \<longrightarrow> (\<exists>y1 y2. y = y1 \<diamond> y2 \<and> x1' \<cong> y1 \<and> x2' \<cong> y2)) \<and>
     (\<forall>x1' x2'. y = x1' \<diamond> x2' \<longrightarrow> (\<exists>y1 y2. x1 \<diamond> x2 = y1 \<diamond> y2 \<and> x1' \<cong> y1 \<and> x2' \<cong> y2))"
-    proof (induction)
-      case ap_congL thus ?case by (blast intro: itrm_sym)
-    next
-      case ap_congR thus ?case by (blast intro: itrm_sym)
-    next
-      case itrm_trans thus ?case by (fastforce intro: itrm_cong.itrm_trans)
-    qed simp_all
+  proof (induction)
+    case ap_congL thus ?case by (blast intro: itrm_sym)
+  next
+    case ap_congR thus ?case by (blast intro: itrm_sym)
+  next
+    case itrm_trans thus ?case by (fastforce intro: itrm_cong.itrm_trans)
+  qed simp_all
   with that show thesis by blast
 qed
 
@@ -177,7 +182,6 @@ lemmas itrm_xchng' = itrm_xchng[THEN pre_equiv_into_equiv]
 
 lemma similar_equiv: "x \<cong> y \<Longrightarrow> x \<simeq> y"
 by (induction pred: itrm_cong) (auto intro: itrm_cong.intros)
-
 
 subsubsection \<open>Structural analysis\<close>
 
@@ -251,7 +255,6 @@ by(rule list_all2_appendI) simp_all
 lemma list_equiv_prefix: "list_all2 (op \<leftrightarrow>) x y \<Longrightarrow> list_all2 (op \<leftrightarrow>) (z @ x) (z @ y)"
 by(rule list_all2_appendI) simp_all
 
-
 lemma opaque_equiv:
   assumes "x \<simeq> y"
     shows "list_all2 (op \<leftrightarrow>) (opaque x) (opaque y)"
@@ -282,7 +285,8 @@ lemma unlift'_equiv:
   assumes "x \<simeq> y"
     shows "unlift' n x i \<leftrightarrow> unlift' n y i"
 using assms proof (induction arbitrary: n i)
-  case (base_cong x y) thus ?case proof induction
+  case (base_cong x y) thus ?case
+  proof induction
     case (itrm_id x)
     show ?case
       unfolding unlift_ap using I_equiv[symmetric] by simp
@@ -341,11 +345,8 @@ next
   thus ?case using term_trans by blast
 qed
 
-lemma unlift_equiv:
-  assumes "x \<simeq> y"
-    shows "unlift x \<leftrightarrow> unlift y"
-using assms unlift'_equiv wrap_abs_equiv iorder_equiv
-by simp
+lemma unlift_equiv: "x \<simeq> y \<Longrightarrow> unlift x \<leftrightarrow> unlift y"
+using assms unlift'_equiv wrap_abs_equiv iorder_equiv by simp
 
 
 subsection \<open>Canonical forms\<close>
@@ -442,7 +443,6 @@ next
     using term_sym term_trans
     by metis
 qed
-
 
 subsection \<open>Normalization of idiomatic terms\<close>
 
