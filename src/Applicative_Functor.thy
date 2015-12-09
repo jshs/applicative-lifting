@@ -145,7 +145,7 @@ using
 by auto
 
 
-subsection \<open>Set with cross product\<close>
+subsection \<open>Set with Cartesian product\<close>
 
 definition ap_set :: "('a \<Rightarrow> 'b) set \<Rightarrow> 'a set \<Rightarrow> 'b set"
   where "ap_set F X = {f x | f x. f \<in> F \<and> x \<in> X}"
@@ -160,7 +160,7 @@ unfolding ap_set_def
 by fast+
 
 
-subsection \<open>Lists\<close>
+subsection \<open>List monad\<close>
 
 definition "ap_list fs xs = List.bind fs (\<lambda>f. List.bind xs (\<lambda>x. [f x]))"
 
@@ -220,6 +220,7 @@ subsection \<open>State monad\<close>
 
 type_synonym ('a, 's) state = "'s \<Rightarrow> 'a \<times> 's"
 
+abbreviation "pure_state \<equiv> Pair"
 definition "ap_state f x = (\<lambda>s. case f s of (g, s') \<Rightarrow> case x s' of (y, s'') \<Rightarrow> (g y, s''))"
 
 adhoc_overloading pure Pair

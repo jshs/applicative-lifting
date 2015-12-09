@@ -36,7 +36,7 @@ for
   pure: af_pure
   ap: af_ap
 using af_identity af_composition af_homomorphism af_interchange
-unfolding id_def comp_def[THEN ext, THEN ext]
+unfolding id_def comp_def[abs_def]
 .
 
 end

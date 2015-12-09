@@ -1,10 +1,10 @@
-theory Normal_Form
+theory Lifting_Tests
 imports "../src/Applicative_Functor" "../src/Stream_Arith" Abstract_AF
 begin
 
-section {* Normal form conversion *}
+section {* Tests for applicative lifting *}
 
-subsection {* Example: Abstract functor *}
+subsection {* Normal form *}
 
 notepad
 begin
@@ -30,7 +30,6 @@ next
   fix f :: "('a \<Rightarrow> 'b) af" and g :: "('b \<Rightarrow> 'c) af" and x
   have "g \<diamond> (f \<diamond> x) = af_pure (\<lambda>g f x. g (f x)) \<diamond> g \<diamond> f \<diamond> x" by applicative_nf rule
 end
-(* TODO automatic test for names of new variables *)
 
 lemma "\<And>f x::'a af. f \<diamond> x = x"
 apply applicative_nf
@@ -45,7 +44,8 @@ begin
   instance ..
 end
 
-thm add.assoc[applicative_lifted set]
+lemma "(X::('a::semigroup_add)set) + Y + Z = X + (Y + Z)"
+by (rule add.assoc[applicative_lifted set])
 
 instantiation set :: (semigroup_add) semigroup_add
 begin
@@ -66,7 +66,7 @@ begin
 end
 
 
-subsection {* Example: Sum type (a.k.a. either) *}
+subsection {* Example: Sum type (a.k.a. Either) *}
 
 lemma "Inl plus \<diamond> (x :: nat + 'e list) \<diamond> x = Inl (\<lambda>x. 2 * x) \<diamond> x"
 by applicative_lifting simp
@@ -100,20 +100,14 @@ lemma lift_streams_append[applicative_unfold]:
   "lift_streams (xs @ ys) = smap2 append (lift_streams xs) (lift_streams ys)"
 proof (induction xs)
   case Nil
-  (*
-    case could be proved directly if "lift_streams ([] @ ys) = lift_streams ys" is solved
-    in head_cong_tac (invoke simplifier?) -- but only with applicative_nf
-  *)
   have "lift_streams ys = sconst append \<diamond> lift_streams [] \<diamond> lift_streams ys"
     by applicative_lifting simp
   thus ?case by applicative_unfold
 next
   case (Cons x xs)
   with stream_append_Cons  (* the actual lifted fact *)
-  show ?case by applicative_unfold (rule sym)  (* slightly weird *)
+  show ?case by applicative_unfold (rule sym)
 qed
-
-(* There seems to be a pattern! *)
 
 lemma "lift_streams (rev x) = smap rev (lift_streams x)"
 proof (induction x)
@@ -133,6 +127,7 @@ definition [applicative_unfold]: "sconcat xs = smap concat xs"
 
 lemma "sconcat (lift_streams [sconst ''Hello '', sconst ''world!'']) = sconst ''Hello world!''"
 by applicative_lifting simp
+
 
 print_applicative
 
