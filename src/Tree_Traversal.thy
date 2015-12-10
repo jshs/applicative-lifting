@@ -40,13 +40,12 @@ where
 lemma label_append: "label_list (a @ b) = pure (op @) \<diamond> label_list a \<diamond> label_list b"
 proof (induction a)
   case Nil
-  show "label_list ([] @ b) = pure op @ \<diamond> label_list [] \<diamond> label_list b"
-    (* FIXME: "show ?case" does not work because "?case" is eta-expanded *)
-    unfolding append.simps label_list.simps by applicative_lifting simp
+  show ?case
+    unfolding append.simps label_list.simps
+    by applicative_lifting simp
 next
   case (Cons a1 a2)
-  show "label_list ((a1 # a2) @ b) = pure op @ \<diamond> label_list (a1 # a2) \<diamond> label_list b"
-    (* FIXME: "show ?case" does not work because "?case" is eta-expanded *)
+  show ?case
     unfolding append.simps label_list.simps Cons.IH
     by applicative_lifting simp
 qed
@@ -54,14 +53,12 @@ qed
 lemma label_tree_list: "pure labels \<diamond> label_tree t = label_list (labels t)"
 proof (induction t)
   case (Leaf x)
-  show "pure labels \<diamond> label_tree (Leaf x) = label_list (labels (Leaf x))"
-    (* FIXME: "show ?case" does not work because "?case" is eta-expanded *)
+  show ?case
     unfolding label_tree.simps labels.simps label_list.simps
     by applicative_lifting simp
 next
   case (Node l r)
-  show "pure labels \<diamond> label_tree (Node l r) = label_list (labels (Node l r))"
-    (* FIXME: "show ?case" does not work because "?case" is eta-expanded *)
+  show ?case
     unfolding label_tree.simps labels.simps label_append Node.IH[symmetric]
     by applicative_lifting simp
 qed
