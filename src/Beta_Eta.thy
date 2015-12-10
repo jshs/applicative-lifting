@@ -1,3 +1,5 @@
+(* Author: Joshua Schneider, ETH Zurich *)
+
 theory Beta_Eta
 imports "~~/src/HOL/Proofs/Lambda/Eta" Joinable
 begin
@@ -53,8 +55,7 @@ qed
 subsection \<open>Equivalence\<close>
 
 definition term_equiv :: "dB \<Rightarrow> dB \<Rightarrow> bool" (infixl "\<leftrightarrow>" 50)
-where
-  "term_equiv = joinablep beta_eta_reds"
+where "term_equiv = joinablep beta_eta_reds"
 
 lemma term_equivI:
   assumes "s \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* u" and "t \<rightarrow>\<^sub>\<beta>\<^sub>\<eta>\<^sup>* u"
@@ -74,6 +75,9 @@ unfolding term_equiv_def by (blast intro: joinablep_refl reflpI)
 
 lemma term_sym[sym]: "(s \<leftrightarrow> t) \<Longrightarrow> (t \<leftrightarrow> s)"
 unfolding term_equiv_def by (rule joinable_sym[to_pred])
+
+lemma conversep_term [simp]: "conversep (op \<leftrightarrow>) = op \<leftrightarrow>"
+by(auto simp add: fun_eq_iff intro: term_sym)
 
 lemma term_trans[trans]: "s \<leftrightarrow> t \<Longrightarrow> t \<leftrightarrow> u \<Longrightarrow> s \<leftrightarrow> u"
 unfolding term_equiv_def
