@@ -185,6 +185,9 @@ qed
 instance stream :: (semiring_char_0) semiring_char_0
 by intro_classes (simp add: inj_on_def of_nat_stream)
 
+lemma pure_stream_numeral [applicative_unfold]: "numeral n = pure (numeral n)"
+by(induction n)(simp_all only: numeral.simps one_stream_def plus_stream_def ap_stream_homo)
+
 instance stream :: (ring_char_0) ring_char_0 ..
 
 end
