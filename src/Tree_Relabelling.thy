@@ -1,6 +1,6 @@
 (* Author: Andreas Lochbihler, ETH Zurich *)
 
-subsection \<open>Example: Tree relabelling\<close>
+subsection \<open>Tree relabelling\<close>
 
 theory Tree_Relabelling imports
   Applicative_State
