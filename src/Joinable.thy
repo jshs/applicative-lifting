@@ -1,12 +1,14 @@
 (* Author: Joshua Schneider, ETH Zurich *)
 
+section \<open>Formalisation of the normal form algorithm\<close>
+
 theory Joinable
 imports Main
 begin
 
-section \<open>Immediate joinability under a relation\<close>
+subsection \<open>Immediate joinability under a relation\<close>
 
-subsection \<open>Definition and basic properties\<close>
+subsubsection \<open>Definition and basic properties\<close>
 
 definition joinable :: "('a \<times> 'b) set \<Rightarrow> ('a \<times> 'a) set"
 where
@@ -69,7 +71,7 @@ proof -
 qed
 
 
-subsection \<open>Confluence\<close>
+subsubsection \<open>Confluence\<close>
 
 definition confluent :: "'a rel \<Rightarrow> bool"
 where "confluent R \<longleftrightarrow> (\<forall>x y y'. (x, y) \<in> R \<and> (x, y') \<in> R \<longrightarrow> (y, y') \<in> joinable R)"
@@ -104,7 +106,7 @@ proof (rule transI)
 qed
 
 
-subsection \<open>Relation to reflexive transitive symmetric closure\<close>
+subsubsection \<open>Relation to reflexive transitive symmetric closure\<close>
 
 lemma joinable_le_rtscl: "joinable (R\<^sup>*) \<subseteq> (R \<union> R\<inverse>)\<^sup>*"
 proof (rule subrelI)
@@ -139,7 +141,7 @@ next
 qed
 
 
-subsection \<open>Predicate version\<close>
+subsubsection \<open>Predicate version\<close>
 
 definition joinablep :: "('a \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool"
 where

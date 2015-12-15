@@ -1,12 +1,12 @@
 (* Author: Joshua Schneider, ETH Zurich *)
 
+subsection \<open>Combined beta and eta reduction of lambda terms\<close>
+
 theory Beta_Eta
 imports "~~/src/HOL/Proofs/Lambda/Eta" Joinable
 begin
 
-section \<open>Combined beta and eta reduction of lambda terms\<close>
-
-subsection \<open>Reduction\<close>
+subsubsection \<open>Reduction\<close>
 
 abbreviation beta_eta :: "dB \<Rightarrow> dB \<Rightarrow> bool" (infixl "\<rightarrow>\<^sub>\<beta>\<^sub>\<eta>" 50)
 where
@@ -52,7 +52,7 @@ next
 qed
 
 
-subsection \<open>Equivalence\<close>
+subsubsection \<open>Equivalence\<close>
 
 definition term_equiv :: "dB \<Rightarrow> dB \<Rightarrow> bool" (infixl "\<leftrightarrow>" 50)
 where "term_equiv = joinablep beta_eta_reds"

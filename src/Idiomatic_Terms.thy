@@ -1,6 +1,6 @@
 (* Author: Joshua Schneider, ETH Zurich *)
 
-section \<open>Idiomatic terms -- Properties and operations\<close>
+subsection \<open>Idiomatic terms -- Properties and operations\<close>
 
 theory Idiomatic_Terms
 imports Beta_Eta
@@ -11,9 +11,7 @@ text \<open>
   arbitrary applicative functors
 \<close>
 
-subsection \<open>Extensions to lambda terms\<close>
-
-subsubsection \<open>Some combinators\<close>
+subsubsection \<open>Extensions to lambda terms\<close>
 
 abbreviation "\<I> \<equiv> Abs (Var 0)"
 abbreviation "\<B> \<equiv> Abs (Abs (Abs (Var 2 \<degree> (Var 1 \<degree> Var 0))))"
@@ -63,8 +61,6 @@ qed
 lemmas T_equiv = T_eval[THEN beta_into_beta_eta, THEN red_into_equiv]
 
 
-subsubsection \<open>Auxiliary lemmas\<close>
-
 lemma subst_liftn:
   "i \<le> n + k \<and> k \<le> i \<Longrightarrow> (liftn (Suc n) s k)[t/i] = liftn n s k"
 by (induction s arbitrary: i k t) auto
@@ -83,9 +79,9 @@ next
 qed
 
 
-subsection \<open>Idiomatic terms\<close>
+subsubsection \<open>Idiomatic terms\<close>
 
-subsubsection \<open>Basic definitions\<close>
+text \<open>Basic definitions\<close>
 
 datatype itrm =
     Term dB | Pure dB
@@ -183,7 +179,7 @@ lemmas itrm_xchng' = itrm_xchng[THEN pre_equiv_into_equiv]
 lemma similar_equiv: "x \<cong> y \<Longrightarrow> x \<simeq> y"
 by (induction pred: itrm_cong) (auto intro: itrm_cong.intros)
 
-subsubsection \<open>Structural analysis\<close>
+text \<open>Structural analysis\<close>
 
 primrec opaque :: "itrm \<Rightarrow> dB list"
 where
@@ -349,7 +345,7 @@ lemma unlift_equiv: "x \<simeq> y \<Longrightarrow> unlift x \<leftrightarrow> u
 using assms unlift'_equiv wrap_abs_equiv iorder_equiv by simp
 
 
-subsection \<open>Canonical forms\<close>
+subsubsection \<open>Canonical forms\<close>
 
 inductive_set CF :: "itrm set"
 where
@@ -444,7 +440,7 @@ next
     by metis
 qed
 
-subsection \<open>Normalization of idiomatic terms\<close>
+subsubsection \<open>Normalization of idiomatic terms\<close>
 
 fun rsize :: "itrm \<Rightarrow> nat"
 where
@@ -553,7 +549,7 @@ lemma normal_form: obtains n where "n \<simeq> x" and "n \<in> CF"
 using normalize_equiv normalize_in_cf ..
 
 
-subsection \<open>Proving lifted equations\<close>
+subsubsection \<open>Proving lifted equations\<close>
 
 theorem nf_lifting:
   assumes opaque: "list_all2 (op \<leftrightarrow>) (opaque x) (opaque y)"

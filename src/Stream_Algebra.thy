@@ -8,8 +8,6 @@ theory Stream_Algebra
 imports Applicative_Stream
 begin
 
-subsubsection \<open>Constants and operators\<close>
-
 instantiation stream :: (zero) zero begin
 definition [applicative_unfold]: "0 = sconst 0"
 instance ..
@@ -52,9 +50,6 @@ definition [applicative_unfold]: "x div y = pure op div \<diamond> x \<diamond> 
 definition [applicative_unfold]: "x mod y = pure op mod \<diamond> x \<diamond> (y :: 'a stream)"
 instance ..
 end
-
-
-subsection \<open>Algebraic instances\<close>
 
 instance stream :: (semigroup_add) semigroup_add
 using add.assoc by intro_classes applicative_lifting

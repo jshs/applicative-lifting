@@ -1,5 +1,7 @@
 (* Author: Joshua Schneider, ETH Zurich *)
 
+section \<open>Common applicative functors\<close>
+
 subsection \<open>Environment functor\<close>
 
 theory Applicative_Environment imports 

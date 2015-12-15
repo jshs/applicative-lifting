@@ -1,6 +1,6 @@
 (* Author: Andreas Lochbihler, ETH Zurich *)
 
-subsection \<open>Tree relabelling\<close>
+subsection \<open>Example: Tree relabelling\<close>
 
 theory Tree_Relabelling imports
   Applicative_State
@@ -43,7 +43,7 @@ lemma leaves_simps [simp]:
 by(simp_all add: leaves_def)
 
 
-subsection \<open>Pure correctness statement\<close>
+subsubsection \<open>Pure correctness statement\<close>
 
 definition labels :: "'a tree \<Rightarrow> 'a list"
 where "labels = fold_tree (\<lambda>x. [x]) append"
@@ -104,7 +104,7 @@ by(cases "label_list (labels t) s")(simp add: ap_state_def split_beta)
 
 end
 
-subsection \<open>Correctness via monadic traversals\<close>
+subsubsection \<open>Correctness via monadic traversals\<close>
 
 text \<open>Dual version of an applicative functor with effects composed in the opposite order\<close>
 

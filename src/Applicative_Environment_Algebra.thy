@@ -1,5 +1,9 @@
 (* Author: Andreas Lochbihler, ETH Zurich *)
 
+section \<open>Examples of applicative lifting\<close>
+
+subsection \<open>Algebraic operations for the environment functor\<close>
+
 theory Applicative_Environment_Algebra imports
   Applicative_Environment
   "~~/src/HOL/Library/Function_Division"
