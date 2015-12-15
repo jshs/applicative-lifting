@@ -12,7 +12,10 @@ where
     "ap_option (Some f) (Some x) = Some (f x)"
   | "ap_option _ _ = None"
 
-adhoc_overloading Applicative.pure Some
+abbreviation (input) pure_option :: "'a \<Rightarrow> 'a option"
+where "pure_option \<equiv> Some"
+
+adhoc_overloading Applicative.pure pure_option
 adhoc_overloading Applicative.ap ap_option
 
 lemma some_ap_option: "ap_option (Some f) x = map_option f x"
@@ -44,6 +47,6 @@ proof -
   }
 qed (simp_all add: some_ap_option ap_some_option)
 
-no_adhoc_overloading Applicative.pure Some -- \<open>We do not want to print all occurrences of @{const "Some"} as @{const "pure"}\<close>
+no_adhoc_overloading Applicative.pure pure_option -- \<open>We do not want to print all occurrences of @{const "Some"} as @{const "pure"}\<close>
 
 end

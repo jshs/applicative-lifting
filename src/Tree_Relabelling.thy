@@ -1,11 +1,110 @@
 (* Author: Andreas Lochbihler, ETH Zurich *)
 
-subsection \<open>Tree traversals following Gibbons and Bird \cite{backwards}\<close>
+subsection \<open>Tree relabelling\<close>
 
-theory Tree_Traversal2 imports
+theory Tree_Relabelling imports
   Applicative_State
+  Applicative_Option
   "~~/src/HOL/Library/Stream"
 begin
+
+interpretation applicative_syntax .
+adhoc_overloading Applicative.pure pure_state
+adhoc_overloading Applicative.pure pure_option
+
+text \<open> Hutton and Fulger \cite{HuttonFulger2008TFP} suggested the following tree relabelling problem
+  as an example for reasoning about effects. Given a binary tree with labels at the leaves, the
+  relabelling assigns a unique number to every leaf.  Their correctness property states that the
+  list of labels in the obtained tree is distinct.  As observed by Gibbons and Bird \cite{backwards},
+  this breaks the abstraction of the state monad, because the relabeling function must be run.
+  Although Hutton and Fulger are careful to reason in point-free style, they nevertheless unfold
+  the implementation of the state monad operations.  Gibbons and Hinze \cite{GibbonsHinze2011ICFP}
+  suggest to state the correctness in an effectful way using an exception-state monad.  Thereby, they
+  lose the applicative structure and have to resort to a full monad.
+  
+  Here, we model the tree relabelling function three times. First, we state correctness in pure
+  terms following Hutton and Fulger.  Second, we take Gibbons' and Bird's approach of considering
+  traversals. Third, we state correctness effectfully, but only using the applicative functors.
+\<close>
+
+datatype 'a tree = Leaf 'a | Node "'a tree" "'a tree"
+
+primrec fold_tree :: "('a \<Rightarrow> 'b) \<Rightarrow> ('b \<Rightarrow> 'b \<Rightarrow> 'b) \<Rightarrow> 'a tree \<Rightarrow> 'b"
+where
+  "fold_tree f g (Leaf a) = f a"
+| "fold_tree f g (Node l r) = g (fold_tree f g l) (fold_tree f g r)"
+
+definition leaves :: "'a tree \<Rightarrow> nat"
+where "leaves = fold_tree (\<lambda>_. 1) (op +)"
+
+lemma leaves_simps [simp]:
+  "leaves (Leaf x) = 1"
+  "leaves (Node l r) = leaves l + leaves r"
+by(simp_all add: leaves_def)
+
+
+subsection \<open>Pure correctness statement\<close>
+
+definition labels :: "'a tree \<Rightarrow> 'a list"
+where "labels = fold_tree (\<lambda>x. [x]) append"
+
+lemma labels_simps [simp]:
+  "labels (Leaf x) = [x]"
+  "labels (Node l r) = labels l @ labels r"
+by(simp_all add: labels_def)
+
+locale labelling =
+  fixes fresh :: "('x, 's) state"
+begin
+
+definition label_tree :: "'a tree \<Rightarrow> ('x tree, 's) state"
+where "label_tree = fold_tree (\<lambda>_ :: 'a. pure Leaf \<diamond> fresh) (\<lambda>l r. pure Node \<diamond> l \<diamond> r)"
+
+lemma label_tree_simps [simp]:
+  "label_tree (Leaf x) = pure Leaf \<diamond> fresh"
+  "label_tree (Node l r) = pure Node \<diamond> label_tree l \<diamond> label_tree r"
+by(simp_all add: label_tree_def)
+
+primrec label_list :: "'a list \<Rightarrow> ('x list, 's) state"
+where
+    "label_list [] = pure []"
+  | "label_list (x # xs) = pure (op #) \<diamond> fresh \<diamond> label_list xs"
+
+lemma label_append: "label_list (a @ b) = pure (op @) \<diamond> label_list a \<diamond> label_list b"
+  -- \<open>The proof lifts the defining equations of @{const append} to the state monad.\<close>
+proof (induction a)
+  case Nil
+  show ?case
+    unfolding append.simps label_list.simps
+    by applicative_lifting simp
+next
+  case (Cons a1 a2)
+  show ?case
+    unfolding append.simps label_list.simps Cons.IH
+    by applicative_lifting simp
+qed
+
+lemma label_tree_list: "pure labels \<diamond> label_tree t = label_list (labels t)"
+proof (induction t)
+  case Leaf show ?case unfolding label_tree_simps labels_simps label_list.simps
+    by applicative_lifting simp
+next
+  case Node show ?case unfolding label_tree_simps labels_simps label_append Node.IH[symmetric]
+    by applicative_lifting simp
+qed
+
+text \<open>We directly show correctness without going via streams like Hutton and Fulger \cite{HuttonFulger2008TFP}. \<close>
+
+lemma correctness_pure:
+  fixes t :: "'a tree"
+  assumes distinct: "\<And>xs :: 'a list. distinct (fst (label_list xs s))"
+  shows "distinct (labels (fst (label_tree t s)))"
+using label_tree_list[of t, THEN fun_cong, of s] assms[of "labels t"]
+by(cases "label_list (labels t) s")(simp add: ap_state_def split_beta)
+
+end
+
+subsection \<open>Correctness via monadic traversals\<close>
 
 text \<open>Dual version of an applicative functor with effects composed in the opposite order\<close>
 
@@ -68,20 +167,12 @@ unfolding ap_state_rev_rev_def by(fact ap_dual.abs_eq)
 lemma ap_state_rev_rev_pure_B: "pure f \<diamond> B x = B (pure_state_rev f \<diamond> x)"
 unfolding ap_state_rev_rev_def pure_state_rev_rev_def
 by transfer(applicative_nf, rule refl)
-
 end
 
-
-
-
-
-
-
-interpretation applicative_syntax .
-adhoc_overloading Applicative.pure pure_state
-
-(* Using the monad is ugly, but I do not (yet) see a way around it if we want to talk about Kleisli composition *)
-
+text \<open>
+  The formulation by Gibbons and Bird \cite{backwards} crucially depends on Kleisli composition,
+  so we need the state monad rather than the appicative functor only.
+\<close>
 definition bind_state :: "('s \<Rightarrow> 'a \<times> 's) \<Rightarrow> ('a \<Rightarrow> 's \<Rightarrow> 'b \<times> 's) \<Rightarrow> 's \<Rightarrow> 'b \<times> 's"
 where "bind_state x f s = (let (a, s') = x s in f a s')"
 
@@ -100,11 +191,6 @@ by(simp add: ap_conv_bind_state bind_state_return1 bind_state_assoc o_def)
 definition kleisli_state :: "('b \<Rightarrow> ('c, 's) state) \<Rightarrow> ('a \<Rightarrow> ('b, 's) state) \<Rightarrow> 'a \<Rightarrow> ('c, 's) state" (infixl "\<bullet>" 55)
 where [simp]: "kleisli_state g f a = bind_state (f a) g"
 
-
-
-
-datatype 'a tree = Leaf 'a | Node "'a tree" "'a tree"
-
 definition fetch :: "('a, 'a stream) state"
 where "fetch s = (shd s, stl s)"
 
@@ -115,6 +201,7 @@ where
 
 text \<open>As we cannot abstract over the applicative functor in definitions, we define
   traversal on the transformed applicative function once again.\<close>
+
 primrec traverse_rev :: "('a \<Rightarrow> ('b, 's) state_rev) \<Rightarrow> 'a tree \<Rightarrow> ('b tree, 's) state_rev"
 where
   "traverse_rev f (Leaf x) = pure Leaf \<diamond> f x"
@@ -130,33 +217,22 @@ by(simp add: B_inverse)
 lemma recurse_Node:
   "recurse f (Node l r) = pure (\<lambda>r l. Node l r) \<diamond> recurse f r \<diamond> recurse f l"
 proof -
-  have "recurse f (Node l r) = un_B (traverse_rev (B \<circ> f) (Node l r))"
+  have "recurse f (Node l r) = un_B (pure Node \<diamond> traverse_rev (B \<circ> f) l \<diamond> traverse_rev (B \<circ> f) r)"
     by(simp add: recurse_def)
-  also have "\<dots> = un_B (pure Node \<diamond> traverse_rev (B \<circ> f) l \<diamond> traverse_rev (B \<circ> f) r)"
-    by simp
   also have "\<dots> = un_B (B (pure Node) \<diamond> B (recurse f l) \<diamond> B (recurse f r))"
     by(simp add: un_B_inverse recurse_def pure_state_rev_def pure_dual_def)
-  also have "\<dots> = un_B (B (pure (\<lambda>x f. f x) \<diamond> recurse f r \<diamond> (pure (\<lambda>x f. f x) \<diamond> recurse f l \<diamond> pure Node)))"
-    by(simp add: ap_state_rev_B)
   also have "\<dots> = pure (\<lambda>x f. f x) \<diamond> recurse f r \<diamond> (pure (\<lambda>x f. f x) \<diamond> recurse f l \<diamond> pure Node)"
-    by(simp add: B_inverse)
+    by(simp add: ap_state_rev_B B_inverse)
   also have "\<dots> = pure (\<lambda>r l. Node l r) \<diamond> recurse f r \<diamond> recurse f l"
-    -- \<open>These are 13 steps in \cite{backwards}\<close>
+    -- \<open>This step expands to 13 steps in \cite{backwards}\<close>
     by(applicative_nf) simp
   finally show ?thesis .
 qed
 
 lemma traverse_pure: "traverse pure t = pure t"
 proof(induction t)
-  case (Leaf x)
-  show "traverse pure (Leaf x) = pure (Leaf x)"
-    (* FIXME: "show ?case" does not work because "?case" is eta-expanded *)
-    unfolding traverse.simps by applicative_nf simp
-next
-  case (Node l r)
-  show "traverse (pure :: 'b \<Rightarrow> 'a \<Rightarrow> _) (Node l r) = pure (Node l r)"
-    (* FIXME: "show ?case" does not work because "?case" is eta-expanded *)
-    unfolding traverse.simps Node.IH by applicative_nf simp
+  { case Leaf show ?case unfolding traverse.simps by applicative_nf simp }
+  { case Node show ?case unfolding traverse.simps Node.IH by applicative_nf simp }
 qed
 
 
@@ -173,7 +249,7 @@ proof -
   have "B (B f) \<diamond> B (B x) = B (B (pure (\<lambda>x f. f x) \<diamond> f \<diamond> (pure (\<lambda>x f. f x) \<diamond> x \<diamond> pure (\<lambda>x f. f x))))"
     (is "_ = B (B ?exp)")
     unfolding ap_state_rev_rev_B B_pure ap_state_rev_B ..
-  also have "?exp = f \<diamond> x" -- \<open>This takes 15 steps in \cite{backwards}.\<close>
+  also have "?exp = f \<diamond> x" -- \<open>This step takes 15 steps in \cite{backwards}.\<close>
     by(applicative_nf)(rule refl)
   finally show ?thesis .
 qed
@@ -189,7 +265,7 @@ where "recurse_rev f = un_B \<circ> traverse_rev_rev (B \<circ> f)"
 lemma traverse_B_B: "traverse_rev_rev (B \<circ> B \<circ> f) = B \<circ> B \<circ> traverse f" (is "?lhs = ?rhs")
 proof
   fix t
-  show "?lhs t = ?rhs t" by induction(simp_all add: BB_pure BB_ap)
+  show "?lhs t = ?rhs t" by(induction t)(simp_all add: BB_pure BB_ap)
 qed
 
 lemma traverse_recurse: "traverse f = un_B \<circ> recurse_rev (B \<circ> f)" (is "?lhs = ?rhs")
@@ -200,14 +276,11 @@ proof -
   finally show ?thesis .
 qed
 
-
-
 lemma recurse_traverse:
   assumes "f \<bullet> g = pure"
   shows "recurse f \<bullet> traverse g = pure"
 -- \<open>Gibbons and Bird impose this as an additional requirement on traversals, but they write
   that they have not found a way to derive this fact from other axioms. So we prove it directly.\<close>
-(* Unfortunately, this is where the monad comes back *)
 proof
   fix t
   from assms have *: "\<And>x. bind_state (g x) f = Pair x" by(simp add: fun_eq_iff)
@@ -243,7 +316,76 @@ where "unlabel \<equiv> recurse strip"
 lemma strip_adorn: "strip \<bullet> adorn = pure"
 by(simp add: strip_def adorn_def fun_eq_iff fetch_def[abs_def] bind_state_def ap_conv_bind_state)
 
-lemma unlabel_label: "unlabel \<bullet> label = pure"
+lemma correctness_monadic: "unlabel \<bullet> label = pure"
 by(rule recurse_traverse)(rule strip_adorn)
+
+
+subsubsection \<open>Applicative correctness statement\<close>
+
+text \<open>Repeating an effect\<close>
+
+primrec repeatM :: "nat \<Rightarrow> ('x, 's) state \<Rightarrow> ('x list, 's) state"
+where
+  "repeatM 0 f = pure_state []"
+| "repeatM (Suc n) f = pure op # \<diamond> f \<diamond> repeatM n f"
+
+lemma repeatM_plus: "repeatM (n + m) f = pure append \<diamond> repeatM n f \<diamond> repeatM m f"
+by(induction n)(simp; applicative_lifting; simp)+
+
+abbreviation (input) fail :: "'a option" where "fail \<equiv> None"
+
+
+definition lift_state :: "('a, 's) state \<Rightarrow> ('a option, 's) state"
+where [applicative_unfold]: "lift_state x = pure pure \<diamond> x"
+
+definition lift_option :: "'a option \<Rightarrow> ('a option, 's) state"
+where [applicative_unfold]: "lift_option x = pure x"
+
+fun assert :: "('a \<Rightarrow> bool) \<Rightarrow> 'a option \<Rightarrow> 'a option"
+where
+  assert_fail: "assert P fail = fail"
+| assert_pure: "assert P (pure x) = (if P x then pure x else fail)"
+
+context labelling begin
+
+abbreviation symbols :: "nat \<Rightarrow> ('x list option, 's) state"
+where "symbols n \<equiv> lift_state (repeatM n fresh)"
+
+abbreviation (input) disjoint :: "'x list \<Rightarrow> 'x list \<Rightarrow> bool"
+where "disjoint xs ys \<equiv> set xs \<inter> set ys = {}"
+
+definition dlabels :: "'x tree \<Rightarrow> 'x list option"
+where "dlabels = fold_tree (\<lambda>x. pure [x])
+     (\<lambda>l r. pure (split append) \<diamond> (assert (split disjoint) (pure Pair \<diamond> l \<diamond> r)))"
+
+lemma dlabels_simps [simp]:
+  "dlabels (Leaf x) = pure [x]"
+  "dlabels (Node l r) = pure (split append) \<diamond> (assert (split disjoint) (pure Pair \<diamond> dlabels l \<diamond> dlabels r))"
+by(simp_all add: dlabels_def)
+
+lemma correctness_applicative:
+  assumes distinct: "\<And>n. pure (assert distinct) \<diamond> symbols n = symbols n"
+  shows "pure_state dlabels \<diamond> label_tree t = symbols (leaves t)"
+proof(induction t)
+  case Leaf
+  show ?case unfolding label_tree_simps leaves_simps One_nat_def repeatM.simps
+    by applicative_lifting simp
+next
+  case (Node l r)
+  let ?cat = "split append" and ?disj = "split disjoint"
+  have "pure_state dlabels \<diamond> label_tree (Node l r) =
+     pure (\<lambda>l r. pure ?cat \<diamond> (assert ?disj (pure Pair \<diamond> l \<diamond> r))) \<diamond>
+       (pure dlabels \<diamond> label_tree l) \<diamond> (pure dlabels \<diamond> label_tree r)"
+    unfolding label_tree_simps by applicative_nf simp
+  also have "\<dots> = pure (\<lambda>l r. pure ?cat \<diamond> (assert ?disj (pure Pair \<diamond> l \<diamond> r))) \<diamond>
+    (pure (assert distinct) \<diamond> symbols (leaves l)) \<diamond> (pure (assert distinct) \<diamond> symbols (leaves r))"
+    unfolding Node.IH distinct ..
+  also have "\<dots> = pure (assert distinct) \<diamond> symbols (leaves (Node l r))"
+    unfolding leaves_simps repeatM_plus by applicative_nf simp
+  also have "\<dots> = symbols (leaves (Node l r))" by(rule distinct)
+  finally show ?case .
+qed
+
+end
 
 end
