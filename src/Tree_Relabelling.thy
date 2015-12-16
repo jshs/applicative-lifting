@@ -171,7 +171,7 @@ end
 
 text \<open>
   The formulation by Gibbons and Bird \cite{backwards} crucially depends on Kleisli composition,
-  so we need the state monad rather than the appicative functor only.
+  so we need the state monad rather than the applicative functor only.
 \<close>
 definition bind_state :: "('s \<Rightarrow> 'a \<times> 's) \<Rightarrow> ('a \<Rightarrow> 's \<Rightarrow> 'b \<times> 's) \<Rightarrow> 's \<Rightarrow> 'b \<times> 's"
 where "bind_state x f s = (let (a, s') = x s in f a s')"
