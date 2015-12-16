@@ -76,21 +76,21 @@ proof (induction a)
   case Nil
   show ?case
     unfolding append.simps label_list.simps
-    by applicative_lifting simp
+    by applicative_nf simp
 next
   case (Cons a1 a2)
   show ?case
     unfolding append.simps label_list.simps Cons.IH
-    by applicative_lifting simp
+    by applicative_nf simp
 qed
 
 lemma label_tree_list: "pure labels \<diamond> label_tree t = label_list (labels t)"
 proof (induction t)
   case Leaf show ?case unfolding label_tree_simps labels_simps label_list.simps
-    by applicative_lifting simp
+    by applicative_nf simp
 next
   case Node show ?case unfolding label_tree_simps labels_simps label_append Node.IH[symmetric]
-    by applicative_lifting simp
+    by applicative_nf simp
 qed
 
 text \<open>We directly show correctness without going via streams like Hutton and Fulger \cite{HuttonFulger2008TFP}. \<close>
@@ -330,7 +330,7 @@ where
 | "repeatM (Suc n) f = pure op # \<diamond> f \<diamond> repeatM n f"
 
 lemma repeatM_plus: "repeatM (n + m) f = pure append \<diamond> repeatM n f \<diamond> repeatM m f"
-by(induction n)(simp; applicative_lifting; simp)+
+by(induction n)(simp; applicative_nf; simp)+
 
 abbreviation (input) fail :: "'a option" where "fail \<equiv> None"
 
@@ -369,7 +369,7 @@ lemma correctness_applicative:
 proof(induction t)
   case Leaf
   show ?case unfolding label_tree_simps leaves_simps One_nat_def repeatM.simps
-    by applicative_lifting simp
+    by applicative_nf simp
 next
   case (Node l r)
   let ?cat = "split append" and ?disj = "split disjoint"
