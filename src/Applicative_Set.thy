@@ -1,6 +1,6 @@
 (* Author: Joshua Schneider, ETH Zurich *)
 
-subsection \<open>Set with cross product\<close>
+subsection \<open>Set with Cartesian product\<close>
 
 theory Applicative_Set imports
   Applicative
