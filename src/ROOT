@@ -1,6 +1,6 @@
 chapter AFP
 
-session Applicative (AFP) = "HOL-Probability" +
+session Applicative_Lifting (AFP) = "HOL-Probability" +
   options [document = pdf, document_output = "output"]
   theories [document=false]
     "~~/src/HOL/Library/Function_Division"
