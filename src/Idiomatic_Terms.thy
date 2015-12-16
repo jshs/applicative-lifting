@@ -8,7 +8,7 @@ begin
 
 text \<open>
   This theory proves the correctness of the normalisation algorithm for
-  arbitrary applicative functors
+  arbitrary applicative functors.
 \<close>
 
 subsubsection \<open>Extensions to lambda terms\<close>

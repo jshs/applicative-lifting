@@ -1,11 +1,11 @@
 (* Author: Joshua Schneider, ETH Zurich *)
 
+subsection \<open>Option\<close>
+
 theory Applicative_Option imports
   Applicative
   "~~/src/Tools/Adhoc_Overloading"
 begin
-
-subsection \<open>Option\<close>
 
 fun ap_option :: "('a \<Rightarrow> 'b) option \<Rightarrow> 'a option \<Rightarrow> 'b option"
 where

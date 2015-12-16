@@ -1,6 +1,6 @@
 (* Author: Joshua Schneider *)
 
-section \<open>Lifting with Applicative Functors\<close>
+section \<open>Lifting with applicative functors\<close>
 
 theory Applicative
 imports Main

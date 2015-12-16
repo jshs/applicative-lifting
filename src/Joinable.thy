@@ -2,11 +2,11 @@
 
 section \<open>Formalisation of the normal form algorithm\<close>
 
+subsection \<open>Immediate joinability under a relation\<close>
+
 theory Joinable
 imports Main
 begin
-
-subsection \<open>Immediate joinability under a relation\<close>
 
 subsubsection \<open>Definition and basic properties\<close>
 
