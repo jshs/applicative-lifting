@@ -1,4 +1,9 @@
-theory AF_Relator imports Abstract_AF "~~/src/HOL/Library/Rewrite" begin
+theory AF_Relator imports 
+  "$AFP/Applicative_Lifting/Abstract_AF"
+  "~~/src/HOL/Library/Rewrite"
+begin
+
+interpretation applicative_syntax .
 
 section \<open>Alternative set of applicative operations\<close>
 
