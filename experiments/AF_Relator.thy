@@ -275,12 +275,10 @@ apply(rule rel_reflI; blast)
 done
 
 text \<open>
-  We can add compatible effects at the end that the pure function ignores.
-
-  How useful is this?
+  We can add compatible effects that the pure function ignores.
 \<close>
 
-lemma rel_addI:
+lemma rel_addI: -- \<open>add at the end\<close>
   assumes "rel P f g"
   and "compat x y"
   shows "rel P (pure (\<lambda>x y. x) \<diamond> f \<diamond> x) (pure (\<lambda>x y. x) \<diamond> g \<diamond> y)"
@@ -292,6 +290,20 @@ apply(rule rel_pureI)
 apply(rule rel_funI)+
 apply assumption
 done
+
+lemma rel_addI': -- \<open>add at the front\<close>
+  assumes "rel P x y"
+  and "compat f g"
+  shows "rel P (pure (\<lambda>x y. y) \<diamond> f \<diamond> x) (pure (\<lambda>x y. y) \<diamond> g \<diamond> y)"
+using _ assms(1)
+apply(rule rel_apI)
+using _ assms(2)
+apply(rule rel_apI)
+apply(rule rel_pureI)
+apply(rule rel_funI)+
+apply assumption
+done
+
 
 subsection \<open>Lifting implication\<close>
 
@@ -545,6 +557,9 @@ done
 
 text \<open>If we have K and W, we can reify equality.\<close>
 
+text \<open>Intuition: We want to exploit equality here, so we need W. We also need K because K ensures
+  that x and y are always compatible in their effects.
+\<close>
 lemma af_eq_reify: "x = y \<longleftrightarrow> pure (op =) \<diamond> x \<diamond> y = pure True" (is "?lhs \<longleftrightarrow> ?rhs")
 proof
   assume ?lhs
@@ -566,13 +581,29 @@ next
   finally show ?lhs .
 qed
 
+text \<open>
+  If we have K and W, then we also have C.
+\<close>
+
+lemma ap_C_KW: "pure (\<lambda>f x y. f y x) \<diamond> f \<diamond> x \<diamond> y = f \<diamond> y \<diamond> x" (is "?lhs = ?rhs")
+proof -
+  have "?lhs = (pure (\<lambda>f x y. f y x) \<diamond> f) \<diamond> (K \<diamond> pure (\<lambda>x. x) \<diamond> y \<diamond> x) \<diamond> y" unfolding ap_K by applicative_nf simp
+  also have "\<dots> = K \<diamond> \<dots> \<diamond> x" unfolding ap_K ..
+  also have "\<dots> = pure (\<lambda>f y' x y x'. f (if y = y' then y' else y) (if x = x' then x' else x)) \<diamond> f \<diamond> y \<diamond> x \<diamond> y \<diamond> x" unfolding K_def
+    by applicative_nf simp
+  also have "\<dots> = W \<diamond> (pure (\<lambda>f (y', x) (y, x'). f (if y = y' then y' else y) (if x = x' then x' else x)) \<diamond> f) \<diamond> zip y x"
+    unfolding ap_W by applicative_nf simp
+  also have "\<dots> = pure (\<lambda>f (y', x). f y' x) \<diamond> f \<diamond> zip y x"
+    unfolding W_def by applicative_nf simp
+  also have "\<dots> = ?rhs" by applicative_nf simp
+  finally show ?thesis .
+qed
+
 
 subsection \<open>Swapping\<close>
 
 text \<open>
   Is there an applicative functor that has a K but not a C?
-
-  If so, it cannot have H, as C is equivalent to B H K.
 \<close>
 
 axiomatization C :: "(('a \<Rightarrow> 'b \<Rightarrow> 'c) \<Rightarrow> 'b \<Rightarrow> 'a \<Rightarrow> 'c) af"
@@ -585,6 +616,11 @@ lemma rel_add_middle:
   assumes "rel P (f \<diamond> y) (f' \<diamond> y')"
   and "rel (\<lambda>_ _. True) x x'"
   shows "rel P (pure (\<lambda>f x y. f y) \<diamond> f \<diamond> x \<diamond> y) (pure (\<lambda>f x y. f y) \<diamond> f' \<diamond> x' \<diamond> y')"
+apply(rule rel_apI)
+apply(rule rel_apI)
+prefer 2
+apply(rule assms(2))
+apply(rule rel_apI)
 apply(rule rel_apI)+
 prefer 3
 apply(rule assms)
