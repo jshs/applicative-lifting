@@ -8,47 +8,37 @@ interpretation applicative_syntax .
 section \<open>Alternative set of applicative operations\<close>
 
 definition unit :: "unit af"
-where unit_conv: "unit = pure ()"
+where unit_conv [applicative_unfold]: "unit = pure ()"
 
 definition map :: "('a \<Rightarrow> 'b) \<Rightarrow> 'a af \<Rightarrow> 'b af"
-where map_conv: "map f x = pure f \<diamond> x"
+where map_conv [applicative_unfold]: "map f x = pure f \<diamond> x"
 
 definition zip :: "'a af \<Rightarrow> 'b af \<Rightarrow> ('a \<times> 'b) af"
-where zip_conv: "zip x y = pure Pair \<diamond> x \<diamond> y"
+where zip_conv [applicative_unfold]: "zip x y = pure Pair \<diamond> x \<diamond> y"
 
 lemma pure_conv: "pure x = map (\<lambda>_. x) unit"
-by(simp add: map_conv unit_conv af_homomorphism)
+by applicative_nf simp
 
 lemma ap_conv: "f \<diamond> x = map (\<lambda>(f, x). f x) (zip f x)"
-unfolding map_conv zip_conv 
-by(simp add: af_composition[symmetric] af_homomorphism o_def af_identity[unfolded id_def])
+by applicative_nf simp
 
 lemma map_id: "map (\<lambda>a. a) x = x"
-by(simp add: map_conv af_identity[unfolded id_def])
+by applicative_nf simp
 
 lemma map_comp: "map f (map g x) = map (f \<circ> g) x"
-by(simp add: map_conv af_composition[symmetric] af_homomorphism)
+by applicative_nf simp
 
 lemma map_zip: "map (map_prod f g) (zip x y) = zip (map f x) (map g y)"
-unfolding map_conv zip_conv af_composition[symmetric] af_homomorphism
-by(subst af_interchange)(simp add: af_composition[symmetric] af_homomorphism o_def)
+by applicative_nf simp
 
 lemma map_snd: "map snd (zip unit x) = x"
-unfolding map_conv zip_conv unit_conv
-by(subst af_interchange)
-  (simp add: af_composition[symmetric] af_homomorphism o_def af_identity[unfolded id_def])
+by applicative_nf simp
 
 lemma map_fst: "map fst (zip x unit) = x"
-unfolding map_conv zip_conv unit_conv
-by(subst af_interchange)
-  (simp add: af_composition[symmetric] af_homomorphism o_def af_identity[unfolded id_def])
+by applicative_nf simp
 
 lemma map_assoc: "zip (zip a b) c = map (\<lambda>(a, (b, c)). ((a, b), c)) (zip a (zip b c))"
-unfolding zip_conv map_conv
-apply(simp add: af_composition[symmetric] af_homomorphism)
-apply(subst af_interchange)
-apply(simp add: af_composition[symmetric] af_homomorphism o_def)
-done
+by applicative_nf simp
 
 section \<open>The set function\<close>
 
@@ -56,7 +46,7 @@ consts set :: "'a af \<Rightarrow> 'a set"
 axiomatization
   where map_cong: "\<And>f g x. (\<forall>a\<in>set x. f a = g a) \<Longrightarrow> map f x = map g x"
   and set_natural: "\<And>f x. set (map f x) \<subseteq> f ` set x"
-  -- \<open>This is only half of the usual naturality. Does this direction follow already from map_cong?\<close>
+  -- \<open>This is only half of the usual naturality. Does this direction follow already from @{thm map_cong}?\<close>
 
 lemma set_pure_subset: "set (pure x) \<subseteq> {x}"
 proof
@@ -553,6 +543,28 @@ apply blast
 done
 
 
+text \<open>If we have K and W, we can reify equality.\<close>
+
+lemma af_eq_reify: "x = y \<longleftrightarrow> pure (op =) \<diamond> x \<diamond> y = pure True" (is "?lhs \<longleftrightarrow> ?rhs")
+proof
+  assume ?lhs
+  have "pure (op =) \<diamond> x \<diamond> y = W \<diamond> pure (op =) \<diamond> y" unfolding \<open>?lhs\<close> ap_W ..
+  also have "\<dots> = pure (\<lambda>_. True) \<diamond> y" unfolding W_def by applicative_nf simp
+  also have "\<dots> = K \<diamond> pure True \<diamond> y" unfolding K_def by applicative_nf simp
+  also have "\<dots> = pure True" unfolding ap_K ..
+  finally show ?rhs .
+next
+  assume ?rhs
+  have "x = K \<diamond> x \<diamond> y" unfolding ap_K ..
+  also have "\<dots> = pure (\<lambda>x y. if x = y then y else x) \<diamond> x \<diamond> y" unfolding K_def by applicative_nf simp
+  also have "\<dots> = W \<diamond> (W \<diamond> (pure (\<lambda>x x' y y'. if x' = y then y' else x)) \<diamond> x) \<diamond> y" unfolding W_def by applicative_nf simp
+  also have "\<dots> = pure (\<lambda>x x' y y'. if x' = y then y' else x) \<diamond> x \<diamond> x \<diamond> y \<diamond> y" unfolding ap_W ..
+  also have "\<dots> = pure (\<lambda>x b y'. if b then y' else x) \<diamond> x \<diamond> (pure op = \<diamond> x \<diamond> y) \<diamond> y" by applicative_nf simp
+  also have "\<dots> = pure (\<lambda>x y'. y') \<diamond> x \<diamond> y" unfolding \<open>?rhs\<close> by applicative_nf simp
+  also have "\<dots> = K \<diamond> pure (\<lambda>x. x) \<diamond> x \<diamond> y" unfolding K_def by applicative_nf simp
+  also have "\<dots> = y" unfolding ap_K by applicative_nf simp
+  finally show ?lhs .
+qed
 
 
 subsection \<open>Swapping\<close>
