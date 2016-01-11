@@ -587,11 +587,12 @@ text \<open>
 
 lemma ap_C_KW: "pure (\<lambda>f x y. f y x) \<diamond> f \<diamond> x \<diamond> y = f \<diamond> y \<diamond> x" (is "?lhs = ?rhs")
 proof -
-  have "?lhs = (pure (\<lambda>f x y. f y x) \<diamond> f) \<diamond> (K \<diamond> pure (\<lambda>x. x) \<diamond> y \<diamond> x) \<diamond> y" unfolding ap_K by applicative_nf simp
+  have "?lhs = (pure (\<lambda>f x y. f y x) \<diamond> f) \<diamond> (K \<diamond> pure (\<lambda>x. x) \<diamond> y \<diamond> x) \<diamond> y"
+    unfolding ap_K by applicative_nf simp
   also have "\<dots> = K \<diamond> \<dots> \<diamond> x" unfolding ap_K ..
-  also have "\<dots> = pure (\<lambda>f y' x y x'. f (if y = y' then y' else y) (if x = x' then x' else x)) \<diamond> f \<diamond> y \<diamond> x \<diamond> y \<diamond> x" unfolding K_def
+  also have "\<dots> = pure (\<lambda>f y' x y x'. f y x) \<diamond> f \<diamond> y \<diamond> x \<diamond> y \<diamond> x" unfolding K_def
     by applicative_nf simp
-  also have "\<dots> = W \<diamond> (pure (\<lambda>f (y', x) (y, x'). f (if y = y' then y' else y) (if x = x' then x' else x)) \<diamond> f) \<diamond> zip y x"
+  also have "\<dots> = W \<diamond> (pure (\<lambda>f (y', x) (y, x'). f y x) \<diamond> f) \<diamond> zip y x"
     unfolding ap_W by applicative_nf simp
   also have "\<dots> = pure (\<lambda>f (y', x). f y' x) \<diamond> f \<diamond> zip y x"
     unfolding W_def by applicative_nf simp
