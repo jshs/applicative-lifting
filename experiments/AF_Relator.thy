@@ -410,6 +410,16 @@ text \<open>
   lifted terms does not imply point-wise equality between terms.
 \<close>
 
+text \<open>
+  We can avoid some of the rewriting by directly pushing the ap's into the rel using the combinator
+  @{term BNF_Def.vimage2p} and its monotonicity theorem @{thm [source] vimage2p_mono}.
+\<close>
+lemma
+  assumes "BNF_Def.vimage2p (case_prod zip) (case_prod zip) (rel (\<lambda>(f, x) (g, y). P (f x) (g y))) (f, x) (g, y)"
+  shows "rel P (f \<diamondop> x) (g \<diamondop> y)"
+using assms
+unfolding vimage2p_def prod.simps ap_conv rel_map split_def fst_conv snd_conv .
+
 
 
 subsection \<open>Doubling effects\<close>
