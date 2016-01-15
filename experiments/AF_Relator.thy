@@ -11,15 +11,15 @@ definition unit :: "unit af"
 where unit_conv [applicative_unfold]: "unit = pure ()"
 
 definition map :: "('a \<Rightarrow> 'b) \<Rightarrow> 'a af \<Rightarrow> 'b af"
-where map_conv [applicative_unfold]: "map f x = pure f \<diamond> x"
+where map_conv [applicative_unfold]: "map f x = pure f \<diamondop> x"
 
 definition zip :: "'a af \<Rightarrow> 'b af \<Rightarrow> ('a \<times> 'b) af"
-where zip_conv [applicative_unfold]: "zip x y = pure Pair \<diamond> x \<diamond> y"
+where zip_conv [applicative_unfold]: "zip x y = pure Pair \<diamondop> x \<diamondop> y"
 
 lemma pure_conv: "pure x = map (\<lambda>_. x) unit"
 by applicative_nf simp
 
-lemma ap_conv: "f \<diamond> x = map (\<lambda>(f, x). f x) (zip f x)"
+lemma ap_conv: "f \<diamondop> x = map (\<lambda>(f, x). f x) (zip f x)"
 by applicative_nf simp
 
 lemma map_id: "map (\<lambda>a. a) x = x"
@@ -207,7 +207,7 @@ axiomatization
 lemma rel_apI:
   assumes fg: "rel (rel_fun P Q) f g"
   and xy: "rel P x y"
-  shows "rel Q (f \<diamond> x) (g \<diamond> y)"
+  shows "rel Q (f \<diamondop> x) (g \<diamondop> y)"
 proof -
   from fg obtain fg where fg: "\<forall>(a, b)\<in>set fg. rel_fun P Q a b"
     and f: "map fst fg = f"
@@ -223,16 +223,16 @@ proof -
     also have "\<dots> = map (\<lambda>(f, x). f x) (zip (map fst fg) (map fst xy))"
       unfolding map_zip ..
     also have "\<dots> = map (\<lambda>(f, x). f x) (zip f x)" unfolding f x ..
-    also have "\<dots> = f \<diamond> x" unfolding ap_conv ..
-    finally have "map fst ?z = f \<diamond> x" . }
+    also have "\<dots> = f \<diamondop> x" unfolding ap_conv ..
+    finally have "map fst ?z = f \<diamondop> x" . }
   moreover
   { have "map snd ?z = map (\<lambda>(g, y). g y) (map (map_prod snd snd) (zip fg xy))"
       unfolding map_comp by(simp add: o_def split_def)
     also have "\<dots> = map (\<lambda>(g, y). g y) (zip (map snd fg) (map snd xy))"
       unfolding map_zip ..
     also have "\<dots> = map (\<lambda>(g, y). g y) (zip g y)" unfolding g y ..
-    also have "\<dots> = g \<diamond> y" unfolding ap_conv ..
-    finally have "map snd ?z = g \<diamond> y" . }
+    also have "\<dots> = g \<diamondop> y" unfolding ap_conv ..
+    finally have "map snd ?z = g \<diamondop> y" . }
   moreover
   { fix a b
     assume "(a, b) \<in> set ?z"
@@ -264,7 +264,7 @@ text \<open>
 
 lemma lifting_relations_example:
   assumes "\<forall>x y. R (f x y) (g x y)"
-  shows "rel R (pure f \<diamond> x \<diamond> y) (pure g \<diamond> x \<diamond> y)"
+  shows "rel R (pure f \<diamondop> x \<diamondop> y) (pure g \<diamondop> x \<diamondop> y)"
 apply(rule rel_apI[where P="op ="])+
   apply(rule rel_pureI)
   apply(rule rel_funI)+
@@ -281,7 +281,7 @@ text \<open>
 lemma rel_addI: -- \<open>add at the end\<close>
   assumes "rel P f g"
   and "compat x y"
-  shows "rel P (pure (\<lambda>x y. x) \<diamond> f \<diamond> x) (pure (\<lambda>x y. x) \<diamond> g \<diamond> y)"
+  shows "rel P (pure (\<lambda>x y. x) \<diamondop> f \<diamondop> x) (pure (\<lambda>x y. x) \<diamondop> g \<diamondop> y)"
 using _ assms(2)
 apply(rule rel_apI)
 using _ assms(1)
@@ -294,7 +294,7 @@ done
 lemma rel_addI': -- \<open>add at the front\<close>
   assumes "rel P x y"
   and "compat f g"
-  shows "rel P (pure (\<lambda>x y. y) \<diamond> f \<diamond> x) (pure (\<lambda>x y. y) \<diamond> g \<diamond> y)"
+  shows "rel P (pure (\<lambda>x y. y) \<diamondop> f \<diamondop> x) (pure (\<lambda>x y. y) \<diamondop> g \<diamondop> y)"
 using _ assms(1)
 apply(rule rel_apI)
 using _ assms(2)
@@ -369,19 +369,19 @@ text \<open>
 
 lemma lift_implication:
   assumes base: "\<forall>a b c d e f''. P (f a b) (g d e) \<longrightarrow> Q (f' a b c) (g' d e f'')"
-  and assm: "rel P (pure f \<diamond> x \<diamond> y) (pure g \<diamond> u \<diamond> v)"
+  and assm: "rel P (pure f \<diamondop> x \<diamondop> y) (pure g \<diamondop> u \<diamondop> v)"
   and zw: "compat z w" -- \<open>We can always add compatible effects at the end\<close>
   -- \<open>we could relax compatibility such that z and w have compatible effects given the effects of x and y -- how to express this?\<close>
-  shows "rel Q (pure f' \<diamond> x \<diamond> y \<diamond> z) (pure g' \<diamond> u \<diamond> v \<diamond> w)"
+  shows "rel Q (pure f' \<diamondop> x \<diamondop> y \<diamondop> z) (pure g' \<diamondop> u \<diamondop> v \<diamondop> w)"
 proof -
-  from assm have "rel P (pure (\<lambda>x y. x) \<diamond> (pure f \<diamond> x \<diamond> y) \<diamond> z) (pure (\<lambda>x y. x) \<diamond> (pure g \<diamond> u \<diamond> v) \<diamond> w)"
+  from assm have "rel P (pure (\<lambda>x y. x) \<diamondop> (pure f \<diamondop> x \<diamondop> y) \<diamondop> z) (pure (\<lambda>x y. x) \<diamondop> (pure g \<diamondop> u \<diamondop> v) \<diamondop> w)"
     using zw by(rule rel_addI)
-  also have "pure (\<lambda>x y. x) \<diamond> (pure f \<diamond> x \<diamond> y) \<diamond> z = pure (\<lambda>x y z. f x y) \<diamond> x \<diamond> y \<diamond> z"
+  also have "pure (\<lambda>x y. x) \<diamondop> (pure f \<diamondop> x \<diamondop> y) \<diamondop> z = pure (\<lambda>x y z. f x y) \<diamondop> x \<diamondop> y \<diamondop> z"
     unfolding af_composition[symmetric] af_homomorphism o_def ..
   also have "\<dots> = map (\<lambda>(x, y, z). f x y) (zip x (zip y z))"
     unfolding zip_conv map_conv af_composition[symmetric] af_homomorphism o_def prod.simps
     by(subst af_interchange)(simp add: af_composition[symmetric] af_homomorphism o_def)
-  also have "pure (\<lambda>x y. x) \<diamond> (pure g \<diamond> u \<diamond> v) \<diamond> w = pure (\<lambda>x y z. g x y) \<diamond> u \<diamond> v \<diamond> w"
+  also have "pure (\<lambda>x y. x) \<diamondop> (pure g \<diamondop> u \<diamondop> v) \<diamondop> w = pure (\<lambda>x y z. g x y) \<diamondop> u \<diamondop> v \<diamondop> w"
     unfolding af_composition[symmetric] af_homomorphism o_def ..
   also have "\<dots> = map (\<lambda>(x, y, z). g x y) (zip u (zip v w))"
     unfolding zip_conv map_conv af_composition[symmetric] af_homomorphism o_def prod.simps
@@ -393,10 +393,10 @@ proof -
     using base by auto
   hence "rel Q (map (\<lambda>(x, y, z). f' x y z) (zip x (zip y z))) (map (\<lambda>(x, y, z). g' x y z) (zip u (zip v w)))"
     unfolding rel_map by(simp add: split_def)
-  also have "map (\<lambda>(x, y, z). f' x y z) (zip x (zip y z)) = pure f' \<diamond> x \<diamond> y \<diamond> z"
+  also have "map (\<lambda>(x, y, z). f' x y z) (zip x (zip y z)) = pure f' \<diamondop> x \<diamondop> y \<diamondop> z"
     unfolding zip_conv map_conv af_composition[symmetric] af_homomorphism
     by(subst af_interchange)(simp add: af_composition[symmetric] af_homomorphism o_def)
-  also have "map (\<lambda>(x, y, z). g' x y z) (zip u (zip v w)) = pure g' \<diamond> u \<diamond> v \<diamond> w"
+  also have "map (\<lambda>(x, y, z). g' x y z) (zip u (zip v w)) = pure g' \<diamondop> u \<diamondop> v \<diamondop> w"
     unfolding zip_conv map_conv af_composition[symmetric] af_homomorphism
     by(subst af_interchange)(simp add: af_composition[symmetric] af_homomorphism o_def)
   finally show ?thesis .
@@ -417,7 +417,7 @@ subsection \<open>Doubling effects\<close>
 text \<open> If we can double effects, products are unique. \<close>
 
 axiomatization W :: "(('a \<Rightarrow> 'a \<Rightarrow> 'b) \<Rightarrow> 'a \<Rightarrow> 'b) af"
-where ap_W: "W \<diamond> f \<diamond> x = f \<diamond> x \<diamond> x"
+where ap_W: "W \<diamondop> f \<diamondop> x = f \<diamondop> x \<diamondop> x"
   and W_def: "W = pure (\<lambda>f x. f x x)"
 
 lemma product_unique:
@@ -427,10 +427,10 @@ lemma product_unique:
 proof -
   have "zip x y = zip (map fst z) (map snd z)" by(simp add: assms)
   also have "\<dots> = map (map_prod fst snd) (zip z z)" unfolding map_zip ..
-  also have "zip z z = W \<diamond> pure Pair \<diamond> z" unfolding zip_conv ap_W af_identity ..
-  also have "\<dots> = pure (\<lambda>W. W Pair) \<diamond> W \<diamond> z"
+  also have "zip z z = W \<diamondop> pure Pair \<diamondop> z" unfolding zip_conv ap_W af_identity ..
+  also have "\<dots> = pure (\<lambda>W. W Pair) \<diamondop> W \<diamondop> z"
     apply(subst af_interchange) ..
-  also have "map (map_prod fst snd) \<dots> = pure (\<lambda>W z. map_prod fst snd (W Pair z)) \<diamond> W \<diamond> z"
+  also have "map (map_prod fst snd) \<dots> = pure (\<lambda>W z. map_prod fst snd (W Pair z)) \<diamondop> W \<diamondop> z"
     unfolding map_conv af_composition[symmetric] af_homomorphism o_def ..
   also have "\<dots> = z" unfolding W_def af_homomorphism by(simp add: af_identity[unfolded id_def])
   finally show ?thesis by simp
@@ -442,13 +442,13 @@ text \<open>
 \<close>
 
 axiomatization H :: "(('a \<Rightarrow> 'b \<Rightarrow> 'a \<Rightarrow> 'c) \<Rightarrow> 'a \<Rightarrow> 'b \<Rightarrow> 'c) af"
-where ap_H: "H \<diamond> f \<diamond> x \<diamond> y = f \<diamond> x \<diamond> y \<diamond> x"
+where ap_H: "H \<diamondop> f \<diamondop> x \<diamondop> y = f \<diamondop> x \<diamondop> y \<diamondop> x"
   and H_def: "H = pure (\<lambda>f x y. f x y x)"
   -- \<open>Hummingbird combinator taken from "To Mock a Mockingbird"\<close>
 
 text \<open>If there is H, then there is W\<close>
 
-lemma "W \<diamond> f \<diamond> x = H \<diamond> (pure (\<lambda>f x y. f x) \<diamond> f) \<diamond> x \<diamond> pure id"
+lemma "W \<diamondop> f \<diamondop> x = H \<diamondop> (pure (\<lambda>f x y. f x) \<diamondop> f) \<diamondop> x \<diamondop> pure id"
 unfolding H_def W_def
 apply(subst af_interchange)
 apply(subst af_composition[symmetric])
@@ -476,21 +476,21 @@ text \<open>
 \<close>
 
 lemma
-  assumes *: "rel P (pure f \<diamond> x \<diamond> y) (pure g \<diamond> x \<diamond> y)"
+  assumes *: "rel P (pure f \<diamondop> x \<diamondop> y) (pure g \<diamondop> x \<diamondop> y)"
   and base: "\<forall>x y. P (f x y) (g x y) \<longrightarrow> Q (f' x y) (g' x y)"
-  shows "rel Q (pure f' \<diamond> x \<diamond> y) (pure g' \<diamond> x \<diamond> y)"
+  shows "rel Q (pure f' \<diamondop> x \<diamondop> y) (pure g' \<diamondop> x \<diamondop> y)"
 proof -
   txt \<open>This unfolding of @{const rel} is ugly. Can we find a more abstract rule for reasoning?\<close>
   from * obtain z where z: "pred (\<lambda>(x, y). P x y) z"
-    and proj: "map fst z = pure f \<diamond> x \<diamond> y" "map snd z = pure g \<diamond> x \<diamond> y"
+    and proj: "map fst z = pure f \<diamondop> x \<diamondop> y" "map snd z = pure g \<diamondop> x \<diamondop> y"
     unfolding rel_def by blast
-  from proj have "z = zip (pure f \<diamond> x \<diamond> y) (pure g \<diamond> x \<diamond> y)" by(rule product_unique)
-  also have "\<dots> = pure (\<lambda>x y x' y'. (f x y, g x' y')) \<diamond> x \<diamond> y \<diamond> x \<diamond> y"
+  from proj have "z = zip (pure f \<diamondop> x \<diamondop> y) (pure g \<diamondop> x \<diamondop> y)" by(rule product_unique)
+  also have "\<dots> = pure (\<lambda>x y x' y'. (f x y, g x' y')) \<diamondop> x \<diamondop> y \<diamondop> x \<diamondop> y"
     unfolding zip_conv af_composition[symmetric] af_homomorphism o_def
     by(subst af_interchange)(simp add: af_composition[symmetric] af_homomorphism o_def)
-  also have "\<dots> = H \<diamond> pure (\<lambda>x y x' y'. (f x y, g x' y')) \<diamond> x \<diamond> y \<diamond> y" unfolding ap_H ..
-  also have "\<dots> = W \<diamond> (H \<diamond> pure (\<lambda>x y x' y'. (f x y, g x' y')) \<diamond> x) \<diamond> y" unfolding ap_W ..
-  also have "\<dots> = pure (\<lambda>x y. (f x y, g x y)) \<diamond> x \<diamond> y"
+  also have "\<dots> = H \<diamondop> pure (\<lambda>x y x' y'. (f x y, g x' y')) \<diamondop> x \<diamondop> y \<diamondop> y" unfolding ap_H ..
+  also have "\<dots> = W \<diamondop> (H \<diamondop> pure (\<lambda>x y x' y'. (f x y, g x' y')) \<diamondop> x) \<diamondop> y" unfolding ap_W ..
+  also have "\<dots> = pure (\<lambda>x y. (f x y, g x y)) \<diamondop> x \<diamondop> y"
     unfolding W_def H_def af_composition[symmetric] af_homomorphism o_def ..
   also have "\<dots> = map (\<lambda>(x, y). (f x y, g x y)) (zip x y)" unfolding map_conv zip_conv 
     af_composition[symmetric] af_homomorphism o_def split_beta fst_conv snd_conv ..
@@ -511,9 +511,9 @@ proof -
     apply(drule subsetD[OF set_natural])
     apply auto
     done
-  moreover have "map fst ?z = pure f' \<diamond> x \<diamond> y"
+  moreover have "map fst ?z = pure f' \<diamondop> x \<diamondop> y"
     unfolding zip_conv map_conv af_composition[symmetric] af_homomorphism o_def prod.simps fst_conv ..
-  moreover have "map snd ?z = pure g' \<diamond> x \<diamond> y"
+  moreover have "map snd ?z = pure g' \<diamondop> x \<diamondop> y"
     unfolding zip_conv map_conv af_composition[symmetric] af_homomorphism o_def prod.simps snd_conv ..
   ultimately show ?thesis unfolding rel_def by blast
 qed
@@ -531,7 +531,7 @@ text \<open>
 \<close>
 
 axiomatization K :: "('a \<Rightarrow> 'b \<Rightarrow> 'a) af"
-  where ap_K: "K \<diamond> x \<diamond> y = x"
+  where ap_K: "K \<diamondop> x \<diamondop> y = x"
   and K_def: "K = pure (\<lambda>x y. x)"
 
 lemma map_fst_zip_K: "map fst (zip x y) = x" -- \<open>see Hinze, Eq. (1)\<close>
@@ -540,9 +540,9 @@ by(fold K_def)(fact ap_K)
 
 lemma map_snd_zip_K: "map snd (zip x y) = y" -- \<open>see Hinze, Eq. (2)\<close>
 proof -
-  have "map snd (zip x y) = K \<diamond> pure id \<diamond> x \<diamond> y"
+  have "map snd (zip x y) = K \<diamondop> pure id \<diamondop> x \<diamondop> y"
     unfolding map_conv zip_conv af_composition[symmetric] af_homomorphism o_def snd_conv K_def id_def ..
-  also have "\<dots> = pure id \<diamond> y" unfolding ap_K ..
+  also have "\<dots> = pure id \<diamondop> y" unfolding ap_K ..
   also have "\<dots> = y" unfolding af_identity ..
   finally show ?thesis .
 qed
@@ -560,23 +560,23 @@ text \<open>If we have K and W, we can reify equality.\<close>
 text \<open>Intuition: We want to exploit equality here, so we need W. We also need K because K ensures
   that x and y are always compatible in their effects.
 \<close>
-lemma af_eq_reify: "x = y \<longleftrightarrow> pure (op =) \<diamond> x \<diamond> y = pure True" (is "?lhs \<longleftrightarrow> ?rhs")
+lemma af_eq_reify: "x = y \<longleftrightarrow> pure (op =) \<diamondop> x \<diamondop> y = pure True" (is "?lhs \<longleftrightarrow> ?rhs")
 proof
   assume ?lhs
-  have "pure (op =) \<diamond> x \<diamond> y = W \<diamond> pure (op =) \<diamond> y" unfolding \<open>?lhs\<close> ap_W ..
-  also have "\<dots> = pure (\<lambda>_. True) \<diamond> y" unfolding W_def by applicative_nf simp
-  also have "\<dots> = K \<diamond> pure True \<diamond> y" unfolding K_def by applicative_nf simp
+  have "pure (op =) \<diamondop> x \<diamondop> y = W \<diamondop> pure (op =) \<diamondop> y" unfolding \<open>?lhs\<close> ap_W ..
+  also have "\<dots> = pure (\<lambda>_. True) \<diamondop> y" unfolding W_def by applicative_nf simp
+  also have "\<dots> = K \<diamondop> pure True \<diamondop> y" unfolding K_def by applicative_nf simp
   also have "\<dots> = pure True" unfolding ap_K ..
   finally show ?rhs .
 next
   assume ?rhs
-  have "x = K \<diamond> x \<diamond> y" unfolding ap_K ..
-  also have "\<dots> = pure (\<lambda>x y. if x = y then y else x) \<diamond> x \<diamond> y" unfolding K_def by applicative_nf simp
-  also have "\<dots> = W \<diamond> (W \<diamond> (pure (\<lambda>x x' y y'. if x' = y then y' else x)) \<diamond> x) \<diamond> y" unfolding W_def by applicative_nf simp
-  also have "\<dots> = pure (\<lambda>x x' y y'. if x' = y then y' else x) \<diamond> x \<diamond> x \<diamond> y \<diamond> y" unfolding ap_W ..
-  also have "\<dots> = pure (\<lambda>x b y'. if b then y' else x) \<diamond> x \<diamond> (pure op = \<diamond> x \<diamond> y) \<diamond> y" by applicative_nf simp
-  also have "\<dots> = pure (\<lambda>x y'. y') \<diamond> x \<diamond> y" unfolding \<open>?rhs\<close> by applicative_nf simp
-  also have "\<dots> = K \<diamond> pure (\<lambda>x. x) \<diamond> x \<diamond> y" unfolding K_def by applicative_nf simp
+  have "x = K \<diamondop> x \<diamondop> y" unfolding ap_K ..
+  also have "\<dots> = pure (\<lambda>x y. if x = y then y else x) \<diamondop> x \<diamondop> y" unfolding K_def by applicative_nf simp
+  also have "\<dots> = W \<diamondop> (W \<diamondop> (pure (\<lambda>x x' y y'. if x' = y then y' else x)) \<diamondop> x) \<diamondop> y" unfolding W_def by applicative_nf simp
+  also have "\<dots> = pure (\<lambda>x x' y y'. if x' = y then y' else x) \<diamondop> x \<diamondop> x \<diamondop> y \<diamondop> y" unfolding ap_W ..
+  also have "\<dots> = pure (\<lambda>x b y'. if b then y' else x) \<diamondop> x \<diamondop> (pure op = \<diamondop> x \<diamondop> y) \<diamondop> y" by applicative_nf simp
+  also have "\<dots> = pure (\<lambda>x y'. y') \<diamondop> x \<diamondop> y" unfolding \<open>?rhs\<close> by applicative_nf simp
+  also have "\<dots> = K \<diamondop> pure (\<lambda>x. x) \<diamondop> x \<diamondop> y" unfolding K_def by applicative_nf simp
   also have "\<dots> = y" unfolding ap_K by applicative_nf simp
   finally show ?lhs .
 qed
@@ -585,16 +585,16 @@ text \<open>
   If we have K and W, then we also have C.
 \<close>
 
-lemma ap_C_KW: "pure (\<lambda>f x y. f y x) \<diamond> f \<diamond> x \<diamond> y = f \<diamond> y \<diamond> x" (is "?lhs = ?rhs")
+lemma ap_C_KW: "pure (\<lambda>f x y. f y x) \<diamondop> f \<diamondop> x \<diamondop> y = f \<diamondop> y \<diamondop> x" (is "?lhs = ?rhs")
 proof -
-  have "?lhs = (pure (\<lambda>f x y. f y x) \<diamond> f) \<diamond> (K \<diamond> pure (\<lambda>x. x) \<diamond> y \<diamond> x) \<diamond> y"
+  have "?lhs = (pure (\<lambda>f x y. f y x) \<diamondop> f) \<diamondop> (K \<diamondop> pure (\<lambda>x. x) \<diamondop> y \<diamondop> x) \<diamondop> y"
     unfolding ap_K by applicative_nf simp
-  also have "\<dots> = K \<diamond> \<dots> \<diamond> x" unfolding ap_K ..
-  also have "\<dots> = pure (\<lambda>f y' x y x'. f y x) \<diamond> f \<diamond> y \<diamond> x \<diamond> y \<diamond> x" unfolding K_def
+  also have "\<dots> = K \<diamondop> \<dots> \<diamondop> x" unfolding ap_K ..
+  also have "\<dots> = pure (\<lambda>f y' x y x'. f y x) \<diamondop> f \<diamondop> y \<diamondop> x \<diamondop> y \<diamondop> x" unfolding K_def
     by applicative_nf simp
-  also have "\<dots> = W \<diamond> (pure (\<lambda>f (y', x) (y, x'). f y x) \<diamond> f) \<diamond> zip y x"
+  also have "\<dots> = W \<diamondop> (pure (\<lambda>f (y', x) (y, x'). f y x) \<diamondop> f) \<diamondop> zip y x"
     unfolding ap_W by applicative_nf simp
-  also have "\<dots> = pure (\<lambda>f (y', x). f y' x) \<diamond> f \<diamond> zip y x"
+  also have "\<dots> = pure (\<lambda>f (y', x). f y' x) \<diamondop> f \<diamondop> zip y x"
     unfolding W_def by applicative_nf simp
   also have "\<dots> = ?rhs" by applicative_nf simp
   finally show ?thesis .
@@ -608,15 +608,15 @@ text \<open>
 \<close>
 
 axiomatization C :: "(('a \<Rightarrow> 'b \<Rightarrow> 'c) \<Rightarrow> 'b \<Rightarrow> 'a \<Rightarrow> 'c) af"
-  where ap_C: "C \<diamond> f \<diamond> x \<diamond> y = f \<diamond> y \<diamond> x"
+  where ap_C: "C \<diamondop> f \<diamondop> x \<diamondop> y = f \<diamondop> y \<diamondop> x"
   and C_def: "C = pure (\<lambda>f x y. f y x)"
 
 text \<open>With swapping, we can add effects in the middle.\<close>
 
 lemma rel_add_middle:
-  assumes "rel P (f \<diamond> y) (f' \<diamond> y')"
+  assumes "rel P (f \<diamondop> y) (f' \<diamondop> y')"
   and "rel (\<lambda>_ _. True) x x'"
-  shows "rel P (pure (\<lambda>f x y. f y) \<diamond> f \<diamond> x \<diamond> y) (pure (\<lambda>f x y. f y) \<diamond> f' \<diamond> x' \<diamond> y')"
+  shows "rel P (pure (\<lambda>f x y. f y) \<diamondop> f \<diamondop> x \<diamondop> y) (pure (\<lambda>f x y. f y) \<diamondop> f' \<diamondop> x' \<diamondop> y')"
 apply(rule rel_apI)
 apply(rule rel_apI)
 prefer 2
