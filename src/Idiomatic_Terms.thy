@@ -3,7 +3,7 @@
 subsection \<open>Idiomatic terms -- Properties and operations\<close>
 
 theory Idiomatic_Terms
-imports Beta_Eta
+imports Equality_Model
 begin
 
 text \<open>
@@ -87,99 +87,88 @@ datatype itrm =
     Term dB | Pure dB
   | IAp itrm itrm (infixl "\<diamondop>" 150)
 
-inductive itrm_cong :: "(itrm \<Rightarrow> itrm \<Rightarrow> bool) \<Rightarrow> itrm \<Rightarrow> itrm \<Rightarrow> bool"
-for p
-where
-    base_cong: "p x y \<Longrightarrow> itrm_cong p x y"
-  | term_subst: "x \<leftrightarrow> y \<Longrightarrow> itrm_cong p (Term x) (Term y)"
-  | pure_subst: "x \<leftrightarrow> y \<Longrightarrow> itrm_cong p (Pure x) (Pure y)"
-  | ap_congL: "itrm_cong p f f' \<Longrightarrow> itrm_cong p (f \<diamondop> x) (f' \<diamondop> x)"
-  | ap_congR: "itrm_cong p x x' \<Longrightarrow> itrm_cong p (f \<diamondop> x) (f \<diamondop> x')"
-  | itrm_sym[sym]: "itrm_cong p x y \<Longrightarrow> itrm_cong p y x"
-  | itrm_trans[trans]: "itrm_cong p x y \<Longrightarrow> itrm_cong p y z \<Longrightarrow> itrm_cong p x z"
+locale itrm_cong =
+  fixes R :: "itrm \<Rightarrow> itrm \<Rightarrow> bool"
+  assumes refl[simp, intro]: "R x x"
+  assumes sym[sym]: "R x y \<Longrightarrow> R y x"
+  assumes trans[trans]: "R x y \<Longrightarrow> R y z \<Longrightarrow> R x z"
+  assumes iapL: "R x y \<Longrightarrow> R (x \<diamondop> z) (y \<diamondop> z)"
+  assumes iapR: "R x y \<Longrightarrow> R (z \<diamondop> x) (z \<diamondop> y)"
 
-lemma ap_cong: "itrm_cong p f f' \<Longrightarrow> itrm_cong p x x' \<Longrightarrow> itrm_cong p (f \<diamondop> x) (f' \<diamondop> x')"
-by (blast intro: itrm_cong.intros)
+locale itrm_eq = eq_model +
+  itrm_cong itrm_eq for itrm_eq (infix "\<simeq>" 50) +
+    assumes term_cong[intro]: "s =\<^sub>\<Omega> t \<Longrightarrow> Term s \<simeq> Term t"
+    assumes pure_cong[intro]: "s =\<^sub>\<Omega> t \<Longrightarrow> Pure s \<simeq> Pure t"
+    assumes identity: "Pure \<I> \<diamondop> x \<simeq> x"
+    assumes composition: "Pure \<B> \<diamondop> g \<diamondop> f \<diamondop> x \<simeq> g \<diamondop> (f \<diamondop> x)"
+    assumes homomorphism: "Pure f' \<diamondop> Pure x' \<simeq> Pure (f' \<degree> x')"
+    assumes interchange: "f \<diamondop> Pure x' \<simeq> Pure (\<T> \<degree> x') \<diamondop> f"
 
-lemma itrm_refl[simp,intro]: "itrm_cong p x x"
-by induction (auto intro: itrm_cong.intros ap_cong)
-
-text \<open>Idiomatic terms are \emph{similar} iff they have the same structure, and all contained
-  lambda terms are equivalent.\<close>
-
-abbreviation similar :: "itrm \<Rightarrow> itrm \<Rightarrow> bool" (infixl "\<cong>" 50)
-where "x \<cong> y \<equiv> itrm_cong (\<lambda>_ _. False) x y"
-
-lemma pure_similarE:
-  assumes "Pure x' \<cong> y"
-  obtains y' where "y = Pure y'" and "x' \<leftrightarrow> y'"
-proof -
-  have "(\<forall>x''. Pure x' = Pure x'' \<longrightarrow> (\<exists>y'. y = Pure y' \<and> x'' \<leftrightarrow> y')) \<and>
-    (\<forall>x''. y = Pure x'' \<longrightarrow> (\<exists>y'. Pure x' = Pure y' \<and> x'' \<leftrightarrow> y'))"
-  using assms proof (induction)
-    case pure_subst thus ?case by (blast intro: term_sym)
-  next
-    case itrm_trans thus ?case by (fastforce intro: term_trans)
-  qed simp_all
-  with that show thesis by blast
-qed
-
-lemma term_similarE:
-  assumes "Term x' \<cong> y"
-  obtains y' where "y = Term y'" and "x' \<leftrightarrow> y'"
-proof -
-  from assms
-  have "(\<forall>x''. Term x' = Term x'' \<longrightarrow> (\<exists>y'. y = Term y' \<and> x'' \<leftrightarrow> y')) \<and>
-    (\<forall>x''. y = Term x'' \<longrightarrow> (\<exists>y'. Term x' = Term y' \<and> x'' \<leftrightarrow> y'))"
-  proof (induction)
-    case term_subst thus ?case by (blast intro: term_sym)
-  next
-    case itrm_trans thus ?case by (fastforce intro: term_trans)
-  qed simp_all
-  with that show thesis by blast
-qed
-
-lemma ap_similarE:
-  assumes "x1 \<diamondop> x2 \<cong> y"
-  obtains y1 y2 where "y = y1 \<diamondop> y2" and "x1 \<cong> y1" and "x2 \<cong> y2"
-proof -
-  from assms
-  have "(\<forall>x1' x2'. x1 \<diamondop> x2 = x1' \<diamondop> x2' \<longrightarrow> (\<exists>y1 y2. y = y1 \<diamondop> y2 \<and> x1' \<cong> y1 \<and> x2' \<cong> y2)) \<and>
-    (\<forall>x1' x2'. y = x1' \<diamondop> x2' \<longrightarrow> (\<exists>y1 y2. x1 \<diamondop> x2 = y1 \<diamondop> y2 \<and> x1' \<cong> y1 \<and> x2' \<cong> y2))"
-  proof (induction)
-    case ap_congL thus ?case by (blast intro: itrm_sym)
-  next
-    case ap_congR thus ?case by (blast intro: itrm_sym)
-  next
-    case itrm_trans thus ?case by (fastforce intro: itrm_cong.itrm_trans)
-  qed simp_all
-  with that show thesis by blast
-qed
-
-text \<open>The following relations define semantic equivalence of idiomatic terms.\<close>
-
-inductive pre_equiv :: "itrm \<Rightarrow> itrm \<Rightarrow> bool"
-where
-    itrm_id: "pre_equiv x (Pure \<I> \<diamondop> x)"
-  | itrm_comp: "pre_equiv (g \<diamondop> (f \<diamondop> x)) (Pure \<B> \<diamondop> g \<diamondop> f \<diamondop> x)"
-  | itrm_hom: "pre_equiv (Pure f \<diamondop> Pure x) (Pure (f \<degree> x))"
-  | itrm_xchng: "pre_equiv (f \<diamondop> Pure x) (Pure (\<T> \<degree> x) \<diamondop> f)"
-
-abbreviation itrm_equiv :: "itrm \<Rightarrow> itrm \<Rightarrow> bool" (infixl "\<simeq>" 50)
-where
-  "x \<simeq> y \<equiv> itrm_cong pre_equiv x y"
-
-lemma pre_equiv_into_equiv: "pre_equiv x y \<Longrightarrow> x \<simeq> y" ..
-
-lemmas itrm_id' = itrm_id[THEN pre_equiv_into_equiv]
-lemmas itrm_comp' = itrm_comp[THEN pre_equiv_into_equiv]
-lemmas itrm_hom' = itrm_hom[THEN pre_equiv_into_equiv]
-lemmas itrm_xchng' = itrm_xchng[THEN pre_equiv_into_equiv]
-
-lemma similar_equiv: "x \<cong> y \<Longrightarrow> x \<simeq> y"
-by (induction pred: itrm_cong) (auto intro: itrm_cong.intros)
+(* TODO: define least relation satisfying itrm_eq, depending on eq_model *)
+(* TODO: interpretation of idiomatic terms? *)
 
 text \<open>Structural analysis\<close>
+
+inductive itrm_rel :: "(dB \<Rightarrow> dB \<Rightarrow> bool) \<Rightarrow> itrm \<Rightarrow> itrm \<Rightarrow> bool"
+for R
+where
+    rel_term: "R s t \<Longrightarrow> itrm_rel R (Term s) (Term t)"
+  | rel_pure: "R s t \<Longrightarrow> itrm_rel R (Pure s) (Pure t)"
+  | rel_ap: "itrm_rel R w x \<Longrightarrow> itrm_rel R y z \<Longrightarrow> itrm_rel R (w \<diamondop> y) (x \<diamondop> z)"
+(* FIXME: split rel_ap? *)
+
+lemma rel_TermE:
+  assumes "itrm_rel R (Term x) y'"
+  obtains y where "y' = Term y" and "R x y"
+using assms by (induction "Term x" y') simp
+
+lemma rel_PureE:
+  assumes "itrm_rel R (Pure x) y'"
+  obtains y where "y' = Pure y" and "R x y"
+using assms by (induction "Pure x" y') simp
+
+lemma rel_IApE:
+  assumes "itrm_rel R (x \<diamondop> y) z"
+  obtains x' y' where "z = x' \<diamondop> y'" and "itrm_rel R x x'" and "itrm_rel R y y'"
+using assms by (induction "x \<diamondop> y" z) simp
+
+lemma rel_refl: "reflp R \<Longrightarrow> reflp (itrm_rel R)"
+proof (rule reflpI)
+  fix x
+  assume "reflp R"
+  then show "itrm_rel R x x" by (induction) (blast intro: itrm_rel.intros dest: reflpD)+
+qed
+
+lemma rel_sym: "symp R \<Longrightarrow> symp (itrm_rel R)"
+proof (rule sympI)
+  fix x y
+  assume "itrm_rel R x y" "symp R"
+  then show "itrm_rel R y x" by (induction) (blast intro: itrm_rel.intros dest: sympD)+
+qed
+
+lemma rel_trans: "transp R \<Longrightarrow> transp (itrm_rel R)"
+proof (rule transpI)
+  fix x y z
+  assume "itrm_rel R x y" "itrm_rel R y z" "transp R"
+  then show "itrm_rel R x z" proof (induction arbitrary: z)
+    case rel_term then show ?case
+      by (blast intro: itrm_rel.rel_term elim: rel_TermE transpE)
+  next
+    case rel_pure then show ?case
+      by (blast intro: itrm_rel.rel_pure elim: rel_PureE transpE)
+  next
+    case rel_ap then show ?case
+      by (blast intro: itrm_rel.rel_ap elim: rel_IApE transpE)
+  qed
+qed
+
+context eq_model
+begin
+
+abbreviation similar :: "itrm \<Rightarrow> itrm \<Rightarrow> bool" (infix "\<cong>" 50)
+where "similar \<equiv> itrm_rel op =\<^sub>\<Omega>"
+
+end
 
 primrec opaque :: "itrm \<Rightarrow> dB list"
 where
@@ -198,12 +187,7 @@ where
 
 abbreviation "unlift' n x i \<equiv> fst (vary_terms n x i)"
 
-primrec wrap_abs :: "dB \<Rightarrow> nat \<Rightarrow> dB"
-where
-    "wrap_abs t 0 = t"
-  | "wrap_abs t (Suc n) = Abs (wrap_abs t n)"
-
-abbreviation "unlift x \<equiv> wrap_abs (unlift' (iorder x) x 0) (iorder x)"
+abbreviation "unlift x \<equiv> (Abs ^^ iorder x) (unlift' (iorder x) x 0)"
 
 
 lemma vary_terms_order: "snd (vary_terms n x i) = i + iorder x"
@@ -236,11 +220,8 @@ next
   thus ?case using unlift_ap by simp
 qed
 
-lemma wrap_abs_inside: "wrap_abs t (Suc n) = wrap_abs (Abs t) n"
-by (induction n) auto
-
-lemma wrap_abs_equiv: "s \<leftrightarrow> t \<Longrightarrow> wrap_abs s n \<leftrightarrow> wrap_abs t n"
-by (induction n) auto
+lemma (in eq_model) abs_pow_eq: "s =\<^sub>\<Omega> t \<Longrightarrow> (Abs^^n) s =\<^sub>\<Omega> (Abs^^n) t"
+by (induction n) (auto intro: abs)
 
 lemma list_equiv_refl[simp]: "list_all2 (op \<leftrightarrow>) x x"
 by (induction x) (auto)
@@ -250,6 +231,19 @@ by(rule list_all2_appendI) simp_all
 
 lemma list_equiv_prefix: "list_all2 (op \<leftrightarrow>) x y \<Longrightarrow> list_all2 (op \<leftrightarrow>) (z @ x) (z @ y)"
 by(rule list_all2_appendI) simp_all
+
+lemma opaque_rel:
+  assumes "itrm_rel R x y"
+    shows "list_all2 R (opaque x) (opaque y)"
+using assms proof induction
+  case rel_term then show ?case by simp
+next
+  case rel_pure then show ?case by simp
+next
+  case rel_ap then show ?case by (auto intro: list_all2_appendI)
+qed
+
+(* FIXME: update to least member of itrm_eq once defined
 
 lemma opaque_equiv:
   assumes "x \<simeq> y"
@@ -343,6 +337,7 @@ qed
 
 lemma unlift_equiv: "x \<simeq> y \<Longrightarrow> unlift x \<leftrightarrow> unlift y"
 using assms unlift'_equiv wrap_abs_equiv iorder_equiv by simp
+*)
 
 
 subsubsection \<open>Canonical forms\<close>
@@ -366,65 +361,78 @@ by (rule CF.cases) auto
 lemma term_not_cf[dest]: "Term x \<in> CF \<Longrightarrow> False"
 by (rule CF.cases) auto
 
+context eq_model
+begin
+
+(* FIXME: generalize to itrm_rel *)
 lemma cf_similarI:
   assumes "x \<in> CF" "y \<in> CF"
-      and "list_all2 (op \<leftrightarrow>) (opaque x) (opaque y)"
-      and "CF_head x \<leftrightarrow> CF_head y"
+      and "list_all2 (op =\<^sub>\<Omega>) (opaque x) (opaque y)"
+      and "CF_head x =\<^sub>\<Omega> CF_head y"
     shows "x \<cong> y"
 using assms proof (induction arbitrary: y)
   case (pure_cf x)
   hence "opaque y = []" by auto
   with `y \<in> CF` obtain y' where "y = Pure y'" by cases auto
-  with pure_cf.prems show ?case by (auto intro: itrm_cong.intros)
+  with pure_cf.prems show ?case by (auto intro: rel_pure)
 next
   case (ap_cf f x)
-  from `list_all2 (op \<leftrightarrow>) (opaque (f \<diamondop> Term x)) (opaque y)`
-  obtain y1 y2 where "opaque y = y1 @ y2" and "list_all2 (op \<leftrightarrow>) (opaque f) y1" 
-    and "list_all2 (op \<leftrightarrow>) [x] y2"  by (auto simp add: list_all2_append1)
-  from `list_all2 (op \<leftrightarrow>) [x] y2` obtain y' where "y2 = [y']" and "x \<leftrightarrow> y'"
+  from `list_all2 (op =\<^sub>\<Omega>) (opaque (f \<diamondop> Term x)) (opaque y)`
+  obtain y1 y2 where "opaque y = y1 @ y2" and "list_all2 (op =\<^sub>\<Omega>) (opaque f) y1" 
+    and "list_all2 (op =\<^sub>\<Omega>) [x] y2"  by (auto simp add: list_all2_append1)
+  from `list_all2 (op =\<^sub>\<Omega>) [x] y2` obtain y' where "y2 = [y']" and "x =\<^sub>\<Omega> y'"
     by(auto simp add: list_all2_Cons1)
   with `y \<in> CF` and `opaque y = y1 @ y2` obtain g
     where "opaque g = y1" and y_split: "y = g \<diamondop> Term y'" "g \<in> CF" by cases auto
-  with ap_cf.prems `list_all2 (op \<leftrightarrow>) (opaque f) y1`
-  have "list_all2 (op \<leftrightarrow>) (opaque f) (opaque g)" "CF_head f \<leftrightarrow> CF_head g" by auto
+  with ap_cf.prems `list_all2 (op =\<^sub>\<Omega>) (opaque f) y1`
+  have "list_all2 (op =\<^sub>\<Omega>) (opaque f) (opaque g)" "CF_head f =\<^sub>\<Omega> CF_head g" by auto
   with ap_cf.IH `g \<in> CF` have "f \<cong> g" by simp
-  with ap_cf.prems y_split `x \<leftrightarrow> y'` show ?case by (auto intro: itrm_cong.intros ap_cong)
+  with ap_cf.prems y_split `x =\<^sub>\<Omega> y'` show ?case by (auto intro: rel_term rel_ap)
 qed
 
 lemma cf_unlift:
   assumes "x \<in> CF"
-    shows "CF_head x \<leftrightarrow> unlift x"
+    shows "CF_head x =\<^sub>\<Omega> unlift x"
 using assms proof (induction set: CF)
   case (pure_cf x)
   show ?case by simp
 next
   case (ap_cf f x)
   let ?n = "iorder f + 1"
-  have "unlift (f \<diamondop> Term x) = wrap_abs (unlift' ?n f 1 \<degree> Var 0) ?n"
+  have "unlift (f \<diamondop> Term x) = (Abs ^^ ?n) (unlift' ?n f 1 \<degree> Var 0)"
     unfolding unlift_ap by simp
-  also have "... = wrap_abs (Abs (unlift' ?n f 1 \<degree> Var 0)) (iorder f)"
-    using wrap_abs_inside by simp
-  also have "... \<leftrightarrow> unlift f" proof -
+  also have "... = (Abs ^^ iorder f) (Abs (unlift' ?n f 1 \<degree> Var 0))"
+    by (simp add: funpow_swap1)
+  also have "... =\<^sub>\<Omega> unlift f" proof -
     have "\<not> free (unlift' ?n f 1) 0" using free_unlift by fastforce
     hence "Abs (unlift' ?n f 1 \<degree> Var 0) \<rightarrow>\<^sub>\<eta> (unlift' ?n f 1)[Var 0/0]" ..
     also have "... = unlift' (iorder f) f 0"
       using unlift_subst by (metis One_nat_def Suc_eq_plus1 le0)
     finally show ?thesis
-      by (simp add: r_into_rtranclp wrap_abs_equiv red_into_equiv)
+      by (simp add: abs_pow_eq eta_to_eq)
   qed
-  finally show ?case
-    using CF_head.simps ap_cf.IH term_sym term_trans by metis
+  also note ap_cf.IH[symmetric]
+  finally have "CF_head f =\<^sub>\<Omega> unlift (f \<diamondop> Term x)" ..
+  then show ?case by simp
 qed
 
+(* FIXME: generalize to itrm_rel *)
 lemma cf_similarD:
   assumes in_cf: "x \<in> CF" "y \<in> CF"
       and similar: "x \<cong> y"
-    shows "CF_head x \<leftrightarrow> CF_head y \<and> list_all2 (op \<leftrightarrow>) (opaque x) (opaque y)"
-using assms
-by (blast intro!: similar_equiv opaque_equiv cf_unlift unlift_equiv intro: term_trans term_sym)
+    shows "CF_head x =\<^sub>\<Omega> CF_head y \<and> list_all2 (op =\<^sub>\<Omega>) (opaque x) (opaque y)"
+proof
+  from similar in_cf show "CF_head x =\<^sub>\<Omega> CF_head y" by induction auto
+next
+  from similar show "list_all2 op =\<^sub>\<Omega> (opaque x) (opaque y)" by (rule opaque_rel)
+qed
+
+end
 
 text \<open>Equivalent idiomatic terms in canonical form are similar. This justifies speaking of a
   normal form.\<close>
+
+(* FIXME: update to least member of itrm_eq once defined
 
 lemma cf_unique:
   assumes in_cf: "x \<in> CF" "y \<in> CF"
@@ -439,6 +447,7 @@ next
     using term_sym term_trans
     by metis
 qed
+*)
 
 subsubsection \<open>Normalization of idiomatic terms\<close>
 
@@ -446,6 +455,8 @@ fun rsize :: "itrm \<Rightarrow> nat"
 where
     "rsize (x \<diamondop> y) = size y"
   | "rsize _ = 0"
+
+(* FIXME: consider splitting argument for normalize_* *)
 
 function (sequential) normalize_pure_cf :: "itrm \<Rightarrow> itrm"
 where
@@ -474,6 +485,15 @@ where
   | "normalize (x \<diamondop> y)  = normalize_cf_cf (normalize x \<diamondop> normalize y)"
 
 
+(*
+  FIXME: We actually want to show that "normalize x" and x are related by all relations
+  satisfying itrm_eq. The current lemmas follow, and we can use unlift_equiv (in an adjusted form)
+  to show that "CF_head (normalize x) =\<^sub>\<Omega> unlift x". This in turn generalizes nf_lifting.
+*)
+
+context itrm_eq
+begin
+
 lemma pure_cf_in_cf:
   assumes "x \<in> CF"
     shows "normalize_pure_cf (Pure f \<diamondop> x) \<in> CF"
@@ -484,14 +504,14 @@ lemma pure_cf_equiv: "normalize_pure_cf x \<simeq> x"
 proof (induction rule: normalize_pure_cf.induct)
   case (1 g f x)
   have "normalize_pure_cf (Pure g \<diamondop> (f \<diamondop> x)) \<simeq> normalize_pure_cf (Pure (\<B> \<degree> g) \<diamondop> f) \<diamondop> x" by simp
-  also from "1.IH" have "... \<simeq> Pure (\<B> \<degree> g) \<diamondop> f \<diamondop> x" by (rule ap_congL)
-  also have "... \<simeq> Pure \<B> \<diamondop> Pure g \<diamondop> f \<diamondop> x" by (blast intro: itrm_hom'[symmetric] ap_congL)
-  also have "... \<simeq> Pure g \<diamondop> (f \<diamondop> x)" by (rule itrm_comp'[symmetric])
+  also from "1.IH" have "... \<simeq> Pure (\<B> \<degree> g) \<diamondop> f \<diamondop> x" by (rule iapL)
+  also have "... \<simeq> Pure \<B> \<diamondop> Pure g \<diamondop> f \<diamondop> x" by (blast intro: homomorphism[symmetric] iapL)
+  also have "... \<simeq> Pure g \<diamondop> (f \<diamondop> x)" by (rule composition)
   finally show ?case .
 next
   case (2 f x)
   have "normalize_pure_cf (Pure f \<diamondop> Pure x) \<simeq> Pure (f \<degree> x)" by simp
-  also have "... \<simeq> Pure f \<diamondop> Pure x" by (rule itrm_hom'[symmetric])
+  also have "... \<simeq> Pure f \<diamondop> Pure x" by (rule homomorphism[symmetric])
   finally show ?case .
 qed auto
 
@@ -506,7 +526,7 @@ proof (induction rule: normalize_cf_pure.induct)
   case (1 f x)
   have "normalize_cf_pure (f \<diamondop> Pure x) \<simeq> normalize_pure_cf (Pure (\<T> \<degree> x) \<diamondop> f)" by simp
   also have "... \<simeq> Pure (\<T> \<degree> x) \<diamondop> f" by (rule pure_cf_equiv)
-  also have "... \<simeq> f \<diamondop> Pure x" by (rule itrm_xchng'[symmetric])
+  also have "... \<simeq> f \<diamondop> Pure x" by (rule interchange[symmetric])
   finally show ?case .
 qed auto
 
@@ -521,9 +541,9 @@ proof (induction rule: normalize_cf_cf.induct)
   case (1 g f x)
   have "normalize_cf_cf (g \<diamondop> (f \<diamondop> x)) \<simeq> normalize_cf_cf (normalize_pure_cf (Pure \<B> \<diamondop> g) \<diamondop> f) \<diamondop> x"
     by simp
-  also from "1.IH" have "... \<simeq> normalize_pure_cf (Pure \<B> \<diamondop> g) \<diamondop> f \<diamondop> x" by (rule ap_congL)
-  also have "... \<simeq> Pure \<B> \<diamondop> g \<diamondop> f \<diamondop> x" by (blast intro: pure_cf_equiv ap_congL)
-  also have "... \<simeq> g \<diamondop> (f \<diamondop> x)" by (rule itrm_comp'[symmetric])
+  also from "1.IH" have "... \<simeq> normalize_pure_cf (Pure \<B> \<diamondop> g) \<diamondop> f \<diamondop> x" by (rule iapL)
+  also have "... \<simeq> Pure \<B> \<diamondop> g \<diamondop> f \<diamondop> x" by (blast intro: pure_cf_equiv iapL)
+  also have "... \<simeq> g \<diamondop> (f \<diamondop> x)" by (rule composition)
   finally show ?case .
 qed (auto simp del: normalize_cf_pure.simps intro: cf_pure_equiv)
 
@@ -534,22 +554,26 @@ lemma normalize_equiv: "normalize x \<simeq> x"
 proof (induction rule: normalize.induct)
   case (2 x)
   have "normalize (Term x) \<simeq> Pure \<I> \<diamondop> Term x" by simp
-  also have "... \<simeq> Term x" by (rule itrm_id'[symmetric])
+  also have "... \<simeq> Term x" by (rule identity)
   finally show ?case .
 next
   case (3 x y)
   have "normalize (x \<diamondop> y) \<simeq> normalize_cf_cf (normalize x \<diamondop> normalize y)" by simp
   also have "... \<simeq> normalize x \<diamondop> normalize y" by (rule cf_cf_equiv)
-  also from "3.IH" have "... \<simeq> x \<diamondop> normalize y" by (blast intro: ap_congL)
-  also from "3.IH" have "... \<simeq> x \<diamondop> y" by (blast intro: ap_congR)
+  also from "3.IH" have "... \<simeq> x \<diamondop> normalize y" by (blast intro: iapL)
+  also from "3.IH" have "... \<simeq> x \<diamondop> y" by (blast intro: iapR)
   finally show ?case .
 qed auto
 
 lemma normal_form: obtains n where "n \<simeq> x" and "n \<in> CF"
 using normalize_equiv normalize_in_cf ..
 
+end
+
 
 subsubsection \<open>Proving lifted equations\<close>
+
+(* FIXME: update
 
 theorem nf_lifting:
   assumes opaque: "list_all2 (op \<leftrightarrow>) (opaque x) (opaque y)"
@@ -576,5 +600,6 @@ proof -
   hence "n \<simeq> n'" by (rule similar_equiv)
   with `n \<simeq> x` `n' \<simeq> y` show "x \<simeq> y" by (blast intro: itrm_sym itrm_trans)
 qed
+*)
 
 end
