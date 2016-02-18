@@ -3,7 +3,7 @@
 subsection \<open>Idiomatic terms -- Properties and operations\<close>
 
 theory Idiomatic_Terms
-imports Beta_Eta
+imports Beta_Eta "~~/src/HOL/Library/Permutation"
 begin
 
 text \<open>
@@ -322,6 +322,23 @@ proof -
   ultimately show ?thesis by (auto intro: wrap_abs_equiv)
 qed
 
+lemma unlift_all_pure: "opaque x = [] \<Longrightarrow> x \<simeq> Pure (unlift x)"
+proof (induction x)
+  case (Opaque x) then show ?case by simp
+next
+  case (Pure x) then show ?case by simp
+next
+  case (IAp x y)
+  then have no_opaque: "opaque x = []" "opaque y = []" by simp+
+  then have unlift_ap: "unlift (x \<diamondop> y) = unlift x \<degree> unlift y"
+    unfolding unlift_ap by simp
+  from no_opaque IAp.IH have "x \<diamondop> y \<simeq> Pure (unlift x) \<diamondop> Pure (unlift y)"
+    by (blast intro: ap_cong)
+  also have "... \<simeq> Pure (unlift x \<degree> unlift y)" by (rule itrm_hom')
+  also have "... = Pure (unlift (x \<diamondop> y))" by (simp only: unlift_ap)
+  finally show ?case .
+qed
+
 
 subsubsection \<open>Canonical forms\<close>
 
@@ -553,5 +570,205 @@ proof -
   hence "n \<simeq> n'" by (rule similar_equiv)
   with `n \<simeq> x` `n' \<simeq> y` show "x \<simeq> y" by (blast intro: itrm_sym itrm_trans)
 qed
+
+
+subsubsection \<open>Lifting with bracket abstraction\<close>
+
+text \<open>Idioms which satisfy additional equations\<close>
+
+locale itrm_ext =
+  fixes E :: "'a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool"
+  assumes idiom_ext: "pre_equiv \<le> E"
+begin
+
+abbreviation itrm_ext_equiv :: "'a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool" (infixl "\<simeq>\<^sup>+" 50)
+where "x \<simeq>\<^sup>+ y \<equiv> itrm_cong E x y"
+
+lemma pre_equiv_into_ext: "pre_equiv x y \<Longrightarrow> x \<simeq>\<^sup>+ y"
+using idiom_ext by (blast intro: base_cong)
+
+lemmas itrm_ext_id = itrm_id[THEN pre_equiv_into_ext]
+lemmas itrm_ext_comp = itrm_comp[THEN pre_equiv_into_ext]
+lemmas itrm_ext_hom = itrm_hom[THEN pre_equiv_into_ext]
+lemmas itrm_ext_xchng = itrm_xchng[THEN pre_equiv_into_ext]
+
+lemma equiv_into_ext: "x \<simeq> y \<Longrightarrow> x \<simeq>\<^sup>+ y"
+by (induction pred: itrm_cong) (auto intro: itrm_cong.intros idiom_ext[THEN predicate2D])
+
+end
+
+
+text \<open>General notion of bracket abstraction for lambda terms\<close>
+
+definition foldr_option :: "('a \<Rightarrow> 'b \<Rightarrow> 'b option) \<Rightarrow> 'a list \<Rightarrow> 'b \<Rightarrow> 'b option"
+where "foldr_option f xs e = foldr (\<lambda>a b. Option.bind b (f a)) xs (Some e)"
+
+lemma bind_eq_SomeE:
+  assumes "Option.bind x f = Some y"
+  obtains x' where "x = Some x'" and "f x' = Some y"
+using assms by (auto iff: bind_eq_Some_conv)
+
+lemma foldr_option_Nil[simp]: "foldr_option f [] e = Some e"
+unfolding foldr_option_def by simp
+
+lemma foldr_option_Cons:
+  assumes "foldr_option f (x#xs) e = Some y"
+  obtains y' where "foldr_option f xs e = Some y'" and "f x y' = Some y"
+using assms unfolding foldr_option_def by (auto elim: bind_eq_SomeE)
+
+definition frees :: "dB \<Rightarrow> nat set"
+where [simp]: "frees t = {i. free t i}"
+
+definition term_dist :: "nat list \<Rightarrow> dB \<Rightarrow> dB"
+where [simp]: "term_dist = fold (\<lambda>i t. t \<degree> Var i)"
+
+definition strip_context :: "nat \<Rightarrow> dB \<Rightarrow> dB"
+where "strip_context n t = (THE t'. t = liftn n t 0)"
+
+lemma dist_perm_eta:
+  assumes vars_perm: "vs <~~> [0..<n]"
+      and not_free: "\<forall>i\<in>frees s. n \<le> i" "\<forall>i\<in>frees t. n \<le> i"
+      and perm_equiv: "wrap_abs (term_dist vs s) n \<leftrightarrow> wrap_abs (term_dist vs t) n"
+    shows "strip_context n s \<leftrightarrow> strip_context n t"
+(*
+  TODO:
+  - find permutation vs' such that rev vs' o vs = rev [0..<n]
+  - show "term_dist vs' (wrap_abs (term_dist vs (liftn n s 0)) n) \<leftrightarrow> term_dist (rev [0..<n]) s"
+    by repeated beta-reduction, likewise for t
+  - show "wrap_abs (term_dist (rev [0..<n]) s) n \<leftrightarrow> strip_context n s" by repeated eta-reduction
+    using not_free, likewise for t
+  - compose everything with theorems like liftn_equiv, wrap_abs_equiv, etc.
+*)
+oops
+
+locale bracket_abstraction =
+  fixes term_bracket :: "nat \<Rightarrow> dB \<Rightarrow> dB option"
+  assumes bracket_app: "term_bracket i s = Some s' \<Longrightarrow> s' \<degree> Var i \<leftrightarrow> s"
+  assumes bracket_frees: "term_bracket i s = Some s' \<Longrightarrow> frees s' = frees s - {i}"
+begin
+
+definition term_brackets :: "nat list \<Rightarrow> dB \<Rightarrow> dB option"
+where [simp]: "term_brackets = foldr_option term_bracket"
+
+lemma bracket_dist:
+  assumes "term_brackets vs t = Some t'"
+    shows "term_dist vs t' \<leftrightarrow> t"
+proof -
+  from assms have "\<forall>t''. t' \<leftrightarrow> t'' \<longrightarrow> term_dist vs t'' \<leftrightarrow> t"
+  proof (induction vs arbitrary: t')
+    case Nil then show ?case by (simp add: term_sym)
+  next
+    case (Cons v vs)
+    from Cons.prems obtain u where
+        inner: "term_brackets vs t = Some u" and
+        step: "term_bracket v u = Some t'"
+      by (auto elim: foldr_option_Cons)
+    from step have red1: "t' \<degree> Var v \<leftrightarrow> u" by (rule bracket_app)
+    show ?case proof rule+
+      fix t'' assume "t' \<leftrightarrow> t''"
+      with red1 have red: "t'' \<degree> Var v \<leftrightarrow> u"
+        using equiv_appL term_sym term_trans by blast
+      have "term_dist (v # vs) t'' = term_dist vs (t'' \<degree> Var v)" by simp
+      also have "... \<leftrightarrow> t" using Cons.IH[OF inner] red[symmetric] by blast
+      finally show "term_dist (v # vs) t'' \<leftrightarrow> t" .
+    qed
+  qed
+  then show ?thesis by blast
+qed
+
+end
+
+
+text \<open>Bracket abstraction for idiomatic terms\<close>
+
+locale itrm_abstraction = bracket_abstraction + itrm_ext E for E :: "nat itrm \<Rightarrow> _" +
+  fixes itrm_bracket :: "nat \<Rightarrow> nat itrm \<Rightarrow> nat itrm option"
+  assumes itrm_bracket_ap: "itrm_bracket i x = Some x' \<Longrightarrow> x' \<diamondop> Opaque i \<simeq>\<^sup>+ x"
+  assumes itrm_bracket_opaque: "itrm_bracket i x = Some x' \<Longrightarrow> set (opaque x') = set (opaque x) - {i}"
+  (* FIXME *)
+  assumes bracket_compat:
+    "set (opaque x) \<subseteq> set vs \<Longrightarrow>
+      rel_option (op \<leftrightarrow>)
+        (term_brackets vs (unlift' (iorder x) x 0))
+        (map_option unlift (foldr_option itrm_bracket vs x))"
+begin
+
+definition "itrm_brackets = foldr_option itrm_bracket"
+
+lemma itrm_brackets_Cons:
+  assumes "itrm_brackets (v#vs) x = Some x'"
+  obtains y' where "itrm_brackets vs x = Some y'" and "itrm_bracket v y' = Some x'"
+using assms unfolding itrm_brackets_def by (elim foldr_option_Cons)
+
+definition "itrm_bracket_norm = fold (\<lambda>i y. y \<diamondop> Opaque i)"
+
+lemma bracket_nf: "itrm_brackets vs x = Some x' \<Longrightarrow> itrm_bracket_norm vs x' \<simeq>\<^sup>+ x"
+proof -
+  assume defined: "itrm_brackets vs x = Some x'"
+  {
+    def x'' == x'
+    assume "x' \<simeq>\<^sup>+ x''"
+    with defined have "itrm_bracket_norm vs x'' \<simeq>\<^sup>+ x"
+      unfolding itrm_bracket_norm_def
+      proof (induction vs arbitrary: x' x'')
+        case Nil then show ?case unfolding itrm_brackets_def by (simp add: itrm_sym)
+      next
+        case (Cons v vs)
+        from Cons.prems(1) obtain y'
+          where *: "itrm_brackets vs x = Some y'" and "itrm_bracket v y' = Some x'"
+          by (rule itrm_brackets_Cons)
+        then have "x' \<diamondop> Opaque v \<simeq>\<^sup>+ y'" by (elim itrm_bracket_ap)
+        then have "x'' \<diamondop> Opaque v \<simeq>\<^sup>+ y'" using Cons.prems(2) by (blast intro: itrm_cong.intros)
+        with * have "fold (\<lambda>i y. y \<diamondop> Opaque i) vs (x'' \<diamondop> Opaque v) \<simeq>\<^sup>+ x" using Cons.IH
+          by (auto intro: itrm_sym)
+        then show ?case by simp
+     qed
+  }
+  then show ?thesis using itrm_refl .
+qed
+
+lemma bracket_nf_cong: "x \<simeq>\<^sup>+ y \<Longrightarrow> itrm_bracket_norm vs x \<simeq>\<^sup>+ itrm_bracket_norm vs y"
+unfolding itrm_bracket_norm_def
+by (induction vs arbitrary: x y) (auto intro: ap_congL)
+
+lemma bracket_complete:
+  assumes complete: "set (opaque x) \<subseteq> set vs"
+      and defined: "itrm_brackets vs x = Some x'"
+    shows "opaque x' = []"
+proof -
+  from defined have "set (opaque x') = set (opaque x) - set vs"
+    proof (induction vs arbitrary: x')
+      case Nil then show ?case unfolding itrm_brackets_def by simp
+    next
+      case (Cons v vs) then show ?case
+        by (auto elim: itrm_brackets_Cons dest!: itrm_bracket_opaque)
+    qed
+  with complete have "set (opaque x') = {}" by simp
+  then show ?thesis by simp
+qed
+
+lemma bracket_complete_unlift:
+  assumes complete: "set (opaque x) \<subseteq> set vs"
+      and defined: "itrm_brackets vs x = Some x'"
+    shows "x' \<simeq>\<^sup>+ Pure (unlift x')"
+proof (rule equiv_into_ext)
+  from assms have "opaque x' = []" by (rule bracket_complete)
+  then show "x' \<simeq> Pure (unlift x')" by (rule unlift_all_pure)
+qed
+
+theorem bracket_lifting:
+  assumes complete: "set (opaque x) \<subseteq> set vs" "set (opaque y) \<subseteq> set vs" (*FIXME*)
+      and defined: "itrm_brackets vs x = Some x'" "itrm_brackets vs y = Some y'"
+      and base_eq: "unlift x \<leftrightarrow> unlift y"
+    shows "x \<simeq>\<^sup>+ y"
+proof -
+  have "x \<simeq>\<^sup>+ itrm_bracket_norm vs x'" using defined(1) by (rule bracket_nf[symmetric])
+  also have "... \<simeq>\<^sup>+ itrm_bracket_norm vs (Pure (unlift x'))"
+    using complete(1) defined(1)
+    by (blast intro: bracket_nf_cong bracket_complete_unlift)
+  (*TODO*)
+oops
+
+end
 
 end
