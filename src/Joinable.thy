@@ -1,6 +1,6 @@
 (* Author: Joshua Schneider, ETH Zurich *)
 
-section \<open>Formalisation of lifting algorithms\<close>
+section \<open>Formalisation of idiomatic terms and lifting\<close>
 
 subsection \<open>Immediate joinability under a relation\<close>
 

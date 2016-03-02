@@ -7,9 +7,10 @@ imports Combinators
 begin
 
 text \<open>This theory proves the correctness of the normalisation algorithm for
-  arbitrary applicative functors. We generalise normalisation to bracket abstraction
-  algorithms defined on idiomatic terms. Both approaches justify the lifting of
-  certain classes of equations.\<close>
+  arbitrary applicative functors. We generalise the normal form using a framework
+  for bracket abstraction algorithms. Both approaches justify lifting certain
+  classes of equations. We model this as implications of term equivalences,
+  where unlifting of idiomatic terms is expressed syntactically.\<close>
 
 subsubsection \<open>Basic definitions\<close>
 
@@ -145,7 +146,7 @@ lemmas itrm_ext_xchng = itrm_xchng[THEN equiv_into_ext_equiv]
 end
 
 
-subsubsection \<open>Unlifting\<close>
+subsubsection \<open>Syntactic unlifting\<close>
 
 paragraph \<open>With generalisation of variables\<close>
 
@@ -370,7 +371,7 @@ next
 qed
 
 
-subsubsection \<open>Normalization of idiomatic terms\<close>
+subsubsection \<open>Normalisation of idiomatic terms\<close>
 
 primrec norm_pn :: "dB \<Rightarrow> 'a itrm \<Rightarrow> 'a itrm"
 where
@@ -503,7 +504,7 @@ proof -
 qed
 
 
-subsubsection \<open>Bracket abstraction for lambda and idiomatic terms\<close>
+subsubsection \<open>Bracket abstraction, twice\<close>
 
 paragraph \<open>Preliminaries: Sequential application of variables\<close>
 
@@ -1001,7 +1002,7 @@ qed
 end (* locale itrm_abstraction *)
 
 
-subsubsection \<open>Lifting with bracket abstractions\<close>
+subsubsection \<open>Lifting with bracket abstraction\<close>
 
 locale lifted_bracket = bracket_abstraction + itrm_abstraction +
   assumes bracket_compat:
