@@ -3,103 +3,41 @@
 subsection \<open>Idiomatic terms -- Properties and operations\<close>
 
 theory Idiomatic_Terms
-imports Beta_Eta
+imports Combinators
 begin
 
-text \<open>
-  This theory proves the correctness of the normalisation algorithm for
-  arbitrary applicative functors.
-\<close>
+text \<open>This theory proves the correctness of the normalisation algorithm for
+  arbitrary applicative functors.\<close>
 
-subsubsection \<open>Extensions to lambda terms\<close>
-
-abbreviation "\<I> \<equiv> Abs (Var 0)"
-abbreviation "\<B> \<equiv> Abs (Abs (Abs (Var 2 \<degree> (Var 1 \<degree> Var 0))))"
-abbreviation "\<T> \<equiv> Abs (Abs (Var 0 \<degree> Var 1))" -- \<open>reverse application\<close>
-
-lemma I_eval: "\<I> \<degree> x \<rightarrow>\<^sub>\<beta>\<^sup>* x"
-proof -
-  have "\<I> \<degree> x \<rightarrow>\<^sub>\<beta> x" by (metis beta.beta subst_eq)
-  thus ?thesis by simp
-qed
-
-lemmas I_equiv = I_eval[THEN beta_into_beta_eta, THEN red_into_equiv]
-
-lemma subst_lift2[simp]: "(lift (lift t 0) 0)[x/Suc 0] = lift t 0"
-proof -
-  have "lift (lift t 0) 0 = lift (lift t 0) (Suc 0)" using lift_lift by simp
-  thus ?thesis by simp
-qed
-
-lemma B_eval: "\<B> \<degree> g \<degree> f \<degree> x \<rightarrow>\<^sub>\<beta>\<^sup>* g \<degree> (f \<degree> x)"
-proof -
-  have "\<B> \<degree> g \<degree> f \<degree> x \<rightarrow>\<^sub>\<beta> Abs (Abs (Var 2 \<degree> (Var 1 \<degree> Var 0)))[g/0] \<degree> f \<degree> x"
-    by clarify
-  also have "... = Abs (Abs (lift (lift g 0) 0 \<degree> (Var 1 \<degree> Var 0))) \<degree> f \<degree> x"
-    by (simp add: numerals)
-  also have "... \<rightarrow>\<^sub>\<beta>\<^sup>* Abs (lift (lift g 0) 0 \<degree> (Var 1 \<degree> Var 0))[f/0] \<degree> x"
-    by (rule r_into_rtranclp) clarify
-  also have "... = Abs (lift g 0 \<degree> (lift f 0 \<degree> Var 0)) \<degree> x"
-    by simp
-  also have "... \<rightarrow>\<^sub>\<beta>\<^sup>* (lift g 0 \<degree> (lift f 0 \<degree> Var 0))[x/0]"
-    by (rule r_into_rtranclp) clarify
-  also have "... = g \<degree> (f \<degree> x)" by simp
-  finally show ?thesis .
-qed
-
-lemmas B_equiv = B_eval[THEN beta_into_beta_eta, THEN red_into_equiv]
-
-lemma T_eval: "\<T> \<degree> x \<degree> f \<rightarrow>\<^sub>\<beta>\<^sup>* f \<degree> x"
-proof -
-  have "\<T> \<degree> x \<degree> f \<rightarrow>\<^sub>\<beta> Abs (Var 0 \<degree> Var 1)[x/0] \<degree> f" by clarify
-  also have "... = Abs (Var 0 \<degree> lift x 0) \<degree> f" by simp
-  also have "... \<rightarrow>\<^sub>\<beta>\<^sup>* (Var 0 \<degree> lift x 0)[f/0]" by (rule r_into_rtranclp) clarify
-  also have "... \<rightarrow>\<^sub>\<beta>\<^sup>* f \<degree> x" by simp
-  finally show ?thesis .
-qed
-
-lemmas T_equiv = T_eval[THEN beta_into_beta_eta, THEN red_into_equiv]
-
-
-lemma subst_liftn:
-  "i \<le> n + k \<and> k \<le> i \<Longrightarrow> (liftn (Suc n) s k)[t/i] = liftn n s k"
-by (induction s arbitrary: i k t) auto
-
-lemma free_liftn:
-  "free (liftn n t k) i = (i < k \<and> free t i \<or> k + n \<le> i \<and> free t (i - n))"
-proof (induction t arbitrary: k i)
-  case (Var x)
-  show ?case by simp arith
-next
-  case (App s t)
-  thus ?case by auto
-next
-  case (Abs t)
-  thus ?case by simp (metis Suc_diff_le add_leD2)
-qed
-
-
-subsubsection \<open>Idiomatic terms\<close>
-
-text \<open>Basic definitions\<close>
+subsubsection \<open>Basic definitions\<close>
 
 datatype 'a itrm =
     Opaque 'a | Pure dB
   | IAp "'a itrm" "'a itrm" (infixl "\<diamondop>" 150)
 
-inductive itrm_cong :: "('a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool) \<Rightarrow> 'a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool"
-for p
+primrec opaque :: "'a itrm \<Rightarrow> 'a list"
 where
-    base_cong: "p x y \<Longrightarrow> itrm_cong p x y"
-  | pure_subst: "x \<leftrightarrow> y \<Longrightarrow> itrm_cong p (Pure x) (Pure y)"
-  | ap_congL: "itrm_cong p f f' \<Longrightarrow> itrm_cong p (f \<diamondop> x) (f' \<diamondop> x)"
-  | ap_congR: "itrm_cong p x x' \<Longrightarrow> itrm_cong p (f \<diamondop> x) (f \<diamondop> x')"
-  | itrm_refl[simp,intro]: "itrm_cong p x x"
-  | itrm_sym[sym]: "itrm_cong p x y \<Longrightarrow> itrm_cong p y x"
-  | itrm_trans[trans]: "itrm_cong p x y \<Longrightarrow> itrm_cong p y z \<Longrightarrow> itrm_cong p x z"
+    "opaque (Opaque x) = [x]"
+  | "opaque (Pure _) = []"
+  | "opaque (f \<diamondop> x) = opaque f @ opaque x"
 
-lemma ap_cong: "itrm_cong p f f' \<Longrightarrow> itrm_cong p x x' \<Longrightarrow> itrm_cong p (f \<diamondop> x) (f' \<diamondop> x')"
-by (blast intro: ap_congL ap_congR itrm_trans)
+abbreviation "iorder x \<equiv> length (opaque x)"
+
+inductive itrm_cong :: "('a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool) \<Rightarrow> 'a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool"
+for R
+where
+    into_itrm_cong: "R x y \<Longrightarrow> itrm_cong R x y"
+  | pure_cong[intro]: "x \<leftrightarrow> y \<Longrightarrow> itrm_cong R (Pure x) (Pure y)"
+  | ap_cong: "itrm_cong R f f' \<Longrightarrow> itrm_cong R x x' \<Longrightarrow> itrm_cong R (f \<diamondop> x) (f' \<diamondop> x')"
+  | itrm_refl[iff]: "itrm_cong R x x"
+  | itrm_sym[sym]: "itrm_cong R x y \<Longrightarrow> itrm_cong R y x"
+  | itrm_trans[trans]: "itrm_cong R x y \<Longrightarrow> itrm_cong R y z \<Longrightarrow> itrm_cong R x z"
+
+lemma ap_congL[intro]: "itrm_cong R f f' \<Longrightarrow> itrm_cong R (f \<diamondop> x) (f' \<diamondop> x)"
+by (blast intro: ap_cong)
+
+lemma ap_congR[intro]: "itrm_cong R x x' \<Longrightarrow> itrm_cong R (f \<diamondop> x) (f \<diamondop> x')"
+by (blast intro: ap_cong)
 
 text \<open>Idiomatic terms are \emph{similar} iff they have the same structure, and all contained
   lambda terms are equivalent.\<close>
@@ -111,12 +49,12 @@ lemma pure_similarE:
   assumes "Pure x' \<cong> y"
   obtains y' where "y = Pure y'" and "x' \<leftrightarrow> y'"
 proof -
-  def x == "Pure x' :: 'a itrm"
+  def x \<equiv> "Pure x' :: 'a itrm"
   from assms have "x \<cong> y" unfolding x_def .
   then have "(\<forall>x''. x = Pure x'' \<longrightarrow> (\<exists>y'. y = Pure y' \<and> x'' \<leftrightarrow> y')) \<and>
     (\<forall>x''. y = Pure x'' \<longrightarrow> (\<exists>y'. x = Pure y' \<and> x'' \<leftrightarrow> y'))"
   proof (induction)
-    case pure_subst thus ?case by (auto intro: term_sym)
+    case pure_cong thus ?case by (auto intro: term_sym)
   next
     case itrm_trans thus ?case by (fastforce intro: term_trans)
   qed simp_all
@@ -127,7 +65,7 @@ lemma opaque_similarE:
   assumes "Opaque x' \<cong> y"
   obtains y' where "y = Opaque y'" and "x' = y'"
 proof -
-  def x == "Opaque x' :: 'a itrm"
+  def x \<equiv> "Opaque x' :: 'a itrm"
   from assms have "x \<cong> y" unfolding x_def .
   then have "(\<forall>x''. x = Opaque x'' \<longrightarrow> (\<exists>y'. y = Opaque y' \<and> x'' = y')) \<and>
     (\<forall>x''. y = Opaque x'' \<longrightarrow> (\<exists>y'. x = Opaque y' \<and> x'' = y'))"
@@ -143,70 +81,80 @@ proof -
   have "(\<forall>x1' x2'. x1 \<diamondop> x2 = x1' \<diamondop> x2' \<longrightarrow> (\<exists>y1 y2. y = y1 \<diamondop> y2 \<and> x1' \<cong> y1 \<and> x2' \<cong> y2)) \<and>
     (\<forall>x1' x2'. y = x1' \<diamondop> x2' \<longrightarrow> (\<exists>y1 y2. x1 \<diamondop> x2 = y1 \<diamondop> y2 \<and> x1' \<cong> y1 \<and> x2' \<cong> y2))"
   proof (induction)
-    case ap_congL thus ?case by (blast intro: itrm_sym)
+    case ap_cong thus ?case by (blast intro: itrm_sym)
   next
-    case ap_congR thus ?case by (blast intro: itrm_sym)
-  next
-    case itrm_trans thus ?case by (fastforce intro: itrm_cong.itrm_trans)
+    case trans: itrm_trans thus ?case by (fastforce intro: itrm_trans)
   qed simp_all
   with that show thesis by blast
 qed
 
-text \<open>The following relations define semantic equivalence of idiomatic terms.\<close>
+text \<open>The following relations define semantic equivalence of idiomatic terms.
+  We consider equivalences that hold universally in all idioms, as well as arbitrary
+  specialisations using additional laws.\<close>
 
-inductive pre_equiv :: "'a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool"
+inductive idiom_rule :: "'a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool"
 where
-    itrm_id: "pre_equiv x (Pure \<I> \<diamondop> x)"
-  | itrm_comp: "pre_equiv (g \<diamondop> (f \<diamondop> x)) (Pure \<B> \<diamondop> g \<diamondop> f \<diamondop> x)"
-  | itrm_hom: "pre_equiv (Pure f \<diamondop> Pure x) (Pure (f \<degree> x))"
-  | itrm_xchng: "pre_equiv (f \<diamondop> Pure x) (Pure (\<T> \<degree> x) \<diamondop> f)"
+    idiom_id: "idiom_rule (Pure \<I> \<diamondop> x) x"
+  | idiom_comp: "idiom_rule (Pure \<B> \<diamondop> g \<diamondop> f \<diamondop> x) (g \<diamondop> (f \<diamondop> x))"
+  | idiom_hom: "idiom_rule (Pure f \<diamondop> Pure x) (Pure (f \<degree> x))"
+  | idiom_xchng: "idiom_rule (f \<diamondop> Pure x) (Pure (\<T> \<degree> x) \<diamondop> f)"
 
 abbreviation itrm_equiv :: "'a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool" (infixl "\<simeq>" 50)
+where "x \<simeq> y \<equiv> itrm_cong idiom_rule x y"
+
+lemma idiom_rule_into_equiv: "idiom_rule x y \<Longrightarrow> x \<simeq> y" ..
+
+lemmas itrm_id = idiom_id[THEN idiom_rule_into_equiv]
+lemmas itrm_comp = idiom_comp[THEN idiom_rule_into_equiv]
+lemmas itrm_hom = idiom_hom[THEN idiom_rule_into_equiv]
+lemmas itrm_xchng = idiom_xchng[THEN idiom_rule_into_equiv]
+
+lemma similar_into_equiv: "x \<cong> y \<Longrightarrow> x \<simeq> y"
+by (induction pred: itrm_cong) (auto intro: ap_cong itrm_sym itrm_trans)
+
+lemma opaque_equiv: "x \<simeq> y \<Longrightarrow> opaque x = opaque y"
+proof (induction pred: itrm_cong)
+  case (into_itrm_cong x y)
+  thus ?case by induction auto
+qed simp_all
+
+lemma iorder_equiv: "x \<simeq> y \<Longrightarrow> iorder x = iorder y"
+by (auto dest: opaque_equiv)
+
+locale special_idiom =
+  fixes extra_rule :: "'a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool"
+begin
+
+abbreviation itrm_ext_equiv :: "'a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool" (infixl "\<simeq>\<^sup>+" 50)
+where "x \<simeq>\<^sup>+ y \<equiv> itrm_cong (sup idiom_rule extra_rule) x y"
+
+lemma equiv_into_ext_equiv: "x \<simeq> y \<Longrightarrow> x \<simeq>\<^sup>+ y"
+by (induction pred: itrm_cong)
+   (auto intro: into_itrm_cong ap_cong itrm_sym itrm_trans)
+
+lemmas itrm_ext_id = itrm_id[THEN equiv_into_ext_equiv]
+lemmas itrm_ext_comp = itrm_comp[THEN equiv_into_ext_equiv]
+lemmas itrm_ext_hom = itrm_hom[THEN equiv_into_ext_equiv]
+lemmas itrm_ext_xchng = itrm_xchng[THEN equiv_into_ext_equiv]
+
+end
+
+
+subsubsection \<open>Unlifting\<close>
+
+primrec unlift' :: "nat \<Rightarrow> 'a itrm \<Rightarrow> nat \<Rightarrow> dB"
 where
-  "x \<simeq> y \<equiv> itrm_cong pre_equiv x y"
+    "unlift' n (Opaque _) i = Var i"
+  | "unlift' n (Pure x) i = liftn n x 0"
+  | "unlift' n (f \<diamondop> x) i = unlift' n f (i + iorder x) \<degree> unlift' n x i"
 
-lemma pre_equiv_into_equiv: "pre_equiv x y \<Longrightarrow> x \<simeq> y" ..
+abbreviation "unlift x \<equiv> (Abs^^iorder x) (unlift' (iorder x) x 0)"
 
-lemmas itrm_id' = itrm_id[THEN pre_equiv_into_equiv]
-lemmas itrm_comp' = itrm_comp[THEN pre_equiv_into_equiv]
-lemmas itrm_hom' = itrm_hom[THEN pre_equiv_into_equiv]
-lemmas itrm_xchng' = itrm_xchng[THEN pre_equiv_into_equiv]
+lemma funpow_Suc_inside: "(f ^^ Suc n) x = (f ^^ n) (f x)"
+using funpow_Suc_right unfolding comp_def by metis
 
-lemma similar_equiv: "x \<cong> y \<Longrightarrow> x \<simeq> y"
-by (induction pred: itrm_cong) (auto intro: itrm_cong.intros)
-
-text \<open>Structural analysis\<close>
-
-primrec opaque :: "'a itrm \<Rightarrow> 'a list"
-where
-    "opaque (Opaque x) = [x]"
-  | "opaque (Pure _) = []"
-  | "opaque (f \<diamondop> x) = opaque f @ opaque x"
-
-abbreviation "iorder x \<equiv> length (opaque x)"
-
-primrec vary_terms :: "nat \<Rightarrow> 'a itrm \<Rightarrow> nat \<Rightarrow> dB \<times> nat"
-where
-    "vary_terms n (Opaque _) i = (Var i, Suc i)"
-  | "vary_terms n (Pure x) i = (liftn n x 0, i)"
-  | "vary_terms n (f \<diamondop> x)  i = (case vary_terms n x i of (x', i') \<Rightarrow>
-        apfst (\<lambda>f. f \<degree> x') (vary_terms n f i'))"
-
-abbreviation "unlift' n x i \<equiv> fst (vary_terms n x i)"
-
-primrec wrap_abs :: "dB \<Rightarrow> nat \<Rightarrow> dB"
-where
-    "wrap_abs t 0 = t"
-  | "wrap_abs t (Suc n) = Abs (wrap_abs t n)"
-
-abbreviation "unlift x \<equiv> wrap_abs (unlift' (iorder x) x 0) (iorder x)"
-
-
-lemma vary_terms_order: "snd (vary_terms n x i) = i + iorder x"
-by (induction arbitrary: i) (auto simp add: case_prod_unfold)
-
-lemma unlift_ap: "unlift' n (f \<diamondop> x) i = unlift' n f (i + iorder x) \<degree> unlift' n x i"
-by (simp add: case_prod_unfold vary_terms_order)
+lemma absn_cong[intro]: "s \<leftrightarrow> t \<Longrightarrow> (Abs^^n) s \<leftrightarrow> (Abs^^n) t"
+by (induction n) auto
 
 lemma free_unlift: "free (unlift' n x i) j \<Longrightarrow> j \<ge> n \<or> (j \<ge> i \<and> j < i + iorder x)"
 proof (induction x arbitrary: i)
@@ -217,7 +165,7 @@ next
   thus ?case using free_liftn by simp
 next
   case (IAp x y)
-  thus ?case unfolding unlift_ap by fastforce
+  thus ?case by fastforce
 qed
 
 lemma unlift_subst: "j \<le> i \<and> j \<le> n \<Longrightarrow> (unlift' (Suc n) t (Suc i))[s/j] = unlift' n t i"
@@ -230,79 +178,48 @@ next
 next
   case (IAp x y)
   hence "j \<le> i + iorder y" by simp
-  with IAp show ?case using unlift_ap by (metis add_Suc subst_App)
+  with IAp show ?case by auto
 qed
 
-lemma wrap_abs_inside: "wrap_abs t (Suc n) = wrap_abs (Abs t) n"
-by (induction n) auto
-
-lemma wrap_abs_equiv: "s \<leftrightarrow> t \<Longrightarrow> wrap_abs s n \<leftrightarrow> wrap_abs t n"
-by (induction n) auto
-
-lemma opaque_equiv:
-  assumes "x \<simeq> y"
-    shows "opaque x = opaque y"
-using assms proof induction
-  case (base_cong x y)
-  thus ?case by induction auto
-qed simp_all
-
-lemma iorder_equiv: "x \<simeq> y \<Longrightarrow> iorder x = iorder y"
-by (auto dest: opaque_equiv)
-
-lemma unlift'_equiv:
-  assumes "x \<simeq> y"
-    shows "unlift' n x i \<leftrightarrow> unlift' n y i"
-using assms proof (induction arbitrary: n i)
-  case (base_cong x y) thus ?case
+lemma unlift'_equiv: "x \<simeq> y \<Longrightarrow> unlift' n x i \<leftrightarrow> unlift' n y i"
+proof (induction arbitrary: n i pred: itrm_cong)
+  case (into_itrm_cong x y) thus ?case
   proof induction
-    case (itrm_id x)
-    show ?case
-      unfolding unlift_ap using I_equiv[symmetric] by simp
+    case (idiom_id x)
+    show ?case using I_equiv[symmetric] by simp
   next
-    case (itrm_comp g f x)
+    case (idiom_comp g f x)
     let ?G = "unlift' n g (i + iorder f + iorder x)"
     let ?F = "unlift' n f (i + iorder x)"
     let ?X = "unlift' n x i"
     have "unlift' n (g \<diamondop> (f \<diamondop> x)) i = ?G \<degree> (?F \<degree> ?X)"
-      unfolding unlift_ap by (simp add: add.assoc)
+      by (simp add: add.assoc)
     moreover have "unlift' n (Pure \<B> \<diamondop> g \<diamondop> f \<diamondop> x) i = \<B> \<degree> ?G \<degree> ?F \<degree> ?X"
-      unfolding unlift_ap by (simp add: add.commute add.left_commute)
+      by (simp add: add.commute add.left_commute)
     moreover have "?G \<degree> (?F \<degree> ?X) \<leftrightarrow> \<B> \<degree> ?G \<degree> ?F \<degree> ?X" using B_equiv[symmetric] .
     ultimately show ?case by simp
   next
-    case (itrm_hom f x)
+    case (idiom_hom f x)
     show ?case by auto
   next
-    case (itrm_xchng f x)
+    case (idiom_xchng f x)
     let ?F = "unlift' n f i"
     let ?X = "liftn n x 0"
-    have "unlift' n (f \<diamondop> Pure x) i = ?F \<degree> ?X"
-      unfolding unlift_ap by simp
-    moreover have "unlift' n (Pure (\<T> \<degree> x) \<diamondop> f) i = \<T> \<degree> ?X \<degree> ?F"
-      unfolding unlift_ap by simp
+    have "unlift' n (f \<diamondop> Pure x) i = ?F \<degree> ?X" by simp
+    moreover have "unlift' n (Pure (\<T> \<degree> x) \<diamondop> f) i = \<T> \<degree> ?X \<degree> ?F" by simp
     moreover have "?F \<degree> ?X \<leftrightarrow> \<T> \<degree> ?X \<degree> ?F" using T_equiv[symmetric] .
     ultimately show ?case by simp
   qed
 next
-  case pure_subst
+  case pure_cong
   thus ?case by (auto intro: equiv_liftn)
 next
-  case (ap_congL f f' x)
-  have "unlift' n (f \<diamondop> x) i = unlift' n f (i + iorder x) \<degree> unlift' n x i"
-    unfolding unlift_ap by simp
-  moreover have "unlift' n (f' \<diamondop> x) i = unlift' n f' (i + iorder x) \<degree> unlift' n x i"
-    unfolding unlift_ap by simp
-  ultimately show ?case using ap_congL.IH equiv_appL by auto
-next
-  case (ap_congR x x' f)
-  from ap_congR.hyps have order_eq: "iorder x = iorder x'"
-    by (rule iorder_equiv)
-  have "unlift' n (f \<diamondop> x) i = unlift' n f (i + iorder x) \<degree> unlift' n x i"
-    unfolding unlift_ap by simp
-  moreover have "unlift' n (f \<diamondop> x') i = unlift' n f (i + iorder x) \<degree> unlift' n x' i"
-    unfolding unlift_ap order_eq by simp
-  ultimately show ?case using ap_congR.IH equiv_appR by auto
+  case (ap_cong f f' x x')
+  from `x \<simeq> x'` have iorder_eq: "iorder x = iorder x'" by (rule iorder_equiv)
+  have "unlift' n (f \<diamondop> x) i = unlift' n f (i + iorder x) \<degree> unlift' n x i" by simp
+  moreover have "unlift' n (f' \<diamondop> x') i = unlift' n f' (i + iorder x) \<degree> unlift' n x' i"
+    using iorder_eq by simp
+  ultimately show ?case using ap_cong.IH by (auto intro: equiv_app)
 next
   case itrm_refl
   thus ?case by simp
@@ -319,7 +236,7 @@ proof -
   assume "x \<simeq> y"
   then have "unlift' (iorder y) x 0 \<leftrightarrow> unlift' (iorder y) y 0" by (rule unlift'_equiv)
   moreover from `x \<simeq> y` have "iorder x = iorder y" by (rule iorder_equiv)
-  ultimately show ?thesis by (auto intro: wrap_abs_equiv)
+  ultimately show ?thesis by auto
 qed
 
 
@@ -327,13 +244,14 @@ subsubsection \<open>Canonical forms\<close>
 
 inductive_set CF :: "'a itrm set"
 where
-    pure_cf[simp,intro]: "Pure x \<in> CF"
-  | ap_cf[intro]:   "f \<in> CF \<Longrightarrow> f \<diamondop> Opaque x \<in> CF"
+    pure_cf[iff]: "Pure x \<in> CF"
+  | ap_cf[intro]: "f \<in> CF \<Longrightarrow> f \<diamondop> Opaque x \<in> CF"
 
-fun CF_head :: "'a itrm \<Rightarrow> dB"
+primrec CF_pure :: "'a itrm \<Rightarrow> dB"
 where
-    "CF_head (Pure x) = x"
-  | "CF_head (f \<diamondop> x) = CF_head f"
+    "CF_pure (Opaque _) = undefined"
+  | "CF_pure (Pure x) = x"
+  | "CF_pure (x \<diamondop> _) = CF_pure x"
 
 lemma ap_cfD1[dest]: "f \<diamondop> x \<in> CF \<Longrightarrow> f \<in> CF"
 by (rule CF.cases) auto
@@ -341,19 +259,44 @@ by (rule CF.cases) auto
 lemma ap_cfD2[dest]: "f \<diamondop> x \<in> CF \<Longrightarrow> \<exists>x'. x = Opaque x'"
 by (rule CF.cases) auto
 
-lemma opaque_not_cf[dest]: "Opaque x \<in> CF \<Longrightarrow> False"
+lemma opaque_not_cf[simp]: "Opaque x \<in> CF \<Longrightarrow> False"
 by (rule CF.cases) auto
+
+lemma cf_unlift:
+  assumes "x \<in> CF"
+    shows "CF_pure x \<leftrightarrow> unlift x"
+using assms proof (induction set: CF)
+  case (pure_cf x)
+  show ?case by simp
+next
+  case (ap_cf f x)
+  let ?n = "iorder f + 1"
+  have "unlift (f \<diamondop> Opaque x) = (Abs^^?n) (unlift' ?n f 1 \<degree> Var 0)"
+    by simp
+  also have "... = (Abs^^iorder f) (Abs (unlift' ?n f 1 \<degree> Var 0))"
+    using funpow_Suc_inside by simp
+  also have "... \<leftrightarrow> unlift f" proof -
+    have "\<not> free (unlift' ?n f 1) 0" using free_unlift by fastforce
+    hence "Abs (unlift' ?n f 1 \<degree> Var 0) \<rightarrow>\<^sub>\<eta> (unlift' ?n f 1)[Var 0/0]" ..
+    also have "... = unlift' (iorder f) f 0"
+      using unlift_subst by (metis One_nat_def Suc_eq_plus1 le0)
+    finally show ?thesis
+      by (simp add: r_into_rtranclp absn_cong eta_into_equiv)
+  qed
+  finally show ?case
+    using ap_cf.IH by (auto intro: term_sym term_trans)
+qed
 
 lemma cf_similarI:
   assumes "x \<in> CF" "y \<in> CF"
       and "opaque x = opaque y"
-      and "CF_head x \<leftrightarrow> CF_head y"
+      and "CF_pure x \<leftrightarrow> CF_pure y"
     shows "x \<cong> y"
 using assms proof (induction arbitrary: y)
   case (pure_cf x)
   hence "opaque y = []" by auto
   with `y \<in> CF` obtain y' where "y = Pure y'" by cases auto
-  with pure_cf.prems show ?case by (auto intro: itrm_cong.intros)
+  with pure_cf.prems show ?case by auto
 next
   case (ap_cf f x)
   from `opaque (f \<diamondop> Opaque x) = opaque y`
@@ -364,42 +307,18 @@ next
   with `y \<in> CF` and `opaque y = y1 @ y2` obtain g
     where "opaque g = y1" and y_split: "y = g \<diamondop> Opaque y'" "g \<in> CF" by cases auto
   with ap_cf.prems `opaque f = y1`
-  have "opaque f = opaque g" "CF_head f \<leftrightarrow> CF_head g" by auto
+  have "opaque f = opaque g" "CF_pure f \<leftrightarrow> CF_pure g" by auto
   with ap_cf.IH `g \<in> CF` have "f \<cong> g" by simp
-  with ap_cf.prems y_split `x = y'` show ?case by (auto intro: itrm_cong.intros ap_cong)
-qed
-
-lemma cf_unlift:
-  assumes "x \<in> CF"
-    shows "CF_head x \<leftrightarrow> unlift x"
-using assms proof (induction set: CF)
-  case (pure_cf x)
-  show ?case by simp
-next
-  case (ap_cf f x)
-  let ?n = "iorder f + 1"
-  have "unlift (f \<diamondop> Opaque x) = wrap_abs (unlift' ?n f 1 \<degree> Var 0) ?n"
-    unfolding unlift_ap by simp
-  also have "... = wrap_abs (Abs (unlift' ?n f 1 \<degree> Var 0)) (iorder f)"
-    using wrap_abs_inside by simp
-  also have "... \<leftrightarrow> unlift f" proof -
-    have "\<not> free (unlift' ?n f 1) 0" using free_unlift by fastforce
-    hence "Abs (unlift' ?n f 1 \<degree> Var 0) \<rightarrow>\<^sub>\<eta> (unlift' ?n f 1)[Var 0/0]" ..
-    also have "... = unlift' (iorder f) f 0"
-      using unlift_subst by (metis One_nat_def Suc_eq_plus1 le0)
-    finally show ?thesis
-      by (simp add: r_into_rtranclp wrap_abs_equiv red_into_equiv)
-  qed
-  finally show ?case
-    using CF_head.simps ap_cf.IH by (auto intro: term_sym term_trans)
+  with ap_cf.prems y_split `x = y'` show ?case by (auto intro: ap_cong)
 qed
 
 lemma cf_similarD:
   assumes in_cf: "x \<in> CF" "y \<in> CF"
       and similar: "x \<cong> y"
-    shows "CF_head x \<leftrightarrow> CF_head y \<and> opaque x = opaque y"
+    shows "CF_pure x \<leftrightarrow> CF_pure y \<and> opaque x = opaque y"
 using assms
-by (blast intro!: similar_equiv opaque_equiv cf_unlift unlift_equiv intro: term_trans term_sym)
+by (blast intro!: similar_into_equiv opaque_equiv cf_unlift unlift_equiv
+      intro: term_trans term_sym)
 
 text \<open>Equivalent idiomatic terms in canonical form are similar. This justifies speaking of a
   normal form.\<close>
@@ -412,227 +331,173 @@ using in_cf proof (rule cf_similarI)
   from equiv show "opaque x = opaque y" by (rule opaque_equiv)
 next
   from equiv have "unlift x \<leftrightarrow> unlift y" by (rule unlift_equiv)
-  thus "CF_head x \<leftrightarrow> CF_head y"
+  thus "CF_pure x \<leftrightarrow> CF_pure y"
     using cf_unlift[OF in_cf(1)] cf_unlift[OF in_cf(2)]
     by (auto intro: term_sym term_trans)
 qed
 
+
 subsubsection \<open>Normalization of idiomatic terms\<close>
 
-fun rsize :: "'a itrm \<Rightarrow> nat"
+primrec norm_pn :: "dB \<Rightarrow> 'a itrm \<Rightarrow> 'a itrm"
 where
-    "rsize (x \<diamondop> y) = size y"
-  | "rsize _ = 0"
+    "norm_pn f (Opaque x) = undefined"
+  | "norm_pn f (Pure x) = Pure (f \<degree> x)"
+  | "norm_pn f (n \<diamondop> x) = norm_pn (\<B> \<degree> f) n \<diamondop> x"
 
-function (sequential) normalize_pure_cf :: "'a itrm \<Rightarrow> 'a itrm"
+primrec norm_nn :: "'a itrm \<Rightarrow> 'a itrm \<Rightarrow> 'a itrm"
 where
-    "normalize_pure_cf (Pure g \<diamondop> (f \<diamondop> x)) = normalize_pure_cf (Pure (\<B> \<degree> g) \<diamondop> f) \<diamondop> x"
-  | "normalize_pure_cf (Pure f \<diamondop> Pure x) = Pure (f \<degree> x)"
-  | "normalize_pure_cf x = x"
-by pat_completeness auto
-termination by (relation "measure rsize") auto
+    "norm_nn n (Opaque x) = undefined"
+  | "norm_nn n (Pure x) = norm_pn (\<T> \<degree> x) n"
+  | "norm_nn n (n' \<diamondop> x) = norm_nn (norm_pn \<B> n) n' \<diamondop> x"
 
-fun normalize_cf_pure :: "'a itrm \<Rightarrow> 'a itrm"
+primrec norm :: "'a itrm \<Rightarrow> 'a itrm"
 where
-    "normalize_cf_pure (f \<diamondop> Pure x) = normalize_pure_cf (Pure (\<T> \<degree> x) \<diamondop> f)"
-  | "normalize_cf_pure x = x"
-
-function (sequential) normalize_cf_cf :: "'a itrm \<Rightarrow> 'a itrm"
-where
-    "normalize_cf_cf (g \<diamondop> (f \<diamondop> x)) = normalize_cf_cf (normalize_pure_cf (Pure \<B> \<diamondop> g) \<diamondop> f) \<diamondop> x"
-  | "normalize_cf_cf x = normalize_cf_pure x"
-by pat_completeness auto
-termination by (relation "measure rsize") auto
-
-fun normalize :: "'a itrm \<Rightarrow> 'a itrm"
-where
-    "normalize (Pure x) = Pure x"
-  | "normalize (Opaque x) = Pure \<I> \<diamondop> Opaque x"
-  | "normalize (x \<diamondop> y)  = normalize_cf_cf (normalize x \<diamondop> normalize y)"
+    "norm (Opaque x) = Pure \<I> \<diamondop> Opaque x"
+  | "norm (Pure x) = Pure x"
+  | "norm (f \<diamondop> x) = norm_nn (norm f) (norm x)"
 
 
-lemma pure_cf_in_cf:
+lemma norm_pn_in_cf:
   assumes "x \<in> CF"
-    shows "normalize_pure_cf (Pure f \<diamondop> x) \<in> CF"
+    shows "norm_pn f x \<in> CF"
 using assms
-by (induction arbitrary: f rule: CF.induct) auto
+by (induction x arbitrary: f) auto
 
-lemma pure_cf_equiv: "normalize_pure_cf x \<simeq> x"
-proof (induction rule: normalize_pure_cf.induct)
-  case (1 g f x)
-  have "normalize_pure_cf (Pure g \<diamondop> (f \<diamondop> x)) \<simeq> normalize_pure_cf (Pure (\<B> \<degree> g) \<diamondop> f) \<diamondop> x" by simp
-  also from "1.IH" have "... \<simeq> Pure (\<B> \<degree> g) \<diamondop> f \<diamondop> x" by (rule ap_congL)
-  also have "... \<simeq> Pure \<B> \<diamondop> Pure g \<diamondop> f \<diamondop> x" by (blast intro: itrm_hom'[symmetric] ap_congL)
-  also have "... \<simeq> Pure g \<diamondop> (f \<diamondop> x)" by (rule itrm_comp'[symmetric])
-  finally show ?case .
+lemma norm_nn_in_cf:
+  assumes "n \<in> CF" "n' \<in> CF"
+    shows "norm_nn n n' \<in> CF"
+using assms(2,1)
+by (induction n' arbitrary: n) (auto intro: norm_pn_in_cf)
+
+lemma norm_in_cf: "norm x \<in> CF"
+by (induction x) (auto intro: norm_nn_in_cf)
+
+
+lemma norm_pn_equiv:
+  assumes "x \<in> CF"
+    shows "norm_pn f x \<simeq> Pure f \<diamondop> x"
+using assms proof (induction x arbitrary: f)
+  case (pure_cf x)
+  have "Pure (f \<degree> x) \<simeq> Pure f \<diamondop> Pure x" using itrm_hom[symmetric] .
+  then show ?case by simp
 next
-  case (2 f x)
-  have "normalize_pure_cf (Pure f \<diamondop> Pure x) \<simeq> Pure (f \<degree> x)" by simp
-  also have "... \<simeq> Pure f \<diamondop> Pure x" by (rule itrm_hom'[symmetric])
-  finally show ?case .
-qed auto
+  case (ap_cf n x)
+  from ap_cf.IH have "norm_pn (\<B> \<degree> f) n \<simeq> Pure (\<B> \<degree> f) \<diamondop> n" .
+  then have "norm_pn (\<B> \<degree> f) n \<diamondop> Opaque x \<simeq> Pure (\<B> \<degree> f) \<diamondop> n \<diamondop> Opaque x" ..
+  also have "... \<simeq> Pure \<B> \<diamondop> Pure f \<diamondop> n \<diamondop> Opaque x"
+    using itrm_hom[symmetric] by blast
+  also have "... \<simeq> Pure f \<diamondop> (n \<diamondop> Opaque x)" using itrm_comp .
+  finally show ?case by simp
+qed
 
-lemma cf_pure_in_cf:
-  assumes "f \<in> CF"
-    shows "normalize_cf_pure (f \<diamondop> Pure x) \<in> CF"
-using assms
-by (auto intro: pure_cf_in_cf)
-
-lemma cf_pure_equiv: "normalize_cf_pure x \<simeq> x"
-proof (induction rule: normalize_cf_pure.induct)
-  case (1 f x)
-  have "normalize_cf_pure (f \<diamondop> Pure x) \<simeq> normalize_pure_cf (Pure (\<T> \<degree> x) \<diamondop> f)" by simp
-  also have "... \<simeq> Pure (\<T> \<degree> x) \<diamondop> f" by (rule pure_cf_equiv)
-  also have "... \<simeq> f \<diamondop> Pure x" by (rule itrm_xchng'[symmetric])
-  finally show ?case .
-qed auto
-
-lemma cf_cf_in_cf:
-  assumes "x \<in> CF" and "f \<in> CF"
-    shows "normalize_cf_cf (f \<diamondop> x) \<in> CF"
-using assms
-by (induction arbitrary: f rule: CF.induct) (auto intro: pure_cf_in_cf)
-
-lemma cf_cf_equiv: "normalize_cf_cf x \<simeq> x"
-proof (induction rule: normalize_cf_cf.induct)
-  case (1 g f x)
-  have "normalize_cf_cf (g \<diamondop> (f \<diamondop> x)) \<simeq> normalize_cf_cf (normalize_pure_cf (Pure \<B> \<diamondop> g) \<diamondop> f) \<diamondop> x"
-    by simp
-  also from "1.IH" have "... \<simeq> normalize_pure_cf (Pure \<B> \<diamondop> g) \<diamondop> f \<diamondop> x" by (rule ap_congL)
-  also have "... \<simeq> Pure \<B> \<diamondop> g \<diamondop> f \<diamondop> x" by (blast intro: pure_cf_equiv ap_congL)
-  also have "... \<simeq> g \<diamondop> (f \<diamondop> x)" by (rule itrm_comp'[symmetric])
-  finally show ?case .
-qed (auto simp del: normalize_cf_pure.simps intro: cf_pure_equiv)
-
-lemma normalize_in_cf: "normalize x \<in> CF"
-by (induction x rule: normalize.induct) (auto intro: cf_cf_in_cf)
-
-lemma normalize_equiv: "normalize x \<simeq> x"
-proof (induction rule: normalize.induct)
-  case (2 x)
-  have "normalize (Opaque x) \<simeq> Pure \<I> \<diamondop> Opaque x" by simp
-  also have "... \<simeq> Opaque x" by (rule itrm_id'[symmetric])
-  finally show ?case .
+lemma norm_nn_equiv:
+  assumes "n \<in> CF" "n' \<in> CF"
+    shows "norm_nn n n' \<simeq> n \<diamondop> n'"
+using assms(2,1) proof (induction n' arbitrary: n)
+  case (pure_cf x)
+  then have "norm_pn (\<T> \<degree> x) n \<simeq> Pure (\<T> \<degree> x) \<diamondop> n" by (rule norm_pn_equiv)
+  also have "... \<simeq> n \<diamondop> Pure x" using itrm_xchng[symmetric] .
+  finally show ?case by simp
 next
-  case (3 x y)
-  have "normalize (x \<diamondop> y) \<simeq> normalize_cf_cf (normalize x \<diamondop> normalize y)" by simp
-  also have "... \<simeq> normalize x \<diamondop> normalize y" by (rule cf_cf_equiv)
-  also from "3.IH" have "... \<simeq> x \<diamondop> normalize y" by (blast intro: ap_congL)
-  also from "3.IH" have "... \<simeq> x \<diamondop> y" by (blast intro: ap_congR)
-  finally show ?case .
-qed auto
+  case (ap_cf n' x)
+  have "norm_nn (norm_pn \<B> n) n' \<diamondop> Opaque x \<simeq> Pure \<B> \<diamondop> n \<diamondop> n' \<diamondop> Opaque x" proof
+    from `n \<in> CF` have "norm_pn \<B> n \<in> CF" by (rule norm_pn_in_cf)
+    with ap_cf.IH have "norm_nn (norm_pn \<B> n) n' \<simeq> norm_pn \<B> n \<diamondop> n'" .
+    also have "... \<simeq> Pure \<B> \<diamondop> n \<diamondop> n'" using norm_pn_equiv `n \<in> CF` by blast
+    finally show "norm_nn (norm_pn \<B> n) n' \<simeq> Pure \<B> \<diamondop> n \<diamondop> n'" .
+  qed
+  also have "... \<simeq> n \<diamondop> (n' \<diamondop> Opaque x)" using itrm_comp .
+  finally show ?case by simp
+qed
+
+lemma norm_equiv: "norm x \<simeq> x"
+proof (induction)
+  case (Opaque x)
+  have "Pure \<I> \<diamondop> Opaque x \<simeq> Opaque x" using itrm_id .
+  then show ?case by simp
+next
+  case (Pure x)
+  show ?case by simp
+next
+  case (IAp f x)
+  have "norm f \<in> CF" and "norm x \<in> CF" by (rule norm_in_cf)+
+  then have "norm_nn (norm f) (norm x) \<simeq> norm f \<diamondop> norm x"
+    by (rule norm_nn_equiv)
+  also have "... \<simeq> f \<diamondop> x" using IAp.IH ..
+  finally show ?case by simp
+qed
 
 lemma normal_form: obtains n where "n \<simeq> x" and "n \<in> CF"
-using normalize_equiv normalize_in_cf ..
+using norm_equiv norm_in_cf ..
 
 
-subsubsection \<open>Proving lifted equations\<close>
+subsubsection \<open>Lifting with normal forms\<close>
+
+lemma nf_unlift:
+  assumes equiv: "n \<simeq> x" and cf: "n \<in> CF"
+    shows "CF_pure n \<leftrightarrow> unlift x"
+proof -
+  from cf have "CF_pure n \<leftrightarrow> unlift n" by (rule cf_unlift)
+  also from equiv have "unlift n \<leftrightarrow> unlift x" by (rule unlift_equiv)
+  finally show ?thesis .
+qed
 
 theorem nf_lifting:
   assumes opaque: "opaque x = opaque y"
       and base_eq: "unlift x \<leftrightarrow> unlift y"
     shows "x \<simeq> y"
 proof -
-  obtain n where "n \<simeq> x" and "n \<in> CF" by (rule normal_form)
-  hence n_head: "CF_head n \<leftrightarrow> unlift x"
-    using cf_unlift unlift_equiv by (blast intro: term_trans)
-  from `n \<simeq> x` have n_opaque: "opaque n = opaque x"
-    by (rule opaque_equiv)
-  obtain n' where "n' \<simeq> y" and "n' \<in> CF" by (rule normal_form)
-  hence n'_head: "CF_head n' \<leftrightarrow> unlift y"
-    using cf_unlift unlift_equiv by (blast intro: term_trans)
-  from `n' \<simeq> y` have n'_opaque: "opaque n' = opaque y"
-    by (rule opaque_equiv)
-  from n_head n'_head base_eq have "CF_head n \<leftrightarrow> CF_head n'"
-    by (blast intro: term_sym term_trans)
-  moreover from n_opaque n'_opaque opaque list.rel_conversep[of "op \<leftrightarrow>"]
-  have "opaque n = opaque n'"
-    by(auto simp add: fun_eq_iff intro: term_trans)
-  moreover note `n \<in> CF` `n' \<in> CF`
-  ultimately have "n \<cong> n'" by (blast intro: cf_similarI)
-  hence "n \<simeq> n'" by (rule similar_equiv)
-  with `n \<simeq> x` `n' \<simeq> y` show "x \<simeq> y" by (blast intro: itrm_sym itrm_trans)
+  obtain n where nf_x: "n \<simeq> x" "n \<in> CF" by (rule normal_form)
+  obtain n' where nf_y: "n' \<simeq> y" "n' \<in> CF" by (rule normal_form)
+
+  from nf_x have "CF_pure n \<leftrightarrow> unlift x" by (rule nf_unlift)
+  also note base_eq
+  also from nf_y have "unlift y \<leftrightarrow> CF_pure n'" by (rule nf_unlift[THEN term_sym])
+  finally have pure_eq: "CF_pure n \<leftrightarrow> CF_pure n'" .
+
+  from nf_x(1) have "opaque n = opaque x" by (rule opaque_equiv)
+  also note opaque
+  also from nf_y(1) have "opaque y = opaque n'" by (rule opaque_equiv[THEN sym])
+  finally have opaque_eq: "opaque n = opaque n'" .
+
+  from nf_x(1) have "x \<simeq> n" ..
+  also have "n \<simeq> n'"
+    using nf_x nf_y pure_eq opaque_eq
+    by (blast intro: similar_into_equiv cf_similarI)
+  also from nf_y(1) have "n' \<simeq> y" .
+  finally show "x \<simeq> y" .
 qed
 
 
-subsubsection \<open>Lifting with bracket abstraction\<close>
+subsubsection \<open>Bracket abstraction for lambda and idiomatic terms\<close>
 
-paragraph \<open>Idioms which satisfy additional equations\<close>
-
-locale itrm_ext =
-  fixes E :: "'a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool"
-  assumes idiom_ext: "pre_equiv \<le> E"
-begin
-
-abbreviation itrm_ext_equiv :: "'a itrm \<Rightarrow> 'a itrm \<Rightarrow> bool" (infixl "\<simeq>\<^sup>+" 50)
-where "x \<simeq>\<^sup>+ y \<equiv> itrm_cong E x y"
-
-lemma pre_equiv_into_ext: "pre_equiv x y \<Longrightarrow> x \<simeq>\<^sup>+ y"
-using idiom_ext by (blast intro: base_cong)
-
-lemmas itrm_ext_id = itrm_id[THEN pre_equiv_into_ext]
-lemmas itrm_ext_comp = itrm_comp[THEN pre_equiv_into_ext]
-lemmas itrm_ext_hom = itrm_hom[THEN pre_equiv_into_ext]
-lemmas itrm_ext_xchng = itrm_xchng[THEN pre_equiv_into_ext]
-
-lemma equiv_into_ext: "x \<simeq> y \<Longrightarrow> x \<simeq>\<^sup>+ y"
-by (induction pred: itrm_cong) (auto intro: itrm_cong.intros idiom_ext[THEN predicate2D])
-
-end
-
-
-paragraph \<open>General notion of bracket abstraction for lambda terms\<close>
-
-definition foldr_option :: "('a \<Rightarrow> 'b \<Rightarrow> 'b option) \<Rightarrow> 'a list \<Rightarrow> 'b \<Rightarrow> 'b option"
-where "foldr_option f xs e = foldr (\<lambda>a b. Option.bind b (f a)) xs (Some e)"
-
-lemma bind_eq_SomeE:
-  assumes "Option.bind x f = Some y"
-  obtains x' where "x = Some x'" and "f x' = Some y"
-using assms by (auto iff: bind_eq_Some_conv)
-
-lemma foldr_option_Nil[simp]: "foldr_option f [] e = Some e"
-unfolding foldr_option_def by simp
-
-lemma foldr_option_Cons:
-  assumes "foldr_option f (x#xs) e = Some y"
-  obtains y' where "foldr_option f xs e = Some y'" and "f x y' = Some y"
-using assms unfolding foldr_option_def by (auto elim: bind_eq_SomeE)
+paragraph \<open>Preliminaries: Sequential application of variables\<close>
 
 definition frees :: "dB \<Rightarrow> nat set"
 where [simp]: "frees t = {i. free t i}"
 
-definition term_dist :: "nat list \<Rightarrow> dB \<Rightarrow> dB"
-where "term_dist = fold (\<lambda>i t. t \<degree> Var i)"
+definition var_dist :: "nat list \<Rightarrow> dB \<Rightarrow> dB"
+where "var_dist = fold (\<lambda>i t. t \<degree> Var i)"
 
-lemma upt_eq_Cons_Suc: "[i..<j] = k # ks \<Longrightarrow> [Suc i..<j] = ks"
-by (auto iff: upt_eq_Cons_conv)
+lemma var_dist_Nil[simp]: "var_dist [] t = t"
+unfolding var_dist_def by simp
 
-lemma upt_last: "[i..<j] = xs @ [x] \<Longrightarrow> i < j \<and> x = j - 1 \<and> xs = [i..<j-1]"
-by (cases j) (auto split: if_splits)
+lemma var_dist_Cons[simp]: "var_dist (v # vs) t = var_dist vs (t \<degree> Var v)"
+unfolding var_dist_def by simp
 
-lemma rev_upt_Cons: "x # xs = rev [i..<j] \<Longrightarrow> i < j \<and> x = j - 1 \<and> xs = rev [i..<j-1]"
-by (auto dest!: rev_eq_Cons_iff[THEN iffD1, OF sym] upt_last simp add: rev_swap)
+lemma var_dist_append1: "var_dist (vs @ [v]) t = var_dist vs t \<degree> Var v"
+unfolding var_dist_def by simp
 
-lemma liftn_lift_swap: "liftn n (lift t k) k = lift (liftn n t k) k"
-by (induction n) simp_all
-
-lemma term_dist_Nil[simp]: "term_dist [] t = t"
-unfolding term_dist_def by simp
-
-lemma term_dist_Cons[simp]: "term_dist (v # vs) t = term_dist vs (t \<degree> Var v)"
-unfolding term_dist_def by simp
-
-lemma term_dist_append: "term_dist (vs @ [v]) t = term_dist vs t \<degree> Var v"
-unfolding term_dist_def by simp
-
-lemma term_dist_frees: "frees (term_dist vs t) = frees t \<union> set vs"
+lemma var_dist_frees: "frees (var_dist vs t) = frees t \<union> set vs"
 by (induction vs arbitrary: t) auto
 
-lemma term_dist_subst_lt: "\<forall>v\<in>set vs. i < v \<Longrightarrow> (term_dist vs s)[t/i] = term_dist (map (\<lambda>v. v - 1) vs) (s[t/i])"
+lemma var_dist_subst_lt:
+  "\<forall>v\<in>set vs. i < v \<Longrightarrow> (var_dist vs s)[t/i] = var_dist (map (\<lambda>v. v - 1) vs) (s[t/i])"
 by (induction vs arbitrary: s) simp_all
 
-lemma term_dist_subst_gt: "\<forall>v\<in>set vs. v < i \<Longrightarrow> (term_dist vs s)[t/i] = term_dist vs (s[t/i])"
+lemma var_dist_subst_gt:
+  "\<forall>v\<in>set vs. v < i \<Longrightarrow> (var_dist vs s)[t/i] = var_dist vs (s[t/i])"
 by (induction vs arbitrary: s) simp_all
 
 definition vsubst :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat"
@@ -644,50 +509,54 @@ unfolding vsubst_def by simp
 lemma vsubst_subst_lt[simp]: "u < w \<Longrightarrow> vsubst u v w = u"
 unfolding vsubst_def by simp
 
-lemma term_dist_subst_Var: "(term_dist vs s)[Var i/j] = term_dist (map (\<lambda>v. vsubst v i j) vs) (s[Var i/j])"
+lemma var_dist_subst_Var:
+  "(var_dist vs s)[Var i/j] = var_dist (map (\<lambda>v. vsubst v i j) vs) (s[Var i/j])"
 by (induction vs arbitrary: s) simp_all
 
-lemma term_dist_cong: "s \<leftrightarrow> t \<Longrightarrow> term_dist vs s \<leftrightarrow> term_dist vs t"
-by (induction vs arbitrary: s t) (auto intro: equiv_appL)
+lemma var_dist_cong: "s \<leftrightarrow> t \<Longrightarrow> var_dist vs s \<leftrightarrow> var_dist vs t"
+by (induction vs arbitrary: s t) auto
 
-lemma wrap_abs_subst: "(wrap_abs s n)[t/k] = wrap_abs (s[liftn n t 0/k+n]) n"
+
+paragraph \<open>Preliminaries: Eta reductions of permuted variables\<close>
+
+lemma absn_subst: "((Abs^^n) s)[t/k] = (Abs^^n) (s[liftn n t 0/k+n])"
 by (induction n arbitrary: t k) (simp_all add: liftn_lift_swap)
 
-lemma wrap_abs_beta: "wrap_abs s (Suc n) \<degree> t \<leftrightarrow> wrap_abs (s[liftn n t 0/n]) n"
+lemma absn_beta_equiv: "(Abs^^Suc n) s \<degree> t \<leftrightarrow> (Abs^^n) (s[liftn n t 0/n])"
 proof -
-  have "wrap_abs s (Suc n) \<degree> t = Abs (wrap_abs s n) \<degree> t" by simp
-  also have "... \<leftrightarrow> (wrap_abs s n)[t/0]" by (rule red_into_equiv) blast
-  also have "... = wrap_abs (s[liftn n t 0/n]) n" by (simp add: wrap_abs_subst)
+  have "(Abs^^Suc n) s \<degree> t = Abs ((Abs^^n) s) \<degree> t" by simp
+  also have "... \<leftrightarrow> ((Abs^^n) s)[t/0]" by (rule beta_into_equiv) (rule beta.beta)
+  also have "... = (Abs^^n) (s[liftn n t 0/n])" by (simp add: absn_subst)
   finally show ?thesis .
 qed
 
-lemma wrap_abs_dist_eta: "wrap_abs (term_dist (rev [0..<n]) (liftn n t 0)) n \<leftrightarrow> t"
+lemma absn_dist_eta: "(Abs^^n) (var_dist (rev [0..<n]) (liftn n t 0)) \<leftrightarrow> t"
 proof (induction n)
   case 0 show ?case by simp
 next
   case (Suc n)
-  let ?dist_range = "\<lambda>a k. term_dist (rev [a..<k]) (liftn k t 0)"
+  let ?dist_range = "\<lambda>a k. var_dist (rev [a..<k]) (liftn k t 0)"
   have append: "rev [0..<Suc n] = rev [1..<Suc n] @ [0]" by (simp add: upt_rec)
   have dist_last: "?dist_range 0 (Suc n) = ?dist_range 1 (Suc n) \<degree> Var 0"
-    unfolding append term_dist_append ..
+    unfolding append var_dist_append1 ..
+
   have "\<not> free (?dist_range 1 (Suc n)) 0" proof -
     have "frees (?dist_range 1 (Suc n)) = frees (liftn (Suc n) t 0) \<union> {1..n}"
-      unfolding term_dist_frees by fastforce
+      unfolding var_dist_frees by fastforce
     then have "0 \<notin> frees (?dist_range 1 (Suc n))" by simp
     then show ?thesis by simp
   qed
   then have "Abs (?dist_range 0 (Suc n)) \<rightarrow>\<^sub>\<eta> (?dist_range 1 (Suc n))[Var 0/0]"
     unfolding dist_last by (rule eta)
-  also have "... = term_dist (rev [0..<n]) ((liftn (Suc n) t 0)[Var 0/0])" proof -
+  also have "... = var_dist (rev [0..<n]) ((liftn (Suc n) t 0)[Var 0/0])" proof -
     have "\<forall>v\<in>set (rev [1..<Suc n]). 0 < v" by auto
     moreover have "rev [0..<n] = map (\<lambda>v. v - 1) (rev [1..<Suc n])" by (induction n) simp_all
-    ultimately show ?thesis by (simp only: term_dist_subst_lt)
+    ultimately show ?thesis by (simp only: var_dist_subst_lt)
   qed
   also have "... = ?dist_range 0 n" using subst_liftn[of 0 n 0 t "Var 0"] by simp
-  finally have "Abs (?dist_range 0 (Suc n)) \<leftrightarrow> ?dist_range 0 n"
-    by (blast intro!: red_into_equiv[OF r_into_rtranclp])
-  then have "wrap_abs (?dist_range 0 (Suc n)) (Suc n) \<leftrightarrow> wrap_abs (?dist_range 0 n) n"
-    unfolding wrap_abs_inside by (rule wrap_abs_equiv)
+  finally have "Abs (?dist_range 0 (Suc n)) \<leftrightarrow> ?dist_range 0 n" ..
+  then have "(Abs^^Suc n) (?dist_range 0 (Suc n)) \<leftrightarrow> (Abs^^n) (?dist_range 0 n)"
+    unfolding funpow_Suc_inside by (rule absn_cong)
   also from Suc.IH have "... \<leftrightarrow> t" .
   finally show ?case .
 qed
@@ -706,187 +575,186 @@ lemma liftn_strip_context:
     shows "liftn n (strip_context n t k) k = t"
 using assms proof (induction t arbitrary: k)
   case (Abs t)
-  then show ?case
-    apply clarsimp
-    by (metis less_imp_Suc_add linorder_not_le not_less_eq plus_nat.simps(2))
+  have "\<forall>i\<in>frees t. i < Suc k \<or> Suc k + n \<le> i" proof
+    fix i assume free: "i \<in> frees t"
+    show "i < Suc k \<or> Suc k + n \<le> i" proof (cases "i > 0")
+      assume "i > 0"
+      with free Abs.prems have "i-1 < k \<or> k + n \<le> i-1" by simp
+      then show ?thesis by arith
+    qed simp
+  qed
+  with Abs.IH show ?case by simp
 qed auto
 
-lemma liftn_rel_imp_strip_context:
-  assumes "\<forall>i\<in>frees s. i < k \<or> k + n \<le> i"
-      and "\<And>t. P (liftn n t k) t"
-    shows "P s (strip_context n s k)"
+lemma absn_dist_eta_free:
+  assumes "\<forall>i\<in>frees t. n \<le> i"
+  shows "(Abs^^n) (var_dist (rev [0..<n]) t) \<leftrightarrow> strip_context n t 0" (is "?lhs t \<leftrightarrow> ?rhs")
 proof -
-  from assms(1) have "liftn n (strip_context n s k) k = s" by (rule liftn_strip_context)
-  with assms(2)[of "strip_context n s k"] show ?thesis by simp
+  have "?lhs (liftn n ?rhs 0) \<leftrightarrow> ?rhs" by (rule absn_dist_eta)
+  moreover have "liftn n ?rhs 0 = t"
+    using assms by (auto intro: liftn_strip_context)
+  ultimately show ?thesis by simp
 qed
 
-lemma wrap_abs_dist_eta_free:
-  assumes "\<forall>i\<in>frees t. n \<le> i"
-  shows "wrap_abs (term_dist (rev [0..<n]) t) n \<leftrightarrow> strip_context n t 0"
-apply (rule liftn_rel_imp_strip_context)
-using assms apply simp
-apply (rule wrap_abs_dist_eta)
-done
+definition perm_vars :: "nat \<Rightarrow> nat list \<Rightarrow> bool"
+where "perm_vars n vs \<longleftrightarrow> distinct vs \<and> set vs = {0..<n}"
 
-lemma on_set_eq_imp_map_eq: "\<forall>x\<in>set xs. P x \<Longrightarrow> (\<And>x. P x \<Longrightarrow> f x = g x) \<Longrightarrow> map f xs = map g xs"
-by auto
+lemma perm_vars_distinct: "perm_vars n vs \<Longrightarrow> distinct vs"
+unfolding perm_vars_def by simp
+
+lemma perm_vars_length: "perm_vars n vs \<Longrightarrow> length vs = n"
+unfolding perm_vars_def using distinct_card by force
+
+lemma perm_vars_lt: "perm_vars n vs \<Longrightarrow> \<forall>i\<in>set vs. i < n"
+unfolding perm_vars_def by simp
+
+lemma perm_vars_nth_lt: "perm_vars n vs \<Longrightarrow> i < n \<Longrightarrow> vs ! i < n"
+using perm_vars_length perm_vars_lt by simp
+
+lemma perm_vars_nth_bij_betw:
+  assumes "perm_vars n vs"
+    shows "bij_betw (nth vs) {0..<n} {0..<n}"
+proof (rule bij_betwI')
+  fix i j
+  assume "i \<in> {0..<n}" and "j \<in> {0..<n}"
+  with assms have "i < length vs" and "j < length vs"
+    using perm_vars_length by simp+
+  moreover from assms have "distinct vs" by (rule perm_vars_distinct)
+  ultimately show "(vs ! i = vs ! j) = (i = j)" by (intro nth_eq_iff_index_eq)
+next
+  fix i
+  assume "i \<in> {0..<n}"
+  then show "vs ! i \<in> {0..<n}" using assms perm_vars_nth_lt by simp
+next
+  fix i
+  assume "i \<in> {0..<n}"
+  then have "i \<in> set vs" using assms unfolding perm_vars_def by simp
+  then have "\<exists>j < length vs. vs ! j = i" unfolding in_set_conv_nth .
+  then show "\<exists>j\<in>{0..<n}. i = vs ! j" using assms perm_vars_length by auto
+qed
+
+abbreviation perm_vars_inv :: "nat \<Rightarrow> nat list \<Rightarrow> nat \<Rightarrow> nat"
+where "perm_vars_inv n vs i \<equiv> the_inv_into {0..<n} (op ! vs) i"
+
+lemma nth_perm_vars_inv:
+  assumes "perm_vars n vs"
+  assumes "i < n"
+    shows "vs ! perm_vars_inv n vs i = i"
+using assms by (auto intro: f_the_inv_into_f_bij_betw elim: perm_vars_nth_bij_betw)
+
+lemma perm_vars_inv_nth:
+  assumes "perm_vars n vs"
+  assumes "i < n"
+    shows "perm_vars_inv n vs (vs ! i) = i"
+using assms by (auto intro!: the_inv_into_f_f bij_betw_imp_inj_on perm_vars_nth_bij_betw)
 
 lemma dist_perm_eta:
-  fixes vs
-  defines "n \<equiv> length vs"
-  assumes vars_perm: "bij_betw (\<lambda>i. vs ! i) {0..<n} {0..<n}"
-  obtains vs' where "\<And>t. \<forall>i\<in>frees t. n \<le> i \<Longrightarrow> wrap_abs (term_dist vs' (wrap_abs (term_dist vs (liftn n t 0)) n)) n \<leftrightarrow> strip_context n t 0"
+  assumes "perm_vars n vs"
+  obtains vs' where "\<And>t. \<forall>i\<in>frees t. n \<le> i \<Longrightarrow>
+    (Abs^^n) (var_dist vs' ((Abs^^n) (var_dist vs (liftn n t 0)))) \<leftrightarrow> strip_context n t 0"
 proof -
-  let ?app_vars = "\<lambda>t n vs' vs. term_dist vs' (wrap_abs (term_dist vs (liftn n t 0)) n)"
-  let ?appd_vars = "\<lambda>t n. term_dist (rev [0..<n]) t"
+  def vsubsts \<equiv> "\<lambda>n vs' vs.
+    map (\<lambda>v.
+      if v < n - length vs' then v
+      else if v < n then vs' ! (n - v - 1) + (n - length vs')
+      else v - length vs') vs"
 
-  def vsubsts \<equiv> "\<lambda>n vs' vs. map (\<lambda>v. if v < n - length vs' then v else if v < n then vs' ! (n - v - 1) + (n - length vs') else v - length vs') vs"
-
+  let ?app_vars = "\<lambda>t n vs' vs. var_dist vs' ((Abs^^n) (var_dist vs (liftn n t 0)))"
   {
-    fix t and vs vs' :: "nat list"
-    assume p: "length vs' \<le> n"
+    fix t :: dB and vs' :: "nat list"
+    assume partial: "length vs' \<le> n"
 
     let ?m = "n - length vs'"
-    have "?app_vars t n vs' vs \<leftrightarrow> wrap_abs (term_dist (vsubsts n vs' vs) (liftn ?m t 0)) ?m"
-    using p proof (induction vs' arbitrary: vs n)
+    have "?app_vars t n vs' vs \<leftrightarrow> (Abs^^?m) (var_dist (vsubsts n vs' vs) (liftn ?m t 0))"
+    using partial proof (induction vs' arbitrary: vs n)
       case Nil
       then have "vsubsts n [] vs = vs" unfolding vsubsts_def by (auto intro: map_idI)
       then show ?case by simp
     next
       case (Cons v vs')
-      let ?mm = "n - length (v # vs')"
-      let ?mm' = "(n - 1) - length vs'"
-      from Cons.prems have vs'_length: "length vs' \<le> n - 1" by simp
-      from Cons.prems have "0 < n" by simp
-      then have "?app_vars t n (v # vs') vs = ?app_vars t (Suc (n-1)) (v # vs') vs" by simp
-      also have "... \<leftrightarrow> term_dist vs' (wrap_abs ((term_dist vs (liftn (Suc (n-1)) t 0))[liftn (n-1) (Var v) 0/n-1]) (n-1))"
-        apply (unfold term_dist_Cons)
-        apply (rule term_dist_cong)
-        apply (rule wrap_abs_beta)
-        done
-      also have "... = term_dist vs' (wrap_abs (term_dist (vsubsts n [v] vs) (liftn (n-1) t 0)) (n-1))"
-      proof -
-        have 1: "v + n - 1 = v + (n - 1)" using `n > 0` by simp
-        have "(term_dist vs (liftn (Suc (n-1)) t 0))[Var (v + n - 1)/n-1] =
-          term_dist (map (\<lambda>v'. vsubst v' (v + n - 1) (n-1)) vs) ((liftn (Suc (n-1)) t 0)[Var (v + n - 1)/n-1])"
-          using term_dist_subst_Var .
-        also have "... = term_dist (vsubsts n [v] vs) (liftn (n-1) t 0)"
-        proof -
-          have "map (\<lambda>v'. vsubst v' (v + n - 1) (n-1)) vs = vsubsts n [v] vs"
-            unfolding vsubsts_def vsubst_def
-            using `n > 0`
-            by (auto cong: if_cong)
-          then show ?thesis using `n > 0`
-            by (metis One_nat_def Suc_pred le_add1 less_Suc_eq_le subst_liftn)
-        qed
-        finally show ?thesis unfolding 1 by simp
+      def n' \<equiv> "n - 1"
+      have Suc_n': "Suc n' = n" unfolding n'_def using Cons.prems by simp
+      have vs'_length: "length vs' \<le> n'" unfolding n'_def using Cons.prems by simp
+      let ?m' = "n' - length vs'"
+      have m'_conv: "?m' = n - length (v # vs')" unfolding n'_def by simp
+
+      have "?app_vars t n (v # vs') vs = ?app_vars t (Suc n') (v # vs') vs"
+        unfolding Suc_n' ..
+      also have "... \<leftrightarrow> var_dist vs' ((Abs^^Suc n') (var_dist vs (liftn (Suc n') t 0)) \<degree> Var v)"
+        unfolding var_dist_Cons ..
+      also have "... \<leftrightarrow> ?app_vars t n' vs' (vsubsts n [v] vs)" proof (rule var_dist_cong)
+        have "map (\<lambda>vv. vsubst vv (v + n') n') vs = vsubsts n [v] vs"
+          unfolding Suc_n'[symmetric] vsubsts_def vsubst_def
+          by (auto cong: if_cong)
+        then have "(var_dist vs (liftn (Suc n') t 0))[liftn n' (Var v) 0/n']
+                  = var_dist (vsubsts n [v] vs) (liftn n' t 0)"
+          using var_dist_subst_Var subst_liftn by simp
+        then show "(Abs^^Suc n') (var_dist vs (liftn (Suc n') t 0)) \<degree> Var v
+                  \<leftrightarrow> (Abs^^n') (var_dist (vsubsts n [v] vs) (liftn n' t 0))"
+          by (fastforce intro: absn_beta_equiv[THEN term_trans])
       qed
-      also have "... \<leftrightarrow> wrap_abs (term_dist (vsubsts (n-1) vs' (vsubsts n [v] vs)) (liftn ?mm' t 0)) ?mm'"
+      also have "... \<leftrightarrow> (Abs^^?m') (var_dist (vsubsts n' vs' (vsubsts n [v] vs)) (liftn ?m' t 0))"
       using vs'_length Cons.IH by blast
-      also have "... = wrap_abs (term_dist (vsubsts n (v # vs') vs) (liftn ?mm t 0)) ?mm"
+      also have "... = (Abs^^?m') (var_dist (vsubsts n (v # vs') vs) (liftn ?m' t 0))"
       proof -
-        have 1: "length [v] = 1" by simp
-        have "?mm' = ?mm" by simp
-        moreover have "vsubsts (n-1) vs' (vsubsts n [v] vs) = vsubsts n (v # vs') vs"
-          unfolding vsubsts_def map_map comp_def
-          apply (rule map_cong)
-          apply rule
-          apply (unfold 1)
-          apply (split split_if)+
-          apply safe
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          using vs'_length
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply arith
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          defer
-          apply clarsimp
-          apply clarsimp
-          apply clarsimp
-          apply arith
-          apply clarsimp
-          using vs'_length
-          apply(cases n)
-          apply simp_all
-          done
-        ultimately show ?thesis by simp
+        have "vsubsts n' vs' (vsubsts (Suc n') [v] vs) = vsubsts (Suc n') (v # vs') vs"
+          unfolding vsubsts_def
+          using vs'_length [[linarith_split_limit=10]]
+          by auto
+        then show ?thesis unfolding Suc_n' by simp
       qed
-      finally show ?case .
+      finally show ?case unfolding m'_conv .
     qed
   }
-  note 1 = this
+  note partial_appd = this
 
-  def solution \<equiv> "map (\<lambda>i. n - the_inv_into {0..<n} (\<lambda>j. vs ! j) (n - i - 1) - 1) [0..<n]"
+  def vs' \<equiv> "map (\<lambda>i. n - perm_vars_inv n vs (n - i - 1) - 1) [0..<n]"
 
-  have all_vs: "\<forall>v\<in>set vs. v < n" proof
-    fix v assume "v \<in> set vs"
-    then obtain i where "i < length vs" and "vs ! i = v"
-      by (blast dest: in_set_conv_nth[THEN iffD1])
-    then have "vs ! i \<in> {0..<n}"
-      using vars_perm unfolding n_def by (auto dest: bij_betwE)
-    then show "v < n" unfolding `vs ! i = v` by simp
+  from assms have vs_length: "length vs = n" by (rule perm_vars_length)
+  have vs'_length: "length vs' = n" unfolding vs'_def by simp
+
+  have "map (\<lambda>v. vs' ! (n - v - 1)) vs = rev [0..<n]" proof -
+    have "length vs = length (rev [0..<n])"
+      unfolding vs_length by simp
+    then have "list_all2 (\<lambda>v v'. vs' ! (n - v - 1) = v') vs (rev [0..<n])" proof
+      fix i assume "i < length vs"
+      then have "i < n" unfolding vs_length .
+      then have "vs ! i < n" using assms perm_vars_nth_lt by simp
+      with `i < n` have "vs' ! (n - vs ! i - 1) = n - perm_vars_inv n vs (vs ! i) - 1"
+        unfolding vs'_def by simp
+      also from `i < n` have "... = n - i - 1" using assms perm_vars_inv_nth by simp
+      also from `i < n` have "... = rev [0..<n] ! i" by (simp add: rev_nth)
+      finally show "vs' ! (n - vs ! i - 1) = rev [0..<n] ! i" .
+    qed
+    then show ?thesis
+      unfolding list.rel_eq[symmetric]
+      using list.rel_map
+      by auto
   qed
+  then have vs'_vs: "vsubsts n vs' vs = rev [0..<n]"
+    unfolding vsubsts_def vs'_length
+    using perm_vars_lt[OF assms]
+    by (auto intro: map_ext[THEN trans])
 
-  have solution_length: "length solution = n" unfolding solution_def by simp
-  have "\<And>v. v < n \<Longrightarrow> solution ! (n - v - 1) = n - the_inv_into {0..<n} (\<lambda>j. vs ! j) v - 1"
-    unfolding n_def solution_def by auto
-  with vars_perm have "map (\<lambda>v. solution ! (n - v - 1)) vs = rev [0..<n]"
-    apply (subst list.rel_eq[symmetric])
-    apply (subst list.rel_map)
-    apply (rule list_all2_all_nthI)
-    apply (unfold n_def)
-    apply clarsimp
-    apply (subgoal_tac "vs ! n < length vs")
-    apply clarsimp
-    apply (auto dest!: bij_betw_imp_inj_on iff: the_inv_into_f_eq rev_nth)[1]
-    apply (auto dest: bij_betwE)
-    done
-  then have solution_vs: "vsubsts n solution vs = rev [0..<n]"
-    unfolding vsubsts_def solution_length
-    using all_vs
-    apply (elim on_set_eq_imp_map_eq [where g="\<lambda>v. solution ! (n - v - 1)", THEN trans])
-    apply simp_all
-    done
+  let ?appd_vars = "\<lambda>t n. var_dist (rev [0..<n]) t"
   {
     fix t
     assume not_free: "\<forall>i\<in>frees t. n \<le> i"
-    have "?app_vars t n solution vs \<leftrightarrow> ?appd_vars t n" for t
-      using 1[of solution vs t] solution_length solution_vs by auto
-    then have "wrap_abs (?app_vars t n solution vs) n \<leftrightarrow> wrap_abs (?appd_vars t n) n"
-      by (rule wrap_abs_equiv)
+    have "?app_vars t n vs' vs \<leftrightarrow> ?appd_vars t n" for t
+      using partial_appd[of vs'] vs'_length vs'_vs by simp
+    then have "(Abs^^n) (?app_vars t n vs' vs) \<leftrightarrow> (Abs^^n) (?appd_vars t n)"
+      by (rule absn_cong)
     also have "... \<leftrightarrow> strip_context n t 0"
-      using not_free by (rule wrap_abs_dist_eta_free)
-    finally have "wrap_abs (?app_vars t n solution vs) n \<leftrightarrow> ..." .
+      using not_free by (rule absn_dist_eta_free)
+    finally have "(Abs^^n) (?app_vars t n vs' vs) \<leftrightarrow> strip_context n t 0" .
   }
   with that show ?thesis .
 qed
 
-lemma liftn_wrap_abs: "liftn n (wrap_abs t m) k = wrap_abs (liftn n t (k + m)) m"
+lemma liftn_absn: "liftn n ((Abs^^m) t) k = (Abs^^m) (liftn n t (k + m))"
 by (induction m arbitrary: k) auto
 
-lemma liftn_term_dist_lt: "\<forall>i\<in>set vs. i < k \<Longrightarrow> liftn n (term_dist vs t) k = term_dist vs (liftn n t k)"
+lemma liftn_var_dist_lt: "\<forall>i\<in>set vs. i < k \<Longrightarrow> liftn n (var_dist vs t) k = var_dist vs (liftn n t k)"
 by (induction vs arbitrary: t) auto
 
 lemma liftn_context_conv: "k \<le> k' \<Longrightarrow> \<forall>i\<in>frees t. i < k \<or> k' \<le> i \<Longrightarrow> liftn n t k = liftn n t k'"
@@ -900,7 +768,7 @@ proof (induction t arbitrary: k k')
       assume "i \<noteq> 0"
       from Abs.prems(2) have "\<forall>i. free t (Suc i) \<longrightarrow> i < k \<or> k' \<le> i" by auto
       with `i \<noteq> 0` `i \<in> frees t` show ?thesis
-        by (metis frees_def less_Suc_eq_0_disj linorder_not_le mem_Collect_eq)
+        by (metis frees_def less_Suc_eq_0_disj linorder_not_le mem_Collect_eq) (*FIXME*)
     qed
   qed
   with Abs.IH Abs.prems(1) show ?case by auto
@@ -910,50 +778,61 @@ lemma liftn_liftn0: "\<forall>i\<in>frees t. k \<le> i \<Longrightarrow> liftn n
 using liftn_context_conv by auto
 
 lemma dist_perm_eta_equiv:
-  fixes vs
-  defines "n \<equiv> length vs"
-  assumes vars_perm: "bij_betw (op ! vs) {0..<n} {0..<n}"
+  assumes perm: "perm_vars n vs"
       and not_free: "\<forall>i\<in>frees s. n \<le> i" "\<forall>i\<in>frees t. n \<le> i"
-      and perm_equiv: "wrap_abs (term_dist vs s) n \<leftrightarrow> wrap_abs (term_dist vs t) n"
+      and perm_equiv: "(Abs^^n) (var_dist vs s) \<leftrightarrow> (Abs^^n) (var_dist vs t)"
     shows "strip_context n s 0 \<leftrightarrow> strip_context n t 0"
 proof -
-  have all_vs: "\<forall>v\<in>set vs. v < n" proof
-    fix v assume "v \<in> set vs"
-    then obtain i where "i < length vs" and "vs ! i = v"
-      by (blast dest: in_set_conv_nth[THEN iffD1])
-    then have "vs ! i \<in> {0..<n}"
-      using vars_perm unfolding n_def by (auto dest: bij_betwE)
-    then show "v < n" unfolding `vs ! i = v` by simp
-  qed
+  from perm have all_vs: "\<forall>i\<in>set vs. i < n" using perm_vars_lt by simp
 
   obtain vs' where
-    etas: "\<And>t. \<forall>i\<in>frees t. n \<le> i \<Longrightarrow> wrap_abs (term_dist vs' (wrap_abs (term_dist vs (liftn n t 0)) n)) n \<leftrightarrow> strip_context n t 0"
-    using dist_perm_eta vars_perm unfolding n_def by blast
+    etas: "\<And>t. \<forall>i\<in>frees t. n \<le> i \<Longrightarrow>
+          (Abs^^n) (var_dist vs' ((Abs^^n) (var_dist vs (liftn n t 0)))) \<leftrightarrow> strip_context n t 0"
+    using perm dist_perm_eta by blast
 
-  have "strip_context n s 0 \<leftrightarrow> wrap_abs (term_dist vs' (wrap_abs (term_dist vs (liftn n s 0)) n)) n"
+  have "strip_context n s 0 \<leftrightarrow> (Abs^^n) (var_dist vs' ((Abs^^n) (var_dist vs (liftn n s 0))))"
     using etas[THEN term_sym] not_free(1) .
-  also have "... \<leftrightarrow> wrap_abs (term_dist vs' (wrap_abs (term_dist vs (liftn n t 0)) n)) n"
-  proof (rule wrap_abs_equiv, rule term_dist_cong)
-    have "wrap_abs (term_dist vs (liftn n s 0)) n = wrap_abs (term_dist vs (liftn n s n)) n"
+  also have "... \<leftrightarrow> (Abs^^n) (var_dist vs' ((Abs^^n) (var_dist vs (liftn n t 0))))"
+  proof (rule absn_cong, rule var_dist_cong)
+    have "(Abs^^n) (var_dist vs (liftn n s 0)) = (Abs^^n) (var_dist vs (liftn n s n))"
       using not_free(1) liftn_liftn0[of s n] by simp
-    also have "... = wrap_abs (liftn n (term_dist vs s) n) n"
-      using all_vs liftn_term_dist_lt by simp
-    also have "... = liftn n (wrap_abs (term_dist vs s) n) 0"
-      using liftn_wrap_abs by simp
-    also have "... \<leftrightarrow> liftn n (wrap_abs (term_dist vs t) n) 0"
+    also have "... = (Abs^^n) (liftn n (var_dist vs s) n)"
+      using all_vs liftn_var_dist_lt by simp
+    also have "... = liftn n ((Abs^^n) (var_dist vs s)) 0"
+      using liftn_absn by simp
+    also have "... \<leftrightarrow> liftn n ((Abs^^n) (var_dist vs t)) 0"
       using perm_equiv by (rule equiv_liftn)
-    also have "... = wrap_abs (liftn n (term_dist vs t) n) n"
-      using liftn_wrap_abs by simp
-    also have "... = wrap_abs (term_dist vs (liftn n t n)) n"
-      using all_vs liftn_term_dist_lt by simp
-    also have "... = wrap_abs (term_dist vs (liftn n t 0)) n"
+    also have "... = (Abs^^n) (liftn n (var_dist vs t) n)"
+      using liftn_absn by simp
+    also have "... = (Abs^^n) (var_dist vs (liftn n t n))"
+      using all_vs liftn_var_dist_lt by simp
+    also have "... = (Abs^^n) (var_dist vs (liftn n t 0))"
       using not_free(2) liftn_liftn0[of t n] by simp
-    finally show "wrap_abs (term_dist vs (liftn n s 0)) n \<leftrightarrow> ..." .
+    finally show "(Abs^^n) (var_dist vs (liftn n s 0)) \<leftrightarrow> ..." .
   qed
   also have "... \<leftrightarrow> strip_context n t 0"
     using etas not_free(2) .
   finally show ?thesis .
 qed
+
+
+paragraph \<open>General notion of bracket abstraction for lambda terms\<close>
+
+definition foldr_option :: "('a \<Rightarrow> 'b \<Rightarrow> 'b option) \<Rightarrow> 'a list \<Rightarrow> 'b \<Rightarrow> 'b option"
+where "foldr_option f xs e = foldr (\<lambda>a b. Option.bind b (f a)) xs (Some e)"
+
+lemma bind_eq_SomeE:
+  assumes "Option.bind x f = Some y"
+  obtains x' where "x = Some x'" and "f x' = Some y"
+using assms by (auto iff: bind_eq_Some_conv)
+
+lemma foldr_option_Nil[simp]: "foldr_option f [] e = Some e"
+unfolding foldr_option_def by simp
+
+lemma foldr_option_Cons_SomeE:
+  assumes "foldr_option f (x#xs) e = Some y"
+  obtains y' where "foldr_option f xs e = Some y'" and "f x y' = Some y"
+using assms unfolding foldr_option_def by (auto elim: bind_eq_SomeE)
 
 locale bracket_abstraction =
   fixes term_bracket :: "nat \<Rightarrow> dB \<Rightarrow> dB option"
@@ -967,10 +846,10 @@ where "term_brackets = foldr_option term_bracket"
 lemma term_brackets_Nil[simp]: "term_brackets [] t = Some t"
 unfolding term_brackets_def by simp
 
-lemma term_brackets_Cons:
+lemma term_brackets_Cons_SomeE:
   assumes "term_brackets (v#vs) t = Some t'"
   obtains s' where "term_brackets vs t = Some s'" and "term_bracket v s' = Some t'"
-using assms unfolding term_brackets_def by (elim foldr_option_Cons)
+using assms unfolding term_brackets_def by (elim foldr_option_Cons_SomeE)
 
 lemma term_brackets_ConsI:
   assumes "term_brackets vs t = Some t'"
@@ -980,9 +859,9 @@ using assms unfolding term_brackets_def foldr_option_def by simp
 
 lemma bracket_dist:
   assumes "term_brackets vs t = Some t'"
-    shows "term_dist vs t' \<leftrightarrow> t"
+    shows "var_dist vs t' \<leftrightarrow> t"
 proof -
-  from assms have "\<forall>t''. t' \<leftrightarrow> t'' \<longrightarrow> term_dist vs t'' \<leftrightarrow> t"
+  from assms have "\<forall>t''. t' \<leftrightarrow> t'' \<longrightarrow> var_dist vs t'' \<leftrightarrow> t"
   proof (induction vs arbitrary: t')
     case Nil then show ?case by (simp add: term_sym)
   next
@@ -990,15 +869,15 @@ proof -
     from Cons.prems obtain u where
         inner: "term_brackets vs t = Some u" and
         step: "term_bracket v u = Some t'"
-      by (auto elim: term_brackets_Cons)
+      by (auto elim: term_brackets_Cons_SomeE)
     from step have red1: "t' \<degree> Var v \<leftrightarrow> u" by (rule bracket_app)
     show ?case proof rule+
       fix t'' assume "t' \<leftrightarrow> t''"
       with red1 have red: "t'' \<degree> Var v \<leftrightarrow> u"
         using equiv_appL term_sym term_trans by blast
-      have "term_dist (v # vs) t'' = term_dist vs (t'' \<degree> Var v)" by simp
+      have "var_dist (v # vs) t'' = var_dist vs (t'' \<degree> Var v)" by simp
       also have "... \<leftrightarrow> t" using Cons.IH[OF inner] red[symmetric] by blast
-      finally show "term_dist (v # vs) t'' \<leftrightarrow> t" .
+      finally show "var_dist (v # vs) t'' \<leftrightarrow> t" .
     qed
   qed
   then show ?thesis by blast
@@ -1034,15 +913,16 @@ next
   case (IAp x y)
   then have no_opaque: "opaque x = []" "opaque y = []" by simp+
   then have unlift_ap: "unlift_vars 0 (x \<diamondop> y) = unlift_vars 0 x \<degree> unlift_vars 0 y"
-    unfolding unlift_ap by simp
+    by simp
   from no_opaque IAp.IH have "x \<diamondop> y \<simeq> Pure (unlift_vars 0 x) \<diamondop> Pure (unlift_vars 0 y)"
     by (blast intro: ap_cong)
-  also have "... \<simeq> Pure (unlift_vars 0 x \<degree> unlift_vars 0 y)" by (rule itrm_hom')
+  also have "... \<simeq> Pure (unlift_vars 0 x \<degree> unlift_vars 0 y)" by (rule itrm_hom)
   also have "... = Pure (unlift_vars 0 (x \<diamondop> y))" by (simp only: unlift_ap)
   finally show ?case .
 qed
 
-locale itrm_abstraction = bracket_abstraction + itrm_ext E for E :: "nat itrm \<Rightarrow> _" +
+locale itrm_abstraction = bracket_abstraction +
+  special_idiom extra_rule for extra_rule :: "nat itrm \<Rightarrow> _" +
   fixes itrm_bracket :: "nat \<Rightarrow> nat itrm \<Rightarrow> nat itrm option"
   assumes itrm_bracket_ap: "itrm_bracket i x = Some x' \<Longrightarrow> x' \<diamondop> Opaque i \<simeq>\<^sup>+ x"
   assumes itrm_bracket_opaque: "itrm_bracket i x = Some x' \<Longrightarrow> set (opaque x') = set (opaque x) - {i}"
@@ -1056,10 +936,10 @@ definition "itrm_brackets = foldr_option itrm_bracket"
 lemma itrm_brackets_Nil[simp]: "itrm_brackets [] x = Some x"
 unfolding itrm_brackets_def by simp
 
-lemma itrm_brackets_Cons:
+lemma itrm_brackets_Cons_SomeE:
   assumes "itrm_brackets (v#vs) x = Some x'"
   obtains y' where "itrm_brackets vs x = Some y'" and "itrm_bracket v y' = Some x'"
-using assms unfolding itrm_brackets_def by (elim foldr_option_Cons)
+using assms unfolding itrm_brackets_def by (elim foldr_option_Cons_SomeE)
 
 definition "itrm_dist = fold (\<lambda>i y. y \<diamondop> Opaque i)"
 
@@ -1071,7 +951,7 @@ lemma bracket_nf: "itrm_brackets vs x = Some x' \<Longrightarrow> itrm_dist vs x
 proof -
   assume defined: "itrm_brackets vs x = Some x'"
   {
-    def x'' == x'
+    def x'' \<equiv> x'
     assume "x' \<simeq>\<^sup>+ x''"
     with defined have "itrm_dist vs x'' \<simeq>\<^sup>+ x"
       unfolding itrm_dist_def
@@ -1081,12 +961,13 @@ proof -
         case (Cons v vs)
         from Cons.prems(1) obtain y'
           where *: "itrm_brackets vs x = Some y'" and "itrm_bracket v y' = Some x'"
-          by (rule itrm_brackets_Cons)
+          by (rule itrm_brackets_Cons_SomeE)
         then have "x' \<diamondop> Opaque v \<simeq>\<^sup>+ y'" by (elim itrm_bracket_ap)
-        then have "x'' \<diamondop> Opaque v \<simeq>\<^sup>+ y'" using Cons.prems(2) by (blast intro: itrm_cong.intros)
-        with * have "fold (\<lambda>i y. y \<diamondop> Opaque i) vs (x'' \<diamondop> Opaque v) \<simeq>\<^sup>+ x" using Cons.IH
-          by (auto intro: itrm_sym)
-        then show ?case by simp
+        then have "x'' \<diamondop> Opaque v \<simeq>\<^sup>+ y'" using Cons.prems(2) by (blast intro: itrm_sym itrm_trans)
+        note this[symmetric]
+        with * have "fold (\<lambda>i y. y \<diamondop> Opaque i) vs (x'' \<diamondop> Opaque v) \<simeq>\<^sup>+ x"
+          using Cons.IH by blast
+        then show ?case by (simp only: fold.simps comp_def) (*FIXME*)
      qed
   }
   then show ?thesis using itrm_refl .
@@ -1094,7 +975,7 @@ qed
 
 lemma bracket_nf_cong: "x \<simeq>\<^sup>+ y \<Longrightarrow> itrm_dist vs x \<simeq>\<^sup>+ itrm_dist vs y"
 unfolding itrm_dist_def
-by (induction vs arbitrary: x y) (auto intro: ap_congL)
+by (induction vs arbitrary: x y) auto
 
 lemma bracket_not_free:
   assumes "itrm_brackets vs x = Some x'"
@@ -1103,7 +984,7 @@ using assms proof (induction vs arbitrary: x')
   case Nil then show ?case unfolding itrm_brackets_def by simp
 next
   case (Cons v vs) then show ?case
-    by (auto elim: itrm_brackets_Cons dest!: itrm_bracket_opaque)
+    by (auto elim: itrm_brackets_Cons_SomeE dest!: itrm_bracket_opaque)
 qed
 
 lemma bracket_complete:
@@ -1121,7 +1002,7 @@ lemma bracket_complete_unlift:
   assumes complete: "set (opaque x) \<subseteq> set vs"
       and defined: "itrm_brackets vs x = Some x'"
     shows "x' \<simeq>\<^sup>+ Pure (unlift_vars 0 x')"
-proof (rule equiv_into_ext)
+proof (rule equiv_into_ext_equiv)
   from assms have "opaque x' = []" by (rule bracket_complete)
   then show "x' \<simeq> Pure (unlift_vars 0 x')" by (rule unlift_all_pure)
 qed
@@ -1136,7 +1017,7 @@ using assms(2,3) proof (induction vs arbitrary: x')
 next
   case (Cons v vs)
   then obtain y' where ivs: "itrm_brackets vs x = Some y'" and iv: "itrm_bracket v y' = Some x'"
-    by (elim itrm_brackets_Cons)
+    by (elim itrm_brackets_Cons_SomeE)
   with Cons have "term_brackets vs (unlift_vars n x) = Some (unlift_vars n y')"
     by auto
   moreover {
@@ -1152,26 +1033,14 @@ next
 qed
 
 theorem bracket_lifting:
-  fixes vs
-  defines "n \<equiv> length vs"
   assumes all_vars: "set (opaque x) \<union> set (opaque y) \<subseteq> {0..<n}"
-      and perm_vars: "bij_betw (op ! vs) {0..<n} {0..<n}"
+      and perm_vars: "perm_vars n vs"
       and defined: "itrm_brackets vs x = Some x'" "itrm_brackets vs y = Some y'"
-      and base_eq: "wrap_abs (unlift_vars n x) n \<leftrightarrow> wrap_abs (unlift_vars n y) n"
+      and base_eq: "(Abs^^n) (unlift_vars n x) \<leftrightarrow> (Abs^^n) (unlift_vars n y)"
     shows "x \<simeq>\<^sup>+ y"
 proof -
-  have set_vs: "set vs = {0..<n}"
-  proof safe+
-    fix v assume "v \<in> set vs"
-    then obtain i where "i < length vs \<and> vs ! i = v" by (auto iff: in_set_conv_nth)
-    then show "v \<in> {0..<n}" using perm_vars[THEN bij_betwE] unfolding n_def by auto
-  next
-    fix v assume "v \<in> {0..<n}"
-    then obtain i where "i < length vs \<and> vs ! i = v"
-      using perm_vars unfolding n_def
-      by (metis (mono_tags) atLeastLessThan_iff bij_betw_imageE imageE)
-    then show "v \<in> set vs" by auto
-  qed
+  from perm_vars have set_vs: "set vs = {0..<n}"
+    unfolding perm_vars_def by simp
 
   have compat_x: "term_brackets vs (unlift_vars n x) = Some (unlift_vars n x')"
     using all_vars set_vs defined(1) by (auto intro: itrm_to_term_brackets)
@@ -1193,25 +1062,23 @@ proof -
     using all_vars set_vs defined(1)
     by (auto intro: bracket_nf_cong bracket_complete_unlift)
   also have "... \<simeq>\<^sup>+ itrm_dist vs (Pure (unlift_vars 0 y'))"
-  proof (rule itrm_dist_cong, rule pure_subst)
-    have "wrap_abs (term_dist vs (unlift_vars n x')) n \<leftrightarrow> wrap_abs (unlift_vars n x) n"
-      using compat_x bracket_dist by (auto intro: wrap_abs_equiv)
-    also have "... \<leftrightarrow> wrap_abs (unlift_vars n y) n" using base_eq .
-    also have "... \<leftrightarrow> wrap_abs (term_dist vs (unlift_vars n y')) n"
-      using compat_y bracket_dist[THEN term_sym] by (auto intro: wrap_abs_equiv)
+  proof (rule itrm_dist_cong, rule pure_cong)
+    have "(Abs^^n) (var_dist vs (unlift_vars n x')) \<leftrightarrow> (Abs^^n) (unlift_vars n x)"
+      using compat_x bracket_dist by auto
+    also have "... \<leftrightarrow> (Abs^^n) (unlift_vars n y)" using base_eq .
+    also have "... \<leftrightarrow> (Abs^^n) (var_dist vs (unlift_vars n y'))"
+      using compat_y bracket_dist[THEN term_sym] by auto
     finally have "strip_context n (unlift_vars n x') 0 \<leftrightarrow> strip_context n (unlift_vars n y') 0"
       using perm_vars ux_frees uy_frees
-      unfolding n_def
       by (intro dist_perm_eta_equiv)
     then show "unlift_vars 0 x' \<leftrightarrow> unlift_vars 0 y'"
       using strip_unlift_vars complete_x complete_y by simp
   qed
-  also have "... \<simeq>\<^sup>+ itrm_dist vs y'"
-    using all_vars set_vs defined(2)
-    apply (intro itrm_dist_cong)
-    apply (intro bracket_complete_unlift[THEN itrm_sym])
-    apply auto
-    done
+  also have "... \<simeq>\<^sup>+ itrm_dist vs y'" proof (rule itrm_dist_cong)
+    show "Pure (unlift_vars 0 y') \<simeq>\<^sup>+ y'"
+      using all_vars set_vs defined(2) bracket_complete_unlift[THEN itrm_sym]
+      by blast
+  qed
   also have "... \<simeq>\<^sup>+ y" using defined(2) by (rule bracket_nf)
   finally show ?thesis .
 qed
