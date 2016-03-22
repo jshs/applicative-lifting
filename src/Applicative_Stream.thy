@@ -37,7 +37,7 @@ for
   pure: sconst
   ap: ap_stream
 proof -
-  fix f :: "('c \<Rightarrow> 'b \<Rightarrow> 'a) stream" and x y
+  fix f :: "('b \<Rightarrow> 'a \<Rightarrow> 'c) stream" and x y
   show "pure (\<lambda>f x y. f y x) \<diamondop> f \<diamondop> x \<diamondop> y = f \<diamondop> y \<diamondop> x"
     by (coinduction arbitrary: f x y) auto
 next
@@ -45,10 +45,10 @@ next
   show "pure (\<lambda>x y. x) \<diamondop> x \<diamondop> y = x"
     by (coinduction arbitrary: x y) auto
 next
-  fix f :: "('b \<Rightarrow> 'b \<Rightarrow> 'a) stream" and x
+  fix f :: "('a \<Rightarrow> 'a \<Rightarrow> 'b) stream" and x
   show "pure (\<lambda>f x. f x x) \<diamondop> f \<diamondop> x = f \<diamondop> x \<diamondop> x"
     by (coinduction arbitrary: f x) auto
-qed(rule ap_stream_id ap_stream_homo ap_stream_interchange ap_stream_composition)+
+qed(rule ap_stream_homo ap_stream_interchange ap_stream_composition)+
 
 lemma smap_applicative[applicative_unfold]: "smap f x = pure f \<diamondop> x"
 unfolding ap_stream_def by (coinduction arbitrary: x) auto

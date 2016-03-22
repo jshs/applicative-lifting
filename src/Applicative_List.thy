@@ -33,7 +33,7 @@ proof -
   fix x :: "'a list"
   show "[\<lambda>x. x] \<diamondop> x = x" unfolding ap_list_def by (induction x) simp_all
 next
-  fix g :: "('c \<Rightarrow> 'b) list" and f :: "('a \<Rightarrow> 'c) list" and x
+  fix g :: "('b \<Rightarrow> 'c) list" and f :: "('a \<Rightarrow> 'b) list" and x
   let ?B = "\<lambda>g f x. g (f x)"
   show "[?B] \<diamondop> g \<diamondop> f \<diamondop> x = g \<diamondop> (f \<diamondop> x)"
   proof (induction g)

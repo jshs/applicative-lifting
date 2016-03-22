@@ -1,4 +1,4 @@
-(* Author: Joshua Schneider *)
+(* Author: Joshua Schneider, ETH Zurich *)
 
 section \<open>Lifting with applicative functors\<close>
 
@@ -7,7 +7,46 @@ imports Main
 keywords "applicative" :: thy_goal and "print_applicative" :: diag
 begin
 
+context begin
+
+subsection \<open>Combinators\<close>
+
+qualified named_theorems combinator_unfold
+qualified named_theorems combinator_repr
+qualified named_theorems combinator_eq
+
+private definition "I x \<equiv> x"
+private definition "B g f x \<equiv> g (f x)"
+private definition "C f x y \<equiv> f y x"
+private definition "K x y \<equiv> x"
+private definition "W f x \<equiv> f x x"
+private definition "S f g x \<equiv> (f x) (g x)"
+private definition "T' x f \<equiv> f x"
+
+lemmas [abs_def, combinator_unfold] = I_def B_def C_def K_def W_def S_def T'_def
+lemmas [combinator_repr] = combinator_unfold
+
+(* TODO: complete set of equations *)
+lemma [combinator_eq]: "B \<equiv> S (K S) K" unfolding combinator_unfold .
+lemma [combinator_eq]: "C \<equiv> S (S (K (S (K S) K)) S) (K K)" unfolding combinator_unfold .
+lemma [combinator_eq]: "I \<equiv> W K" unfolding combinator_unfold .
+lemma [combinator_eq]: "I \<equiv> C K K" unfolding combinator_unfold .
+lemma [combinator_eq]: "S \<equiv> B (B W) (B B C)" unfolding combinator_unfold .
+lemma [combinator_eq]: "W \<equiv> S S (S K)" unfolding combinator_unfold .
+lemma [combinator_eq]: "T' \<equiv> C I" unfolding combinator_unfold .
+
+
+subsection \<open>Proof automation\<close>
+
 ML_file "applicative.ML"
+
+local_setup \<open>Applicative.declare_combinators
+ [("I", @{thm I_def}),
+  ("B", @{thm B_def}),
+  ("C", @{thm C_def}),
+  ("K", @{thm K_def}),
+  ("W", @{thm W_def}),
+  ("S", @{thm S_def})]\<close>
 
 method_setup applicative_unfold = {*
   Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
@@ -48,6 +87,8 @@ attribute_setup applicative_unfold =
 attribute_setup applicative_lifted =
   {* Scan.lift (Parse.xname >> Applicative.forward_lift_attrib) *}
   "lift an equation to an applicative functor"
+
+end  (* context *)
 
 subsection \<open>Overloaded applicative operators\<close>
 

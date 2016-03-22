@@ -56,12 +56,12 @@ using
   ap_sum_ichng
 proof -
   interpret applicative_syntax .
-  { fix f :: "('b \<Rightarrow> 'b \<Rightarrow> 'a) + 'c" and x
+  { fix f :: "('b \<Rightarrow> 'b \<Rightarrow> 'c) + 'a" and x
     show "pure (\<lambda>f x. f x x) \<diamondop> f \<diamondop> x = f \<diamondop> x \<diamondop> x"
       by (cases f x rule: sum.exhaust[case_product sum.exhaust]) simp_all
   next
     interpret semigroup "\<lambda>x y. x" by(rule semigroup_const)
-    fix g :: "('c \<Rightarrow> 'b) + 'd" and f :: "('a \<Rightarrow> 'c) + 'd" and x
+    fix g :: "('c \<Rightarrow> 'd) + 'a" and f :: "('b \<Rightarrow> 'c) + 'a" and x
     show "pure (\<lambda>g f x. g (f x)) \<diamondop> g \<diamondop> f \<diamondop> x = g \<diamondop> (f \<diamondop> x)"
       by(rule ap_sum_comp[simplified comp_def[abs_def]])
   }

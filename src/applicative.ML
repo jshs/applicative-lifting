@@ -37,6 +37,7 @@ sig
   val normalize_wrapper_tac: Proof.context -> afun option -> int -> tactic
   val lifting_wrapper_tac: Proof.context -> afun option -> int -> tactic
 
+  val declare_combinators: (string * thm) list -> local_theory -> local_theory
   val applicative_cmd: binding -> string -> string -> string list -> local_theory -> Proof.state
   val print_afuns: Proof.context -> unit
   val add_unfold_attrib: xstring option -> attribute
@@ -83,20 +84,15 @@ fun morph_sign phi = map_sign (Morphism.term phi) (Morphism.term phi) (apply2 (M
   I (map (Morphism.typ phi)) I;
 
 type axioms =
- {identity: thm,
-  composition: thm,
-  homomorphism: thm,
-  interchange: thm,
-  flip: thm option,
-  const: thm option,
-  duplicate: thm option};
+ {homomorphism: thm,
+  combinators: thm Symtab.table};
 
-fun map_axioms f {identity, composition, homomorphism, interchange, flip, const, duplicate} =
-  {identity = f identity, composition = f composition, homomorphism = f homomorphism,
-    interchange = f interchange, flip = Option.map f flip, const = Option.map f const,
-    duplicate = Option.map f duplicate};
+fun map_axioms f {homomorphism, combinators} =
+  {homomorphism = f homomorphism, combinators = Symtab.map (K f) combinators};
 
 val morph_axioms = map_axioms o Morphism.thm;
+
+val combinator_axiom = Symtab.lookup o #combinators;
 
 type facts =
  {I_intro: thm,
@@ -130,7 +126,7 @@ val unfolds_of_afun = #unfolds o rep_afun;
 val facts_of_afun = #facts o rep_afun;
 fun terms_of_afun af = let val {pure, ap, ...} = sign_of_afun af in (pure, ap) end;
 
-fun has_axiom f = is_some o f o axioms_of_afun;
+val has_combinator = is_some oo combinator_axiom o axioms_of_afun;
 
 fun mk_afun name sign axioms facts =
   AFun {name = name, sign = sign, axioms = axioms, facts = facts, unfolds = []};
@@ -176,6 +172,27 @@ val pure = pure_sign o sign_of_afun;
 val lift = lift_sign o sign_of_afun;
 fun ap ctxt = ap_sign ctxt o sign_of_afun;
 fun lift_comb ctxt = comb_sign ctxt o sign_of_afun;
+
+fun lift_terms_sign ctxt sign Us ts =
+  let
+    val (var_names, var_Ts) = split_list (fold Term.add_vars ts []);
+    val (free_names, ctxt') = Variable.variant_fixes (map #1 var_names) ctxt;
+    val frees = map (fn (var, T) => Free (var, lift_type_sign sign Us T)) (free_names ~~ var_Ts);
+    val var_map = var_names ~~ frees;
+
+    fun is_pure t = null (Term.add_vars t []);
+    fun lift_term (Const c) = lift_sign sign Us (Const c)
+      | lift_term (Abs a) = lift_sign sign Us (Abs a)
+      | lift_term (Var (var, _)) = the (AList.lookup (op =) var_map var)
+      | lift_term (s $ t) = (case (is_pure s, is_pure t) of
+              (true, true) => lift_sign sign Us (s $ t)
+            | (true, false) => comb_sign ctxt' sign (lift_sign sign Us s, lift_term t)
+            | (false, true) => comb_sign ctxt' sign (lift_term s, lift_sign sign Us t)
+            | (false, false) => comb_sign ctxt' sign (lift_term s, lift_term t))
+      | lift_term t = raise TERM ("lift_terms_sign", [t]);
+  in ((map lift_term ts, frees), ctxt') end;
+
+(* TODO: cache patterns *)
 
 fun pure_pattern af =
   let
@@ -235,15 +252,29 @@ fun join_afuns _ (af1, af2) = if pointer_eq (af1, af2)
 
 structure Data = Generic_Data
 (
-  type T = afun Name_Space.table * (string * term list) Item_Net.T;
-  val empty = (Name_Space.empty_table "applicative functor", Item_Net.init (op = o apply2 #1) #2);
+  type T =
+   {combinators: string Symtab.table * thm Symtab.table,
+    afuns: afun Name_Space.table,
+    patterns: (string * term list) Item_Net.T};
+  val empty =
+   {combinators = (Symtab.empty, Symtab.empty),
+    afuns = Name_Space.empty_table "applicative functor",
+    patterns = Item_Net.init (op = o apply2 #1) #2};
   val extend = I;
-  fun merge ((t1, n1), (t2, n2)) =
-    (Name_Space.join_tables join_afuns (t1, t2), Item_Net.merge (n1, n2));
+  fun merge ({combinators = (cn1, cr1), afuns = a1, patterns = p1},
+             {combinators = (cn2, cr2), afuns = a2, patterns = p2}) =
+   {combinators = (Symtab.merge (K true) (cn1, cn2), Symtab.merge (K true) (cr1, cr2)),
+    afuns = Name_Space.join_tables join_afuns (a1, a2),
+    patterns = Item_Net.merge (p1, p2)};
 );
 
-val get_afuns = #1 o Data.get;
+val get_combinators = #combinators o Data.get;
+val get_afuns = #afuns o Data.get;
 val get_afun_space = Name_Space.space_of_table o get_afuns;
+val get_patterns = #patterns o Data.get;
+
+fun map_data f1 f2 f3 {combinators, afuns, patterns} =
+  {combinators = f1 combinators, afuns = f2 afuns, patterns = f3 patterns};
 
 val intern = Name_Space.intern o get_afun_space;
 fun extern context = Name_Space.extern (Context.proof_of context) (get_afun_space context);
@@ -258,12 +289,12 @@ fun afun_of_generic context name = case Name_Space.lookup (get_afuns context) na
 val afun_of = afun_of_generic o Context.Proof;
 
 fun update_afun name f context = if Name_Space.defined (get_afuns context) name
-  then Data.map (apfst (Name_Space.map_table_entry name f)) context
+  then Data.map (map_data I (Name_Space.map_table_entry name f) I) context
   else undeclared name;
 
 end;
 
-fun match_term context = map #1 o Item_Net.retrieve_matching (#2 (Data.get context));
+fun match_term context = map #1 o Item_Net.retrieve_matching (get_patterns context);
 fun match_typ context = match_term context o Net.encode_type;
 
 (* works only with terms which are combinations of pure and ap *)
@@ -279,13 +310,44 @@ val all_unfolds_of = all_unfolds_of_generic o Context.Proof;
 
 (* FIXME pervasive? *)
 fun register_afun af =
-  let fun decl phi context = Data.map (fn (names, patterns) =>
+  let fun decl phi context = Data.map (fn {combinators, afuns, patterns} =>
     let
       val af' = morph_afun phi af;
-      val (name, names') = Name_Space.define context true (name_of_afun af, af') names;
+      val (name, afuns') = Name_Space.define context true (name_of_afun af, af') afuns;
       val patterns' = Item_Net.update (name, patterns_of_afun af') patterns;
-    in (names', patterns') end) context;
+    in {combinators = combinators, afuns = afuns', patterns = patterns'} end) context;
   in Local_Theory.declaration {syntax = false, pervasive = false} decl end;
+
+
+(* Combinator setup *)
+
+fun combinator_of_red thm =
+  let
+    val (lhs, _) = Logic.dest_equals (Thm.prop_of thm);
+    val (head, _) = strip_comb lhs;
+  in #1 (dest_Const head) end;
+
+fun add_combinators names thms =
+  let
+    val combs = map combinator_of_red thms;
+    val thms' = map Thm.trim_context thms;
+    fun add_combs (by_name, reds) = (fold (Symtab.insert (K false)) (names ~~ combs) by_name,
+        fold (Symtab.insert (K false)) (combs ~~ thms') reds);
+  in Data.map (map_data add_combs I I) end;
+
+(* FIXME *)
+fun declare_combinators combs lthy =
+  let val (names, thms) = split_list combs
+  in lthy
+    |> Local_Theory.background_theory (Context.theory_map (add_combinators names thms))
+    |> Local_Theory.map_contexts (K (Context.proof_map (add_combinators names thms)))
+  end;
+
+fun transfer_combinators context =
+  let
+    val thy = Context.theory_of context;
+    val (by_name, reds) = get_combinators context;
+  in (by_name, Symtab.map (K (Thm.transfer thy)) reds) end;
 
 
 (* Declaration *)
@@ -341,7 +403,7 @@ fun mk_sign ctxt (raw_pure, raw_ap) =
 fun mk_facts ctxt sign axioms =
   let
     fun comb_intro thm = Thm.symmetric (thm RS eq_reflection);
-    val B_intro = comb_intro (#composition axioms);
+    val B_intro = comb_intro (combinator_axiom axioms @{const_name B} |> the);
     val merge_rule = #homomorphism axioms RS eq_reflection;
 
     val B_pure =
@@ -363,64 +425,47 @@ fun mk_facts ctxt sign axioms =
           resolve_tac ctxt'' [reflexive_thm]);
       in singleton (Variable.export ctxt'' ctxt) (Goal.prove ctxt'' [] [] prop (K tac)) end;
   in
-    {I_intro = comb_intro (#identity axioms),
+    {I_intro = comb_intro (combinator_axiom axioms @{const_name I} |> the),
       B_intro = B_intro,
-      C_intro = Option.map comb_intro (#flip axioms),
-      K_intro = Option.map comb_intro (#const axioms),
-      W_intro = Option.map comb_intro (#duplicate axioms),
+      C_intro = Option.map comb_intro (combinator_axiom axioms @{const_name C}),
+      K_intro = Option.map comb_intro (combinator_axiom axioms @{const_name K}),
+      W_intro = Option.map comb_intro (combinator_axiom axioms @{const_name W}),
       merge = merge_rule,
-      swap = #interchange axioms RS eq_reflection,
+      swap = the (combinator_axiom axioms @{const_name T'}) RS eq_reflection,
       B_pure = B_pure}
   end;
 
-fun mk_comb_prop comb sign ctxt =
+fun reuse_TFrees n S (ctxt, Ts) =
   let
-    val comb_tfrees = Term.add_tfrees comb [];
-    val ((Ts, Us), ctxt') = ctxt
-      |> mk_TFrees' (length comb_tfrees) (#sort sign)
-      ||>> mk_TFrees (#param_sorts sign);
-    val comb' = Term.subst_atomic_types (map TFree comb_tfrees ~~ Ts) comb;
-    val (bound_names, bound_Ts) = split_list (Term.strip_abs_vars comb');
-    val (var_names, ctxt'') = Variable.variant_fixes bound_names ctxt';
-    val vars = map (fn (var, T) => Free (var, lift_type_sign sign Us T)) (var_names ~~ bound_Ts);
-    val lift_map = rev vars;
+    val have_n = Int.min (n, length Ts);
+    val (more_Ts, ctxt') = mk_TFrees' (n - have_n) S ctxt;
+  in (take have_n Ts @ more_Ts, (ctxt', Ts @ more_Ts)) end;
 
-    fun list_comb t [] = t
-      | list_comb t (x::xs) = list_comb (comb_sign ctxt'' sign (t, x)) xs;
-
-    fun lift_term (Bound i) = nth lift_map i
-      | lift_term (s $ t) = comb_sign ctxt'' sign (lift_term s, lift_term t)
-      | lift_term t = raise TERM ("mk_comb_prop", [t]);
-
-    val lhs = list_comb (lift_sign sign Us comb') vars;
-    val rhs = lift_term (Term.strip_abs_body comb');
-    val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
-  in fold Logic.all lift_map prop end;
-
-val mk_id_prop = mk_comb_prop @{term "\<lambda>x. x"};
-val mk_comp_prop = mk_comb_prop @{term "\<lambda>g f x. g (f x)"};
-val mk_flip_prop = mk_comb_prop @{term "\<lambda>f x y. f y x"};
-val mk_const_prop = mk_comb_prop @{term "\<lambda>x y. x"};
-val mk_duplicate_prop = mk_comb_prop @{term "\<lambda>f x. f x x"};
-
-fun mk_homomorphism_prop sign ctxt =
+fun mk_comb_prop thm sign Us ctxt_Ts =
   let
-    val (([T1, T2], Us), ctxt') = ctxt
-      |> mk_TFrees' 2 (#sort sign)
-      ||>> mk_TFrees (#param_sorts sign);
+    val base = Thm.prop_of thm;
+    val tvars = Term.add_tvars base [];
+    val (Ts, (ctxt', Ts')) = reuse_TFrees (length tvars) (#sort sign) ctxt_Ts;
+    val base' = Term_Subst.instantiate (tvars ~~ Ts, []) base;
+    val (lhs, rhs) = Logic.dest_equals base';
+    val (([lhs', rhs'], frees), _) = lift_terms_sign ctxt' sign Us [lhs, rhs];
+    val lifted = (lhs', rhs') |> HOLogic.mk_eq |> HOLogic.mk_Trueprop;
+  in (fold Logic.all frees lifted, (ctxt', Ts')) end;
+
+fun mk_homomorphism_prop sign Us ctxt_Ts =
+  let
+    val ([T1, T2], (ctxt', Ts')) = reuse_TFrees 2 (#sort sign) ctxt_Ts;
     val ((f, x), ctxt'') = ctxt'
       |> mk_Free "f" (T1 --> T2)
       ||>> mk_Free "x" T1;
     val lhs = comb_sign ctxt'' sign (lift_sign sign Us f, lift_sign sign Us x);
     val rhs = lift_sign sign Us (f $ x);
     val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
-  in Logic.all f (Logic.all x prop) end;
+  in (Logic.all f (Logic.all x prop), (ctxt', Ts')) end;
 
-fun mk_interchange_prop sign ctxt =
+fun mk_interchange_prop sign Us ctxt_Ts =
   let
-    val (([T1, T2], Us), ctxt') = ctxt
-      |> mk_TFrees' 2 (#sort sign)
-      ||>> mk_TFrees (#param_sorts sign);
+    val ([T1, T2], (ctxt', Ts')) = reuse_TFrees 2 (#sort sign) ctxt_Ts;
     val ((f, x), ctxt'') = ctxt'
       |> mk_Free "f" (lift_type_sign sign Us (T1 --> T2))
       ||>> mk_Free "x" T1;
@@ -428,19 +473,84 @@ fun mk_interchange_prop sign ctxt =
     val T_x = Abs ("f", T1 --> T2, Bound 0 $ x);
     val rhs = comb_sign ctxt'' sign (lift_sign sign Us T_x, f);
     val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
-  in Logic.all f (Logic.all x prop) end;
+  in (Logic.all f (Logic.all x prop), (ctxt', Ts')) end;
+
+fun explode_combinator_eq thm =
+  let
+    val (lhs, rhs) = Logic.dest_equals (Thm.prop_of thm);
+    val (produces, _) = dest_Const lhs;
+    val requires = map #1 (Term.add_consts rhs []);
+  in (produces, Ord_List.make fast_string_ord requires) end;
+
+fun combinator_closure rules combs =
+  let
+    fun apply (produces, requires) (cs, changed) =
+      if Ord_List.subset fast_string_ord (requires, cs)
+      then (if Ord_List.member fast_string_ord cs produces
+        then (cs, changed)
+        else (Ord_List.insert fast_string_ord produces cs, true))
+      else (cs, changed);
+    fun loop cs = case fold apply rules (cs, false) of
+        (cs', true) => loop cs'
+      | (_, false) => cs;
+  in loop combs end;
+
+fun derive_combinator (sign, split_thm) ctxt (base_thm, eq_thm) lifted_combs =
+  let
+    val base = Thm.prop_of base_thm;
+    val tvars = Term.add_tvars base [];
+    val ((Us, Ts), ctxt_Ts) = ctxt
+      |> mk_TFrees (#param_sorts sign)
+      ||>> mk_TFrees' (length tvars) (#sort sign);
+    val base' = Term_Subst.instantiate (tvars ~~ Ts, []) base;
+    val (lhs, rhs) = Logic.dest_equals base';
+    val (([lhs', rhs'], _), ctxt') = lift_terms_sign ctxt_Ts sign Us [lhs, rhs];
+    val lifted = (lhs', rhs') |> HOLogic.mk_eq |> HOLogic.mk_Trueprop;
+
+    (* FIXME: think about the best approach here *)
+    fun purify thm = thm RS eq_reflection;
+
+    (* FIXME: we need to reverse and split the interchange law to apply it
+       as a combinator reduction *)
+    val lifted_combs' = Symtab.delete @{const_name T'} lifted_combs;
+    val red_thms = Symtab.fold (cons o purify o #2) lifted_combs' [];
+
+    val tac = HEADGOAL (Raw_Simplifier.rewrite_goal_tac ctxt' [eq_thm, split_thm] THEN'
+      Raw_Simplifier.rewrite_goal_tac ctxt' red_thms THEN'
+      resolve_tac ctxt' [@{thm refl}]);
+  in singleton (Variable.export ctxt' ctxt) (Goal.prove ctxt' [] [] lifted (K tac)) end;
+
+fun combinator_red_closure (sign, hom_thm) ctxt combs rule_thms lifted_combs =
+  let
+    val split_thm = Thm.symmetric (hom_thm RS eq_reflection);
+    val derive = derive_combinator (sign, split_thm) ctxt;
+    fun apply ((produces, requires), eq_thm) (cs, changed) =
+      if forall (Symtab.defined cs) requires
+      then (if Symtab.defined cs produces
+        then (cs, changed)
+        else
+          let
+            val base_thm = Symtab.lookup combs produces |> the;
+            val lifted_thm = derive (base_thm, eq_thm) cs;
+          in (Symtab.update (produces, lifted_thm) cs, true) end)
+      else (cs, changed);
+    fun loop cs = case fold apply rule_thms (cs, false) of
+        (cs', true) => loop cs'
+      | (_, false) => cs;
+  in loop lifted_combs end;
 
 fun note_afun_thms af =
   let
     val axioms = axioms_of_afun af;
-    val named_thms =
+    val named_thms = [];
+    (* FIXME
       [("afun_id", #identity axioms),
         ("afun_comp", #composition axioms),
         ("afun_hom", #homomorphism axioms),
         ("afun_ichng", #interchange axioms)]
       |> option I (cons o pair "afun_flip") (#flip axioms)
       |> option I (cons o pair "afun_const") (#const axioms)
-      |> option I (cons o pair "afun_dup") (#duplicate axioms);
+      |> option I (cons o pair "afun_dup") (#duplicate axioms); *)
 
     val base_name = Binding.name_of (name_of_afun af);
     fun mk_note (name, thm) =
@@ -449,32 +559,50 @@ fun note_afun_thms af =
 
 fun applicative_cmd name pure ap flags lthy =
   let
-    (* FIXME *)
-    val (C, K, W) = fold (fn ident => fn (C, K, W) =>
-      if ident = "C" then (true, K, W)
-      else if ident = "K" then (C, true, W)
-      else if ident = "W" then (C, K, true)
-      else error ("Unknown combinator " ^ ident)) flags (false, false, false);
+    val (combs_by_name, comb_reds) = transfer_combinators (Context.Proof lthy);
+    val comb_unfolds = Named_Theorems.get lthy @{named_theorems combinator_unfold};
+    val comb_reprs = Named_Theorems.get lthy @{named_theorems combinator_repr};
+    val comb_eqs = Named_Theorems.get lthy @{named_theorems combinator_eq};
+    val comb_rules = map explode_combinator_eq comb_eqs;
+
+    fun lookup_combinator name = case Symtab.lookup combs_by_name name of
+        SOME c => c
+      | NONE => error ("Unknown combinator " ^ name);
+    val _ = if has_duplicates op = flags
+      then warning "Ignoring duplicate combinators"
+      else ();
+    val user_combs0 = Ord_List.make fast_string_ord (map lookup_combinator flags);
+
+    (* TODO: handle derivation of interchange law *)
+    val derived_combs0 = combinator_closure comb_rules user_combs0;
+    val required_combs = Ord_List.make fast_string_ord [@{const_name B}, @{const_name I}];
+    val user_combs = Ord_List.union fast_string_ord user_combs0
+      (Ord_List.subtract fast_string_ord derived_combs0 required_combs);
+    val derived_combs = combinator_closure comb_rules user_combs;
+
+    (* TODO: display warning for redundant combinators *)
+    (*val _ = if null redundant then () else warning "Redundant combinators";*)
+
+    val mk_comb_props = map (mk_comb_prop o the o Symtab.lookup comb_reds) user_combs;
+
     val raw_pure = Syntax.read_term lthy pure;
     val raw_ap = Syntax.read_term lthy ap;
-
     val sign = mk_sign lthy (raw_pure, raw_ap);
-    (* FIXME fix variables here, then reuse in each mk_*_prop (à la BNF_Def) *)
-    val basic_props = [mk_id_prop, mk_comp_prop, mk_homomorphism_prop, mk_interchange_prop];
-    val extra_props = filter_flag [(C, mk_flip_prop), (K, mk_const_prop), (W, mk_duplicate_prop)];
-    val props = map (fn mk_prop => mk_prop sign lthy) (basic_props @ extra_props);
+    val (Us, ctxt_Us) = mk_TFrees (#param_sorts sign) lthy;
+    val (props, (ctxt_Ts, _)) = fold_map (fn mk_prop => mk_prop sign Us)
+      (mk_homomorphism_prop :: mk_comb_props @ [mk_interchange_prop]) (ctxt_Us, []);
 
-    fun after_qed thmss lthy =
+    fun repr_tac ctxt = Raw_Simplifier.rewrite_goals_tac ctxt comb_reprs;
+    fun after_qed thmss lthy' =
       let
-        val (id_thm :: comp_thm :: hom_thm :: interchange_thm :: extra_thms) = flat thmss;
-        val (((flip_thm), const_thm), duplicate_thm) = extra_thms
-          |> pick_if C
-          ||>> pick_if K
-          ||>> pick_if W
-          |> #1;
-        val axioms = {identity = id_thm, composition = comp_thm, homomorphism = hom_thm,
-          interchange = interchange_thm, flip = flip_thm, const = const_thm,
-          duplicate = duplicate_thm};
+        val thms = Variable.export lthy' lthy (flat thmss);
+        val (hom_thm :: comb_thms) = thms;
+        val lifted_combs = combinator_red_closure (sign, hom_thm) lthy
+          comb_reds (comb_rules ~~ comb_eqs)
+          (Symtab.make (user_combs @ [@{const_name "T'"}] ~~ comb_thms));
+        val lifted_combs' =
+          Symtab.map (K (Raw_Simplifier.rewrite_rule lthy comb_unfolds)) lifted_combs;
+        val axioms = {homomorphism = hom_thm, combinators = lifted_combs'};
         val facts = mk_facts lthy sign axioms;
         val af = mk_afun name sign axioms facts;
       in lthy
@@ -482,8 +610,8 @@ fun applicative_cmd name pure ap flags lthy =
         |> note_afun_thms af
       end;
   in
-    Proof.theorem NONE after_qed (map (fn t => [(t, [])]) props) lthy
-    |> Proof.refine (Method.primitive_text (Library.K I))
+    Proof.theorem NONE after_qed (map (fn t => [(t, [])]) props) ctxt_Ts
+    |> Proof.refine (Method.Basic (SIMPLE_METHOD o repr_tac))
     |> Seq.the_result ""
   end;
 
@@ -493,8 +621,8 @@ fun print_afuns ctxt =
       let
         val {pure, ap, T, ...} = sign_of_afun af;
         val (tvar, typ) = T;
-        val combinators = filter_flag [(has_axiom #flip af, "C"), (has_axiom #const af, "K"),
-          (has_axiom #duplicate af, "W")];
+        (* TODO: print user-level names *)
+        val combinators = Symtab.keys (#combinators (axioms_of_afun af));
       in Pretty.block (Pretty.fbreaks [Pretty.block [Pretty.str (name ^ ":"), Pretty.brk 1,
           Pretty.quote (Syntax.pretty_typ ctxt typ), Pretty.brk 1, Pretty.str "of", Pretty.brk 1,
           Syntax.pretty_typ ctxt tvar],
@@ -698,11 +826,11 @@ fun consolidate ctxt af (t1, t2) =
           then ((i1 @ i2, t1), d1) :: same (xs, ys)
           else mismatch (t1, t2);
   in vars
-    |> has_axiom #flip af ? apply2 (sort (int_ord o apply2 #2))
-    |> apply2 (if has_axiom #duplicate af
+    |> has_combinator af @{const_name C} ? apply2 (sort (int_ord o apply2 #2))
+    |> apply2 (if has_combinator af @{const_name W}
         then merge_adjacent (([], Term.dummy), 0)
         else map (apfst (apfst single)))
-    |> (if has_axiom #const af then merge else same)
+    |> (if has_combinator af @{const_name K} then merge else same)
     |> map #1
   end;
 
@@ -731,6 +859,7 @@ exception ASSERT of string;
 fun eliminate ctxt af tt (v, v_tm) =
   let
     val rules = facts_of_afun af;
+    val has_C_comb = has_combinator af @{const_name C};
 
     val rewr_subst_ap = rewr_subst_ap ctxt af;
     fun extract_comb n thm = Pure (thm |> Thm.rhs_of |> funpow n Thm.dest_arg1 |> Thm.term_of);
@@ -782,7 +911,7 @@ fun eliminate ctxt af tt (v, v_tm) =
           | (true, false) => (case squash_atoms ctxt af t2 of
                 SOME thm => swap_B_step (elim t1) thm
               | NONE => comb2_step (#C_intro rules |> the) (elim t1) (refl_step t2))
-          | (true, true) => if has_axiom #flip af
+          | (true, true) => if has_C_comb
               then S_step (elim t1) (elim t2)
               else W_step (elim t1) (elim t2));
   in if occurs_any v tt
@@ -879,6 +1008,7 @@ fun head_cong_tac ctxt af = SUBGOAL (fn (goal, i) =>
 
 (* Forward lifting *)
 
+(* FIXME: use lift_terms_sign *)
 fun forward_lift_rule ctxt af thm =
   let
     val sign = sign_of_afun af;
