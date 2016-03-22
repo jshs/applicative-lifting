@@ -1,5 +1,7 @@
 *~
 
+/src/output/
+
 /report/report.*
 !/report/report.tex
 !/report/report.pdf
