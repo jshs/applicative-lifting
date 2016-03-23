@@ -126,7 +126,7 @@ val unfolds_of_afun = #unfolds o rep_afun;
 val facts_of_afun = #facts o rep_afun;
 fun terms_of_afun af = let val {pure, ap, ...} = sign_of_afun af in (pure, ap) end;
 
-val has_combinator = is_some oo combinator_axiom o axioms_of_afun;
+fun has_fact af fact = is_some (fact (facts_of_afun af));
 
 fun mk_afun name sign axioms facts =
   AFun {name = name, sign = sign, axioms = axioms, facts = facts, unfolds = []};
@@ -842,11 +842,11 @@ fun consolidate ctxt af (t1, t2) =
           then ((i1 @ i2, t1), d1) :: same (xs, ys)
           else mismatch (t1, t2);
   in vars
-    |> has_combinator af @{const_name C} ? apply2 (sort (int_ord o apply2 #2))
-    |> apply2 (if has_combinator af @{const_name W}
+    |> has_fact af #C_intro ? apply2 (sort (int_ord o apply2 #2))
+    |> apply2 (if has_fact af #W_intro
         then merge_adjacent (([], Term.dummy), 0)
         else map (apfst (apfst single)))
-    |> (if has_combinator af @{const_name K} then merge else same)
+    |> (if has_fact af #K_intro then merge else same)
     |> map #1
   end;
 
@@ -875,7 +875,7 @@ exception ASSERT of string;
 fun eliminate ctxt af tt (v, v_tm) =
   let
     val rules = facts_of_afun af;
-    val has_C_comb = has_combinator af @{const_name C};
+    val has_C_comb = has_fact af #C_intro;
 
     val rewr_subst_ap = rewr_subst_ap ctxt af;
     fun extract_comb n thm = Pure (thm |> Thm.rhs_of |> funpow n Thm.dest_arg1 |> Thm.term_of);
