@@ -592,10 +592,12 @@ fun applicative_cmd name pure ap flags lthy =
     val required_combs = Ord_List.make fast_string_ord [@{const_name B}, @{const_name I}];
     val user_combs = Ord_List.union fast_string_ord user_combs0
       (Ord_List.subtract fast_string_ord derived_combs0 required_combs);
-    val derived_combs = combinator_closure comb_rules user_combs;
-
-    (* TODO: display warning for redundant combinators *)
-    (*val _ = if null redundant then () else warning "Redundant combinators";*)
+    fun is_redundant comb = Ord_List.member fast_string_ord
+      (combinator_closure comb_rules (Ord_List.remove fast_string_ord comb user_combs)) comb;
+    val redundant_combs = filter is_redundant user_combs;
+    (* TODO: print user-level names *)
+    val _ = if null redundant_combs then () else
+      warning ("Redundant combinators: " ^ commas redundant_combs);
 
     val mk_comb_props = map (mk_comb_prop o the o Symtab.lookup comb_reds) user_combs;
 
