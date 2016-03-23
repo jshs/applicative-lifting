@@ -30,7 +30,7 @@ lemmas [combinator_repr] = combinator_unfold
 lemma [combinator_eq]: "B \<equiv> S (K S) K" unfolding combinator_unfold .
 lemma [combinator_eq]: "C \<equiv> S (S (K (S (K S) K)) S) (K K)" unfolding combinator_unfold .
 lemma [combinator_eq]: "I \<equiv> W K" unfolding combinator_unfold .
-lemma [combinator_eq]: "I \<equiv> C K K" unfolding combinator_unfold .
+lemma [combinator_eq]: "I \<equiv> C K ()" unfolding combinator_unfold .
 lemma [combinator_eq]: "S \<equiv> B (B W) (B B C)" unfolding combinator_unfold .
 lemma [combinator_eq]: "W \<equiv> S S (S K)" unfolding combinator_unfold .
 lemma [combinator_eq]: "T' \<equiv> C I" unfolding combinator_unfold .

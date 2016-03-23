@@ -565,6 +565,20 @@ fun applicative_cmd name pure ap flags lthy =
     val comb_eqs = Named_Theorems.get lthy @{named_theorems combinator_eq};
     val comb_rules = map explode_combinator_eq comb_eqs;
 
+    (* TODO: better place for this sanity check? *)
+    val _ = map (fn thm =>
+      let
+        val (lhs, rhs) = Logic.dest_equals (Thm.prop_of thm);
+        val ltvars = Term.add_tvars lhs [];
+        val rtvars = Term.add_tvars rhs [];
+      in if exists (not o member op = ltvars) rtvars
+        then Pretty.breaks
+           [Pretty.str "Combinator equation",
+            Pretty.quote (Syntax.pretty_term lthy (Thm.prop_of thm)),
+            Pretty.str "has additional type variables on right-hand side."]
+          |> Pretty.block |> Pretty.string_of |> error
+        else () end) comb_eqs;
+
     fun lookup_combinator name = case Symtab.lookup combs_by_name name of
         SOME c => c
       | NONE => error ("Unknown combinator " ^ name);
