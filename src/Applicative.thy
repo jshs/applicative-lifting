@@ -41,12 +41,13 @@ subsection \<open>Proof automation\<close>
 ML_file "applicative.ML"
 
 local_setup \<open>Applicative.declare_combinators
- [("I", @{thm I_def}),
-  ("B", @{thm B_def}),
-  ("C", @{thm C_def}),
-  ("K", @{thm K_def}),
-  ("W", @{thm W_def}),
-  ("S", @{thm S_def})]\<close>
+ [("I", (@{thm I_def}, [])),
+  ("B", (@{thm B_def}, [])),
+  ("C", (@{thm C_def}, [])),
+  ("K", (@{thm K_def}, [])),
+  ("W", (@{thm W_def}, [])),
+  ("S", (@{thm S_def}, [])),
+  ("interchange", (@{thm T'_def}, [0]))]\<close>
 
 method_setup applicative_unfold = {*
   Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
