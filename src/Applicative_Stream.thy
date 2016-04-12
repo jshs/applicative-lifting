@@ -32,23 +32,19 @@ by (coinduction arbitrary: f) auto
 lemma ap_stream_composition: "pure (\<lambda>g f x. g (f x)) \<diamondop> g \<diamondop> f \<diamondop> x = g \<diamondop> (f \<diamondop> x)"
 by (coinduction arbitrary: g f x) auto
 
-applicative stream (C, K, W)
+applicative stream (S, K)
 for
   pure: sconst
   ap: ap_stream
 proof -
-  fix f :: "('b \<Rightarrow> 'a \<Rightarrow> 'c) stream" and x y
-  show "pure (\<lambda>f x y. f y x) \<diamondop> f \<diamondop> x \<diamondop> y = f \<diamondop> y \<diamondop> x"
-    by (coinduction arbitrary: f x y) auto
+  fix g :: "('b \<Rightarrow> 'a \<Rightarrow> 'c) stream" and f x
+  show "pure (\<lambda>g f x. g x (f x)) \<diamondop> g \<diamondop> f \<diamondop> x = g \<diamondop> x \<diamondop> (f \<diamondop> x)"
+    by (coinduction arbitrary: g f x) auto
 next
   fix x :: "'b stream" and y :: "'a stream"
   show "pure (\<lambda>x y. x) \<diamondop> x \<diamondop> y = x"
     by (coinduction arbitrary: x y) auto
-next
-  fix f :: "('a \<Rightarrow> 'a \<Rightarrow> 'b) stream" and x
-  show "pure (\<lambda>f x. f x x) \<diamondop> f \<diamondop> x = f \<diamondop> x \<diamondop> x"
-    by (coinduction arbitrary: f x) auto
-qed(rule ap_stream_homo ap_stream_interchange ap_stream_composition)+
+qed(rule ap_stream_homo ap_stream_composition)+
 
 lemma smap_applicative[applicative_unfold]: "smap f x = pure f \<diamondop> x"
 unfolding ap_stream_def by (coinduction arbitrary: x) auto

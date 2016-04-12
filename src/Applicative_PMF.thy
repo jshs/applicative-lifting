@@ -56,7 +56,7 @@ applicative pmf (C, K)
 for
   pure: pure_pmf
   ap: ap_pmf
-by(rule ap_pmf_id ap_pmf_comp[unfolded o_def[abs_def]] ap_pmf_homo ap_pmf_interchange ap_pmf_C ap_pmf_K)+
+by(rule ap_pmf_comp[unfolded o_def[abs_def]] ap_pmf_homo ap_pmf_C ap_pmf_K)+
 
 end
 

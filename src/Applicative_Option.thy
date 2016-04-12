@@ -45,7 +45,7 @@ proof -
     show "pure (\<lambda>f x. f x x) \<diamondop> f \<diamondop> x = f \<diamondop> x \<diamondop> x"
       by (cases f x rule: option.exhaust[case_product option.exhaust]) simp_all
   }
-qed (simp_all add: some_ap_option ap_some_option)
+qed (simp add: some_ap_option ap_some_option)
 
 no_adhoc_overloading Applicative.pure pure_option -- \<open>We do not want to print all occurrences of @{const "Some"} as @{const "pure"}\<close>
 
