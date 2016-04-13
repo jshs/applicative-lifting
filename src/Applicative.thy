@@ -28,7 +28,7 @@ lemmas [combinator_repr] = combinator_unfold
 private definition "cpair \<equiv> Pair"
 private definition "cuncurry \<equiv> case_prod"
 
-lemma uncurry_pair: "cuncurry f (cpair x y) = f x y"
+private lemma uncurry_pair: "cuncurry f (cpair x y) = f x y"
 unfolding cpair_def cuncurry_def by simp
 
 

@@ -1105,7 +1105,7 @@ fun mk_weak_reds sign ctxt comb_defs comb_unfolds (hom_thm, ichng_thm, reds) =
       in hol_thm RS eq_reflection end;
 
     (* TODO: not a weak reduction? *)
-    val uncurry_thm = forward_lift_rule ctxt af @{thm Applicative.uncurry_pair} RS eq_reflection;
+    val uncurry_thm = forward_lift_rule ctxt af @{thm uncurry_pair} RS eq_reflection;
   in
     [mk @{const_name C} [1], mk @{const_name C} [2], uncurry_thm]
   end;
