@@ -39,7 +39,7 @@ sig
   val lifting_wrapper_tac: Proof.context -> afun option -> int -> tactic
 
   val setup_combinators: (string * thm) list -> local_theory -> local_theory
-  val combinator_eq_attrib: string list -> attribute
+  val combinator_eq_attrib: string list option -> attribute
   val applicative_cmd: binding -> string -> string -> string list -> local_theory -> Proof.state
   val print_afuns: Proof.context -> unit
   val add_unfold_attrib: xstring option -> attribute
@@ -298,11 +298,11 @@ fun explode_combinator_eq combs thm =
 fun mk_combinator_rule combs weak_combs thm =
   let
     val (conclusion, premises) = explode_combinator_eq combs thm;
-    val weak_premises = Ord_List.make fast_string_ord weak_combs;
+    val weak_premises = Ord_List.make fast_string_ord (these weak_combs);
     val strong_premises = Ord_List.subtract fast_string_ord weak_premises premises;
   in Combinator_Rule
    {strong_premises = strong_premises,
-    weak_premises = not (null weak_premises),
+    weak_premises = is_some weak_combs,
     conclusion = conclusion,
     eq_thm = thm} end;
 
@@ -501,8 +501,6 @@ fun add_combinators combs =
 
 fun add_combinator_rule weak_names thm context =
   let
-    val (_, comb_defs) = #combinators (Data.get context);
-    val combs = Ord_List.make fast_string_ord (Symtab.keys comb_defs);
     val (lhs, rhs) = Logic.dest_equals (Thm.prop_of thm);
     val ltvars = Term.add_tvars lhs [];
     val rtvars = Term.add_tvars rhs [];
@@ -514,10 +512,11 @@ fun add_combinator_rule weak_names thm context =
         |> Pretty.block |> Pretty.string_of |> error
       else ();
 
-    val (by_name, _) = get_combinators context;
-    val weak_combs = map (the o Symtab.lookup by_name) weak_names;
-    val rule' = mk_combinator_rule combs weak_combs thm;
-    val add_rule = insert eq_combinator_rule rule';
+    val (by_name, comb_defs) = get_combinators context;
+    val combs = Ord_List.make fast_string_ord (Symtab.keys comb_defs);
+    val weak_combs = Option.map (map (the o Symtab.lookup by_name)) weak_names;
+    val rule = mk_combinator_rule combs weak_combs thm;
+    val add_rule = insert eq_combinator_rule rule;
   in Data.map (map_data I add_rule I I) context end;
 
 (* FIXME *)

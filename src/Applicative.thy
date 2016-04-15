@@ -46,7 +46,8 @@ local_setup \<open>Applicative.setup_combinators
   ("W", @{thm W_def})]\<close>
 
 attribute_setup combinator_eq =
-  \<open>Scan.lift (Scan.optional (Args.$$$ "weak" |-- Args.colon |-- Scan.repeat1 Args.name) [] >>
+  \<open>Scan.lift (Scan.option (Args.$$$ "weak" |--
+    Scan.optional (Args.colon |-- Scan.repeat1 Args.name) []) >>
     Applicative.combinator_eq_attrib)\<close>
 
 (* TODO: complete set of equations *)
