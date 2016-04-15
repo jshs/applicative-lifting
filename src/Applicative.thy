@@ -7,6 +7,13 @@ imports Main
 keywords "applicative" :: thy_goal and "print_applicative" :: diag
 begin
 
+lemma arg1_cong: "x = y \<Longrightarrow> f x z = f y z"
+by (rule arg_cong)
+
+lemma rel_fun_eqI: "(\<And>x. B (f x) (g x)) \<Longrightarrow> rel_fun (op =) B f g"
+by blast
+
+
 context begin
 
 subsection \<open>Combinators\<close>

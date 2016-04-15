@@ -29,9 +29,9 @@ sig
   val afun_fold_tac: Proof.context -> afun -> int -> tactic
   val unfold_all_tac: Proof.context -> int -> tactic
   val normalform_conv: Proof.context -> afun -> conv
-  val normalize_eq_tac: Proof.context -> afun -> int -> tactic
+  val normalize_rel_tac: Proof.context -> afun -> int -> tactic
   val general_normalform_conv: Proof.context -> afun -> cterm * cterm -> thm * thm
-  val general_normalize_eq_tac: Proof.context -> afun -> int -> tactic
+  val general_normalize_rel_tac: Proof.context -> afun -> int -> tactic
   val forward_lift_rule: Proof.context -> afun -> thm -> thm
   val unfold_wrapper_tac: Proof.context -> afun option -> int -> tactic
   val fold_wrapper_tac: Proof.context -> afun option -> int -> tactic
@@ -51,6 +51,9 @@ structure Applicative : APPLICATIVE =
 struct
 
 (** General utilities **)
+
+fun dest_comb2 (f $ x $ y) = (f, (x, y))
+  | dest_comb2 t = raise TERM ("dest_comb2", [t]);
 
 fun mk_TFrees Ss ctxt = Variable.invent_types Ss ctxt |>> map TFree;
 val mk_TFrees' = mk_TFrees oo replicate;
@@ -79,11 +82,12 @@ fun morph_sign phi = map_sign (Morphism.term phi) (Morphism.term phi) (apply2 (M
 type axioms =
  {homomorphism: thm,
   interchange: thm,
-  combinators: thm Symtab.table};
+  combinators: thm Symtab.table,
+  rel_parametric: thm list};
 
-fun map_axioms f {homomorphism, interchange, combinators} =
+fun map_axioms f {homomorphism, interchange, combinators, rel_parametric} =
   {homomorphism = f homomorphism, interchange = f interchange,
-    combinators = Symtab.map (K f) combinators};
+    combinators = Symtab.map (K f) combinators, rel_parametric = map f rel_parametric};
 
 val morph_axioms = map_axioms o Morphism.thm;
 
@@ -97,12 +101,13 @@ type facts =
   W_intro: thm option,
   merge: thm,
   swap: thm,
-  B_pure: thm};
+  B_pure: thm,
+  rel_intros: thm list};
 
-fun map_facts f {I_intro, B_intro, C_intro, K_intro, W_intro, merge, swap, B_pure} =
+fun map_facts f {I_intro, B_intro, C_intro, K_intro, W_intro, merge, swap, B_pure, rel_intros} =
   {I_intro = f I_intro, B_intro = f B_intro, C_intro = Option.map f C_intro,
     K_intro = Option.map f K_intro, W_intro = Option.map f W_intro, merge = f merge, swap = f swap,
-    B_pure = f B_pure};
+    B_pure = f B_pure, rel_intros = map f rel_intros};
 
 val morph_facts = map_facts o Morphism.thm;
 
@@ -539,13 +544,13 @@ fun term_to_vname (Const (x, _)) = Long_Name.base_name x
   | term_to_vname (Var ((x, _), _)) = clean_name x
   | term_to_vname _ = "x";
 
-fun afuns_of_eq precise ctxt t =
-  let val (lhs, rhs) = Variable.focus NONE t ctxt
+fun afuns_of_rel precise ctxt t =
+  let val (_, (lhs, rhs)) = Variable.focus NONE t ctxt
     |> #1 |> #2
     |> Logic.strip_imp_concl
     |> Envir.beta_eta_contract
     |> HOLogic.dest_Trueprop
-    |> HOLogic.dest_eq;
+    |> dest_comb2;
   in if precise
     then (case afuns_of_term ctxt lhs of
         [] => afuns_of_term ctxt rhs
@@ -554,7 +559,7 @@ fun afuns_of_eq precise ctxt t =
 
 fun AUTO_AFUNS precise tac ctxt opt_af = case opt_af of
     SOME af => tac [af]
-  | NONE => SUBGOAL (fn (goal, i) => (case afuns_of_eq precise ctxt goal of
+  | NONE => SUBGOAL (fn (goal, i) => (case afuns_of_rel precise ctxt goal of
       [] => no_tac
     | afs => tac afs i) handle TERM _ => no_tac);
 
@@ -566,11 +571,7 @@ fun binop_par_conv cv ct =
     val (th1, th2) = cv (arg1, arg2);
   in Drule.binop_cong_rule binop th1 th2 end;
 
-fun hol_eq_par_conv cv ct = case Thm.term_of ct of
-    Const (@{const_name HOL.eq}, _) $ _ $ _ => binop_par_conv cv ct
-  | _ => raise CTERM ("hol_eq_par_conv", [ct]);
-
-fun hol_eq_conv_tac cv = CONVERSION (HOLogic.Trueprop_conv (hol_eq_par_conv cv));
+fun binop_par_conv_tac cv = CONVERSION (HOLogic.Trueprop_conv (binop_par_conv cv));
 
 val fold_goal_tac = SELECT_GOAL oo Raw_Simplifier.fold_goals_tac;
 
@@ -622,7 +623,7 @@ fun normalform_conv ctxt af =
       end;
   in normalize end;
 
-val normalize_eq_tac = hol_eq_conv_tac o apply2 oo normalform_conv;
+val normalize_rel_tac = binop_par_conv_tac o apply2 oo normalform_conv;
 
 
 (* Bracket abstraction and generalized unlifting *)
@@ -821,60 +822,21 @@ fun general_normalform_conv ctxt af cts =
           in Thm.transitive rule1 rule3 end;
   in (elim_all apt1 vs, elim_all apt2 vs) end;
 
-val general_normalize_eq_tac = hol_eq_conv_tac oo general_normalform_conv;
+val general_normalize_rel_tac = binop_par_conv_tac oo general_normalform_conv;
 
 
-(* Reduce canonical forms to base equation *)
+(* Reduce canonical forms to base relation *)
 
 (*
-  (pure f <> x1 <> ... <> xn = pure g <> x1 <> ... <> xn)
-    ===> !!x1 ... xn. (f x1 ... xn = g x1 ... xn)
-  This tactic tries to be as precise as possible to prevent unexpected outcomes.
+  R' (pure f <> x1 <> ... <> xn) (pure g <> x1 <> ... <> xn)
+    ===> !!x1 ... xn. R (f x1 ... xn) (g x1 ... xn),
+  where either both R and R' are equality, or R' = relF R for relator relF of the functor.
   Succeeds if partial progress can be made.
 *)
-fun head_cong_tac ctxt af = SUBGOAL (fn (goal, i) =>
-  let
-    fun reduce_ap (t, t') = case (try (dest_comb ctxt af) t, try (dest_comb ctxt af) t') of
-        (SOME (tl, tr), SOME (tl', tr')) => if tr aconv tr'
-          then reduce_ap (tl, tl') ||> cons tr
-          else ((false, (t, t')), [])
-      | (NONE, NONE) => ((true, (t, t')), [])
-      | _ => ((false, (t, t')), []);
-
-    fun reduce_pure (t, t') = case (try (dest_pure' ctxt af) t, try (dest_pure' ctxt af) t') of
-        (SOME ta, SOME ta') => (true, (ta, ta'))
-      | _ => (false, (t, t'));
-
-    fun ap_cong1_rule ctxt t thm =
-      let
-        val funT = thm |> Thm.lhs_of |> Thm.typ_of_cterm;
-        val ap_inst = Thm.cterm_of ctxt (ap ctxt af funT);
-      in Drule.fun_cong_rule (Drule.arg_cong_rule ap_inst thm) (Thm.cterm_of ctxt t) end;
-
-    fun pure_cong_rule ctxt Ts thm =
-      let
-        val argT = thm |> Thm.lhs_of |> Thm.typ_of_cterm;
-        val pure_inst = Thm.cterm_of ctxt (pure af Ts argT);
-      in Drule.arg_cong_rule pure_inst thm end;
-
-    val (lhs, rhs) = goal |> HOLogic.dest_Trueprop |> HOLogic.dest_eq;
-    val (_, Ts) = dest_type ctxt af (Term.fastype_of lhs);
-    val ((is_head, (lhs', rhs')), args) = reduce_ap (lhs, rhs);
-    val (is_base, (lhs'', rhs'')) = if is_head
-      then reduce_pure (lhs', rhs')
-      else (false, (lhs', rhs'));
-    val hyp = (lhs'', rhs'') |> HOLogic.mk_eq |> HOLogic.mk_Trueprop;
-    val (base_eq, ctxt') = yield_singleton Assumption.add_assumes (Thm.cterm_of ctxt hyp) ctxt;
-    val concl = (base_eq RS @{thm eq_reflection})
-      |> is_base ? pure_cong_rule ctxt' Ts
-      |> fold_rev (ap_cong1_rule ctxt') args;
-    val concl' = concl RS @{thm HOL.meta_eq_to_obj_eq};
-    val rule = Assumption.export false ctxt' ctxt concl';
-    val post_tac = if is_base
-      then REPEAT_DETERM o resolve_tac ctxt [ext]
-      else K all_tac;
-  in (resolve_tac ctxt [rule] THEN' post_tac) i end
-  handle TERM _ => no_tac | TYPE _ => no_tac);
+fun head_cong_tac ctxt af =
+  let val {rel_intros, ...} = facts_of_afun af
+  in REPEAT_DETERM o resolve_tac ctxt rel_intros THEN'
+    REPEAT_DETERM o resolve_tac ctxt [ext, @{thm rel_fun_eqI}] end;
 
 
 (* Forward lifting *)
@@ -908,7 +870,7 @@ fun forward_lift_rule ctxt af thm =
 
     val (lhs, rhs) = prop' |> HOLogic.dest_Trueprop |> HOLogic.dest_eq;
     val lifted_prop = HOLogic.mk_eq (lift_term lhs, lift_term rhs) |> HOLogic.mk_Trueprop;
-    val tac = general_normalize_eq_tac ctxt'' af THEN'
+    val tac = general_normalize_rel_tac ctxt'' af THEN'
       head_cong_tac ctxt'' af THEN'
       resolve_tac ctxt'' [thm];
     val thm' = singleton (Variable.export ctxt'' ctxt)
@@ -930,7 +892,7 @@ fun unfold_wrapper_tac ctxt = AUTO_AFUNS false (fn afs =>
 fun fold_wrapper_tac ctxt = AUTO_AFUN true (fold_goal_tac ctxt o unfolds_of_afun) ctxt;
 
 fun WRAPPER tac ctxt opt_af =
-  REPEAT_DETERM o resolve_tac ctxt [@{thm HOL.allI}] THEN'
+  REPEAT_DETERM o resolve_tac ctxt [@{thm allI}] THEN'
   Subgoal.FOCUS (fn {context = ctxt, ...} =>
       AUTO_AFUNS false (EVERY' o map (afun_unfold_tac ctxt)) ctxt opt_af 1 THEN
       AUTO_AFUN true (fn af =>
@@ -939,8 +901,8 @@ fun WRAPPER tac ctxt opt_af =
         tac ctxt af THEN'
         head_cong_tac ctxt af) ctxt opt_af 1) ctxt;
 
-val normalize_wrapper_tac = WRAPPER normalize_eq_tac;
-val lifting_wrapper_tac = WRAPPER general_normalize_eq_tac;
+val normalize_wrapper_tac = WRAPPER normalize_rel_tac;
+val lifting_wrapper_tac = WRAPPER general_normalize_rel_tac;
 
 val parse_opt_afun = Scan.peek (fn context =>
   Scan.option Parse.xname >> Option.map (intern context #> afun_of_generic context));
@@ -1020,6 +982,27 @@ fun mk_facts ctxt sign axioms =
           HEADGOAL (Raw_Simplifier.rewrite_goal_tac ctxt'' [B_intro, merge_rule] THEN'
           resolve_tac ctxt'' [reflexive_thm]);
       in singleton (Variable.export ctxt'' ctxt) (Goal.prove ctxt'' [] [] prop (K tac)) end;
+
+    (* TODO: relator *)
+    val eq_intros =
+      let
+        val (([T1, T2], Us), ctxt') = ctxt
+          |> mk_TFrees' 2 (#sort sign)
+          ||>> mk_TFrees (#param_sorts sign);
+        val T12 = lift_type_sign sign Us (T1 --> T2);
+        val (((((x, y), x'), f), g), ctxt'') = ctxt'
+          |> mk_Free "x" T1
+          ||>> mk_Free "y" T1
+          ||>> mk_Free "x" (lift_type_sign sign Us T1)
+          ||>> mk_Free "f" T12
+          ||>> mk_Free "g" T12;
+        val pure_fun = pure_sign sign Us T1;
+        val pure_cong = Drule.infer_instantiate' ctxt''
+          (map (SOME o Thm.cterm_of ctxt'') [x, y, pure_fun]) @{thm arg_cong};
+        val ap_fun = ap_sign ctxt'' sign T12;
+        val ap_cong1 = Drule.infer_instantiate' ctxt''
+          (map (SOME o Thm.cterm_of ctxt'') [f, g, ap_fun, x']) @{thm arg1_cong};
+      in Variable.export ctxt'' ctxt [pure_cong, ap_cong1] end;
   in
     {I_intro = comb_intro (combinator_axiom axioms @{const_name I} |> the),
       B_intro = B_intro,
@@ -1028,7 +1011,8 @@ fun mk_facts ctxt sign axioms =
       W_intro = Option.map comb_intro (combinator_axiom axioms @{const_name W}),
       merge = merge_rule,
       swap = #interchange axioms RS eq_reflection,
-      B_pure = B_pure}
+      B_pure = B_pure,
+      rel_intros = eq_intros}
   end;
 
 fun reuse_TFrees n S (ctxt, Ts) =
@@ -1088,7 +1072,8 @@ fun mk_weak_reds sign ctxt comb_defs comb_unfolds (hom_thm, ichng_thm, reds) =
   let
     val unfolded_reds =
       Symtab.map (K (Raw_Simplifier.rewrite_rule ctxt comb_unfolds)) reds;
-    val axioms = {homomorphism = hom_thm, interchange = ichng_thm, combinators = unfolded_reds};
+    val axioms = {homomorphism = hom_thm, interchange = ichng_thm, combinators = unfolded_reds,
+      rel_parametric = []};
     val facts = mk_facts ctxt sign axioms;
     val af = mk_afun Binding.empty sign axioms facts;
 
@@ -1182,7 +1167,8 @@ fun applicative_cmd name pure ap flags lthy =
         val reds1 = combinator_red_closure (sign, hom_thm) lthy comb_defs comb_rules weak_reds reds0;
         val unfolded_reds =
           Symtab.map (K (Raw_Simplifier.rewrite_rule lthy comb_unfolds)) reds1;
-        val axioms = {homomorphism = hom_thm, interchange = ichng_thm, combinators = unfolded_reds};
+        val axioms = {homomorphism = hom_thm, interchange = ichng_thm, combinators = unfolded_reds,
+          rel_parametric = []};  (* TODO: relator *)
         val facts = mk_facts lthy sign axioms;
         val af = mk_afun name sign axioms facts;
       in lthy

@@ -135,6 +135,14 @@ definition [applicative_unfold]: "sconcat xs = smap concat xs"
 lemma "sconcat (lift_streams [sconst ''Hello '', sconst ''world!'']) = sconst ''Hello world!''"
 by applicative_lifting simp
 
+
+subsection {* Relators *}
+
+lemma "stream_all2 R (f \<diamondop> (pure g \<diamondop> x + y)) (x + z)"
+apply applicative_lifting
+oops
+
+
 print_applicative
 
 end
