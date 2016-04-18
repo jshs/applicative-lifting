@@ -93,10 +93,11 @@ method_setup applicative_lifting = {*
 ML {* Outer_Syntax.local_theory_to_proof @{command_keyword "applicative"}
   "register applicative functors"
   (Parse.binding --
-    Scan.optional (@{keyword "("} |-- Parse.list Parse.short_ident --| @{keyword ")"}) [] --|
-    @{keyword "for"} --| Parse.reserved "pure" --| @{keyword ":"} -- Parse.term --|
-    Parse.reserved "ap" --| @{keyword ":"} -- Parse.term >>
-    (fn (((name, combs), pure), ap) => Applicative.applicative_cmd name pure ap combs)) *}
+    Scan.optional (@{keyword "("} |-- Parse.list Parse.short_ident --| @{keyword ")"}) [] --
+    (@{keyword "for"} |-- Parse.reserved "pure" |-- @{keyword ":"} |-- Parse.term) --
+    (Parse.reserved "ap" |-- @{keyword ":"} |-- Parse.term) --
+    Scan.option (Parse.reserved "rel" |-- @{keyword ":"} |-- Parse.term) >>
+    Applicative.applicative_cmd) *}
 
 ML {* Outer_Syntax.command @{command_keyword "print_applicative"}
   "print registered applicative functors"
