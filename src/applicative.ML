@@ -604,24 +604,15 @@ fun unfold_all_tac ctxt = Raw_Simplifier.rewrite_goal_tac ctxt (all_unfolds_of c
 
 (* Normal form conversion *)
 
-fun rename_rewr_conv mk_map rule ct =
-  let val rule' = Drule.rename_bvars (mk_map (Thm.term_of ct)) rule
-  in Conv.rewr_conv rule' ct end;
-
-fun rename_rr_conv v = rename_rewr_conv (fn t =>
-    (case t of
-        _ $ (_ $ t') => [(v, term_to_vname t')]
-      | _ => raise TERM ("rename_rr_conv", [t])));
-
 fun normalform_conv ctxt af =
   let
     val rules = facts_of_afun af;
 
-    val leaf_conv = rename_rewr_conv (fn t => [("x", term_to_vname t)]) (#I_intro rules);
+    val leaf_conv = Conv.rewr_conv (#I_intro rules);
     val merge_conv = Conv.rewr_conv (#merge rules);
     val swap_conv = Conv.rewr_conv (#swap rules);
-    val rotate_conv = rename_rr_conv "x" (#B_intro rules);
-    val pure_rotate_conv = rename_rr_conv "x" (#B_pure rules);
+    val rotate_conv = Conv.rewr_conv (#B_intro rules);
+    val pure_rotate_conv = Conv.rewr_conv (#B_pure rules);
     fun normalize_pure_nf ct =
       ((pure_rotate_conv then_conv Conv.arg1_conv normalize_pure_nf) else_conv merge_conv) ct;
     val normalize_nf_pure = swap_conv then_conv normalize_pure_nf;
@@ -809,27 +800,12 @@ fun eliminate ctxt af tt (v, v_tm) =
     else K_step tt v_tm
   end;
 
-fun rename_boundvars ctxt af vs thm =
-  let
-    fun rename [] t = t
-      | rename ((_, v)::vs) (Abs (_, T, t)) = Abs (term_to_vname v, T, rename vs t)
-      | rename _ t = t;
-    fun rename_pure t = t
-      |> dest_pure' ctxt af
-      |> rename (rev vs)
-      |> lift af (Term.fastype_of t |> dest_type ctxt af |> #2);
-    val prop' = Thm.prop_of thm
-      |> Logic.dest_equals
-      ||> rename_pure
-      |> Logic.mk_equals;
-  in Thm.renamed_prop prop' thm end;
-
 fun general_normalform_conv ctxt af cts =
   let
     val (t1, t2) = apply2 (Thm.term_of) cts;
     val ((apt1, apt2), _) = 0 |> apterm_of_term ctxt af t1 ||>> apterm_of_term ctxt af t2;
     val vs = consolidate ctxt af (apt1, apt2);
-    fun elim_all tt [] = squash_atoms ctxt af tt |> the |> rename_boundvars ctxt af vs
+    fun elim_all tt [] = the (squash_atoms ctxt af tt)
       | elim_all tt (v::vs) =
           let
             val (tt', rule1) = eliminate ctxt af tt v;
@@ -845,16 +821,33 @@ val general_normalize_rel_tac = binop_par_conv_tac oo general_normalform_conv;
 
 (* Reduce canonical forms to base relation *)
 
+fun rename_params names i st =
+  let
+    val (_, Bs, Bi, C) = Thm.dest_state (st, i);
+    val Bi' = Logic.list_rename_params names Bi;
+  in Thm.renamed_prop (Logic.list_implies (Bs @ [Bi'], C)) st end;
+
 (*
   R' (pure f <> x1 <> ... <> xn) (pure g <> x1 <> ... <> xn)
     ===> !!x1 ... xn. R (f x1 ... xn) (g x1 ... xn),
   where either both R and R' are equality, or R' = relF R for relator relF of the functor.
-  Succeeds if partial progress can be made.
+  Succeeds if partial progress can be made. The names of the new parameters are derived
+  from the arguments xi.
 *)
 fun head_cong_tac ctxt af =
-  let val {rel_intros, ...} = facts_of_afun af
-  in REPEAT_DETERM o resolve_tac ctxt rel_intros THEN'
-    REPEAT_DETERM o resolve_tac ctxt [ext, @{thm rel_fun_eqI}] end;
+  let
+    val {rel_intros, ...} = facts_of_afun af;
+    fun gather_vars' tm = case try (dest_comb ctxt af) tm of
+        SOME (t1, t2) => term_to_vname t2 :: gather_vars' t1
+      | NONE => [];
+    fun gather_vars prop = case prop of
+        Const (@{const_name Trueprop}, _) $ (_ $ rhs) => rev (gather_vars' rhs)
+      | _ => [];
+  in SUBGOAL (fn (subgoal, i) =>
+    (REPEAT_DETERM (resolve_tac ctxt rel_intros i) THEN
+      REPEAT_DETERM (resolve_tac ctxt [ext, @{thm rel_fun_eqI}] i) THEN
+      PRIMITIVE (rename_params (gather_vars subgoal) i)))
+  end;
 
 
 (* Forward lifting *)
