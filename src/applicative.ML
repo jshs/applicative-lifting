@@ -834,11 +834,14 @@ fun rename_params names i st =
   Succeeds if partial progress can be made. The names of the new parameters are derived
   from the arguments xi.
 *)
-fun head_cong_tac ctxt af =
+fun head_cong_tac ctxt af renames =
   let
     val {rel_intros, ...} = facts_of_afun af;
+    fun term_name tm = case AList.lookup (op aconv) renames tm of
+        SOME n => n
+      | NONE => term_to_vname tm;
     fun gather_vars' tm = case try (dest_comb ctxt af) tm of
-        SOME (t1, t2) => term_to_vname t2 :: gather_vars' t1
+        SOME (t1, t2) => term_name t2 :: gather_vars' t1
       | NONE => [];
     fun gather_vars prop = case prop of
         Const (@{const_name Trueprop}, _) $ (_ $ rhs) => rev (gather_vars' rhs)
@@ -882,7 +885,7 @@ fun forward_lift_rule ctxt af thm =
     val (lhs, rhs) = prop' |> HOLogic.dest_Trueprop |> HOLogic.dest_eq;
     val lifted_prop = HOLogic.mk_eq (lift_term lhs, lift_term rhs) |> HOLogic.mk_Trueprop;
     val tac = general_normalize_rel_tac ctxt'' af THEN'
-      head_cong_tac ctxt'' af THEN'
+      head_cong_tac ctxt'' af [] THEN'
       resolve_tac ctxt'' [thm];
     val thm' = singleton (Variable.export ctxt'' ctxt)
       (Goal.prove ctxt'' [] [] lifted_prop (K (tac 1)));
@@ -904,13 +907,17 @@ fun fold_wrapper_tac ctxt = AUTO_AFUN true (fold_goal_tac ctxt o unfolds_of_afun
 
 fun WRAPPER tac ctxt opt_af =
   REPEAT_DETERM o resolve_tac ctxt [@{thm allI}] THEN'
-  Subgoal.FOCUS (fn {context = ctxt, ...} =>
+  Subgoal.FOCUS (fn {context = ctxt, params, ...} =>
+    let val renames = map (swap o apsnd Thm.term_of) params
+    in
       AUTO_AFUNS false (EVERY' o map (afun_unfold_tac ctxt)) ctxt opt_af 1 THEN
       AUTO_AFUN true (fn af =>
         afun_unfold_tac ctxt af THEN'
         CONVERSION Drule.beta_eta_conversion THEN'
         tac ctxt af THEN'
-        head_cong_tac ctxt af) ctxt opt_af 1) ctxt;
+        head_cong_tac ctxt af renames) ctxt opt_af 1
+    end) ctxt THEN'
+  Raw_Simplifier.rewrite_goal_tac ctxt [Drule.triv_forall_equality];
 
 val normalize_wrapper_tac = WRAPPER normalize_rel_tac;
 val lifting_wrapper_tac = WRAPPER general_normalize_rel_tac;
