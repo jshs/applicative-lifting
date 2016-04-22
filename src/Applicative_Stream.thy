@@ -10,7 +10,7 @@ theory Applicative_Stream imports
   "~~/src/HOL/Library/Stream"
 begin
 
-primcorec ap_stream :: "('a \<Rightarrow> 'b) stream \<Rightarrow> 'a stream \<Rightarrow> 'b stream"
+primcorec (transfer) ap_stream :: "('a \<Rightarrow> 'b) stream \<Rightarrow> 'a stream \<Rightarrow> 'b stream"
 where
     "shd (ap_stream f x) = shd f (shd x)"
   | "stl (ap_stream f x) = ap_stream (stl f) (stl x)"
@@ -59,16 +59,7 @@ next
 next
   fix R :: "'a \<Rightarrow> 'b \<Rightarrow> bool" and S :: "'c \<Rightarrow> 'd \<Rightarrow> bool"
   show "(stream_all2 (R ===> S) ===> stream_all2 R ===> stream_all2 S) ap_stream ap_stream"
-  proof rule+
-    fix f g x y
-    assume "stream_all2 (R ===> S) f g" "stream_all2 R x y"
-    then show "stream_all2 S (f \<diamondop> x) (g \<diamondop> y)"
-      apply (coinduction arbitrary: f g x y)
-      apply (intro conjI)
-      apply (auto dest: stream.rel_sel[THEN iffD1] rel_funD)
-      apply (metis stream.rel_cases stream.sel(2))
-      done
-  qed
+    by(rule ap_stream.transfer)
 qed (rule ap_stream_homo stream.rel_refl refl)+
 
 lemma smap_applicative[applicative_unfold]: "smap f x = pure f \<diamondop> x"
