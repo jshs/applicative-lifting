@@ -47,29 +47,48 @@ by(cases h g x rule: sum.exhaust[case_product sum.exhaust, case_product sum.exha
 lemma semigroup_const: "semigroup (\<lambda>x y. x)"
 by unfold_locales simp
 
+locale either_af =
+  fixes B :: "'b \<Rightarrow> 'b \<Rightarrow> bool"
+  assumes B_refl: "reflp B"
+begin
+
 applicative either (W)
 for
   pure: Inl
   ap: ap_either
-using
-  ap_sum_id[simplified id_def]
-  ap_sum_ichng
-proof -
+  rel: "\<lambda>A. rel_sum A B"
+proof goal_cases
   interpret applicative_syntax .
-  { fix f :: "('b \<Rightarrow> 'b \<Rightarrow> 'c) + 'a" and x
+  { fix f :: "('c \<Rightarrow> 'c \<Rightarrow> 'd) + 'a" and x
     show "pure (\<lambda>f x. f x x) \<diamondop> f \<diamondop> x = f \<diamondop> x \<diamondop> x"
       by (cases f x rule: sum.exhaust[case_product sum.exhaust]) simp_all
   next
     interpret semigroup "\<lambda>x y. x" by(rule semigroup_const)
-    fix g :: "('c \<Rightarrow> 'd) + 'a" and f :: "('b \<Rightarrow> 'c) + 'a" and x
+    fix g :: "('d \<Rightarrow> 'e) + 'a" and f :: "('c \<Rightarrow> 'd) + 'a" and x
     show "pure (\<lambda>g f x. g (f x)) \<diamondop> g \<diamondop> f \<diamondop> x = g \<diamondop> (f \<diamondop> x)"
       by(rule ap_sum_comp[simplified comp_def[abs_def]])
+  next
+    case (7 R S) show ?case proof rule+
+      fix f g x y
+      assume "rel_sum (rel_fun R S) B f g" "rel_sum R B x y"
+      then show "rel_sum S B (f \<diamondop> x) (g \<diamondop> y)"
+        apply (cases f g x y rule: sum.exhaust[case_product sum.exhaust, case_product sum.exhaust,
+            case_product sum.exhaust])
+        apply (auto elim: rel_funE)
+        done
+    qed
+  next
+    case (8 x) show ?case using B_refl by (auto intro: sum.rel_reflp[THEN reflpD])
   }
-qed auto 
+qed (auto intro: ap_sum_id[simplified id_def] ap_sum_ichng)
+
+end  (* locale *)
+
+interpretation either_af "op =" by unfold_locales simp
 
 applicative semigroup_sum
 for
-  pure: "Inl :: (_ \<Rightarrow> _ + 'e::semigroup_add)"
+  pure: Inl
   ap: ap_plus
 using
   ap_sum_id[simplified id_def]

@@ -55,7 +55,7 @@ local_setup \<open>Applicative.setup_combinators
 attribute_setup combinator_eq =
   \<open>Scan.lift (Scan.option (Args.$$$ "weak" |--
     Scan.optional (Args.colon |-- Scan.repeat1 Args.name) []) >>
-    Applicative.combinator_eq_attrib)\<close>
+    Applicative.combinator_rule_attrib)\<close>
 
 (* TODO: complete set of equations *)
 lemma [combinator_eq]: "B \<equiv> S (K S) K" unfolding combinator_unfold .
