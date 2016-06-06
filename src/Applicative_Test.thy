@@ -75,6 +75,12 @@ subsection {* Sum type (a.k.a. either) *}
 lemma "Inl plus \<diamondop> (x :: nat + 'e list) \<diamondop> x = Inl (\<lambda>x. 2 * x) \<diamondop> x"
 by applicative_lifting simp
 
+lemma "rel_sum (op \<le>) (op \<le>) (x :: nat + nat) (Inl Suc \<diamondop> x)"
+proof -
+  interpret either_af "op \<le> :: nat \<Rightarrow> _" by unfold_locales (rule reflpI, simp)
+  show ?thesis by applicative_lifting simp
+qed
+
 
 subsection {* Streams *}
 
