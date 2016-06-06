@@ -1205,25 +1205,26 @@ fun mk_comb_reds ctxt combss af_inst user_combs (hom_thm, user_thms, ichng_thms)
     val unfold = Raw_Simplifier.rewrite_rule ctxt comb_unfolds;
   in (Symtab.map (K unfold) reds1, ichng_thm) end;
 
-(* FIXME
 fun note_afun_thms af =
   let
-    val axioms = axioms_of_afun af;
-    val named_thms = [];
-    (* FIXME
-      [("afun_id", #identity axioms),
-        ("afun_comp", #composition axioms),
-        ("afun_hom", #homomorphism axioms),
-        ("afun_ichng", #interchange axioms)]
-      |> option I (cons o pair "afun_flip") (#flip axioms)
-      |> option I (cons o pair "afun_const") (#const axioms)
-      |> option I (cons o pair "afun_dup") (#duplicate axioms); *)
+    val thms = thms_of_afun af;
+    val named_thms =
+      [("homomorphism", [#hom thms]),
+        ("interchange", [#ichng thms]),
+        ("pure_comp_conv", [#pure_comp_conv thms]),
+        ("rel_intros", #rel_intros thms)] @
+      map (fn (name, thm) => (name ^ "_conv", [thm])) (Symtab.dest (#reds thms)) @
+      (case #rel_thms thms of
+        NONE => []
+      | SOME rel_thms' =>
+          [("pure_transfer", [#pure_transfer rel_thms']),
+            ("ap_transfer", [#ap_transfer rel_thms']),
+            ("rel_eq_refl", [#rel_eq_refl rel_thms'])]);
 
     val base_name = Binding.name_of (name_of_afun af);
-    fun mk_note (name, thm) =
-      ((Binding.qualify true base_name (Binding.name name), []), [([thm], [])]);
+    fun mk_note (name, thms) =
+      ((Binding.qualify true base_name (Binding.name name), []), [(thms, [])]);
   in Local_Theory.notes (map mk_note named_thms) #> #2 end;
-*)
 
 fun register_afun af =
   let fun decl phi context = Data.map (fn {combinators, afuns, patterns} =>
@@ -1297,7 +1298,7 @@ fun applicative_cmd ((((name, flags), pure), ap), rel) lthy =
         val af = mk_afun name terms rel af_thms;
       in lthy
         |> register_afun af
-        (*|> note_afun_thms af *) (* FIXME *)
+        |> note_afun_thms af
       end;
   in
     Proof.theorem NONE after_qed ((map o map) (rpair []) propss) ctxt_Ts
