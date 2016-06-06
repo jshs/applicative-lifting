@@ -1311,16 +1311,19 @@ fun print_afuns ctxt =
       let
         val [pT, (_, pure), (_, ap)] = unpack_poly_terms (terms_of_afun af);
         val ([tvar], T) = poly_type_of_term pT;
-        val rel = Option.map (the_single o unpack_poly_terms) (rel_of_afun af);
+        val rel = Option.map (#2 o the_single o unpack_poly_terms) (rel_of_afun af);
         val combinators = Symtab.keys (#reds (thms_of_afun af));
-      in Pretty.block (Pretty.fbreaks [Pretty.block [Pretty.str name, Pretty.str ":", Pretty.brk 1,
+      in Pretty.block (Pretty.fbreaks ([Pretty.block [Pretty.str name, Pretty.str ":", Pretty.brk 1,
           Pretty.quote (Syntax.pretty_typ ctxt T), Pretty.brk 1, Pretty.str "of", Pretty.brk 1,
           Syntax.pretty_typ ctxt tvar],
         Pretty.block [Pretty.str "pure:", Pretty.brk 1, Pretty.quote (Syntax.pretty_term ctxt pure)],
-        Pretty.block [Pretty.str "ap:", Pretty.brk 1, Pretty.quote (Syntax.pretty_term ctxt ap)],
-        (* TODO: rel *)
-        Pretty.block ([Pretty.str "combinators:", Pretty.brk 1] @
-          Pretty.commas (map Pretty.str combinators))]) end;
+        Pretty.block [Pretty.str "ap:", Pretty.brk 1, Pretty.quote (Syntax.pretty_term ctxt ap)]] @
+        (case rel of
+          NONE => []
+        | SOME rel' => [Pretty.block [Pretty.str "rel:", Pretty.brk 1,
+            Pretty.quote (Syntax.pretty_term ctxt rel')]]) @
+        [Pretty.block ([Pretty.str "combinators:", Pretty.brk 1] @
+          Pretty.commas (map Pretty.str combinators))])) end;
     val afuns = sort_by #1 (Name_Space.fold_table cons (get_afun_table (Context.Proof ctxt)) []);
   in Pretty.writeln (Pretty.big_list "Registered applicative functors:" (map pretty_afun afuns)) end;
 
