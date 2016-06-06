@@ -7,16 +7,15 @@ imports Main
 keywords "applicative" :: thy_goal and "print_applicative" :: diag
 begin
 
+subsection \<open>Proof automation\<close>
+
 lemma arg1_cong: "x = y \<Longrightarrow> f x z = f y z"
 by (rule arg_cong)
 
-lemma rel_fun_eqI: "(\<And>x. B (f x) (g x)) \<Longrightarrow> rel_fun (op =) B f g"
+lemma rel_fun_eqI: "(\<And>x. R (f x) (g x)) \<Longrightarrow> rel_fun (op =) R f g"
 by blast
 
-
 context begin
-
-subsection \<open>Combinators\<close>
 
 private named_theorems combinator_unfold
 private named_theorems combinator_repr
@@ -38,9 +37,6 @@ private definition "cuncurry \<equiv> case_prod"
 private lemma uncurry_pair: "cuncurry f (cpair x y) = f x y"
 unfolding cpair_def cuncurry_def by simp
 
-
-subsection \<open>Proof automation\<close>
-
 ML_file "applicative.ML"
 
 local_setup \<open>Applicative.setup_combinators
@@ -52,12 +48,11 @@ local_setup \<open>Applicative.setup_combinators
   ("T", @{thm T_def}),
   ("W", @{thm W_def})]\<close>
 
-attribute_setup combinator_eq =
+private attribute_setup combinator_eq =
   \<open>Scan.lift (Scan.option (Args.$$$ "weak" |--
     Scan.optional (Args.colon |-- Scan.repeat1 Args.name) []) >>
     Applicative.combinator_rule_attrib)\<close>
 
-(* TODO: complete set of equations *)
 lemma [combinator_eq]: "B \<equiv> S (K S) K" unfolding combinator_unfold .
 lemma [combinator_eq]: "C \<equiv> S (S (K (S (K S) K)) S) (K K)" unfolding combinator_unfold .
 lemma [combinator_eq]: "I \<equiv> W K" unfolding combinator_unfold .
@@ -70,57 +65,61 @@ lemma [combinator_eq weak: C]:
   "C \<equiv> C (B B (B B (B W (C (B C (B (B B) (C B (cuncurry (K I))))) (cuncurry K))))) cpair"
 unfolding combinator_unfold uncurry_pair .
 
-method_setup applicative_unfold = {*
-  Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
-    SIMPLE_METHOD' (Applicative.unfold_wrapper_tac ctxt opt_af)) *}
-  "unfold to applicative expression"
+end (* context *)
 
-method_setup applicative_fold = {*
-  Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
-    SIMPLE_METHOD' (Applicative.fold_wrapper_tac ctxt opt_af)) *}
-  "folding of applicative expression"
 
-method_setup applicative_nf = {*
-  Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
-    SIMPLE_METHOD' (Applicative.normalize_wrapper_tac ctxt opt_af)) *}
-  "reduce equation using applicative normal form"
+method_setup applicative_unfold =
+  \<open>Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
+    SIMPLE_METHOD' (Applicative.unfold_wrapper_tac ctxt opt_af))\<close>
+  "unfold into an applicative expression"
 
-method_setup applicative_lifting = {*
-  Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
-    SIMPLE_METHOD' (Applicative.lifting_wrapper_tac ctxt opt_af)) *}
-  "reduce equation lifted with applicative functor"
+method_setup applicative_fold =
+  \<open>Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
+    SIMPLE_METHOD' (Applicative.fold_wrapper_tac ctxt opt_af))\<close>
+  "fold an applicative expression"
 
-ML {* Outer_Syntax.local_theory_to_proof @{command_keyword "applicative"}
+method_setup applicative_nf =
+  \<open>Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
+    SIMPLE_METHOD' (Applicative.normalize_wrapper_tac ctxt opt_af))\<close>
+  "prove an equation that has been lifted to an applicative functor, using normal forms"
+
+method_setup applicative_lifting =
+  \<open>Applicative.parse_opt_afun >> (fn opt_af => fn ctxt =>
+    SIMPLE_METHOD' (Applicative.lifting_wrapper_tac ctxt opt_af))\<close>
+  "prove an equation that has been lifted to an applicative functor"
+
+ML \<open>Outer_Syntax.local_theory_to_proof @{command_keyword "applicative"}
   "register applicative functors"
   (Parse.binding --
     Scan.optional (@{keyword "("} |-- Parse.list Parse.short_ident --| @{keyword ")"}) [] --
     (@{keyword "for"} |-- Parse.reserved "pure" |-- @{keyword ":"} |-- Parse.term) --
     (Parse.reserved "ap" |-- @{keyword ":"} |-- Parse.term) --
     Scan.option (Parse.reserved "rel" |-- @{keyword ":"} |-- Parse.term) >>
-    Applicative.applicative_cmd) *}
+    Applicative.applicative_cmd)\<close>
 
-ML {* Outer_Syntax.command @{command_keyword "print_applicative"}
+ML \<open>Outer_Syntax.command @{command_keyword "print_applicative"}
   "print registered applicative functors"
-  (Scan.succeed (Toplevel.keep (Applicative.print_afuns o Toplevel.context_of))) *}
+  (Scan.succeed (Toplevel.keep (Applicative.print_afuns o Toplevel.context_of)))\<close>
 
 attribute_setup applicative_unfold =
-  {* Scan.lift (Scan.option Parse.xname >> Applicative.add_unfold_attrib) *}
-  "register rules for unfolding to applicative expressions"
+  \<open>Scan.lift (Scan.option Parse.xname >> Applicative.add_unfold_attrib)\<close>
+  "register rules for unfolding into applicative expressions"
 
 attribute_setup applicative_lifted =
-  {* Scan.lift (Parse.xname >> Applicative.forward_lift_attrib) *}
+  \<open>Scan.lift (Parse.xname >> Applicative.forward_lift_attrib)\<close>
   "lift an equation to an applicative functor"
 
-end  (* context *)
 
 subsection \<open>Overloaded applicative operators\<close>
 
-consts pure :: "'a \<Rightarrow> 'b"
+consts
+  pure :: "'a \<Rightarrow> 'b"
+  ap :: "'a \<Rightarrow> 'b \<Rightarrow> 'c"
 
-consts ap :: "'a \<Rightarrow> 'b \<Rightarrow> 'c"
 locale applicative_syntax begin
   notation ap (infixl "\<diamondop>" 70)
 end
+
 hide_const (open) ap
 
 end
