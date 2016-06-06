@@ -23,6 +23,7 @@ sig
   val lift_term: afun_inst -> term -> term
   val mk_ap: afun_inst -> typ * typ -> term
   val mk_comb: afun_inst -> typ -> term * term -> term
+  val mk_set: afun_inst -> typ -> term
   val dest_type: Proof.context -> afun_inst -> typ -> typ option
   val dest_type': Proof.context -> afun_inst -> typ -> typ
   val dest_pure: Proof.context -> afun_inst -> term -> term
@@ -47,7 +48,7 @@ sig
   val setup_combinators: (string * thm) list -> local_theory -> local_theory
   val combinator_rule_attrib: string list option -> attribute
   val parse_opt_afun: afun option context_parser
-  val applicative_cmd: ((((binding * string list) * string) * string) * string option) ->
+  val applicative_cmd: (((((binding * string list) * string) * string) * string option) * string option) ->
     local_theory -> Proof.state
   val print_afuns: Proof.context -> unit
   val add_unfold_attrib: xstring option -> attribute
@@ -167,12 +168,11 @@ fun import_poly_terms pt ctxt =
 
 type rel_thms = {
   pure_transfer: thm,
-  ap_transfer: thm,
-  rel_eq_refl: thm
+  ap_rel_fun: thm
 };
 
-fun map_rel_thms f {pure_transfer, ap_transfer, rel_eq_refl} =
-  {pure_transfer = f pure_transfer, ap_transfer = f ap_transfer, rel_eq_refl = f rel_eq_refl};
+fun map_rel_thms f {pure_transfer, ap_rel_fun} =
+  {pure_transfer = f pure_transfer, ap_rel_fun = f ap_rel_fun};
 
 type afun_thms = {
   hom: thm,
@@ -227,7 +227,7 @@ fun add_unfolds_afun thms = map_afun I I I I (fold Item_Net.update thms);
 
 fun patterns_of_afun af =
   let
-    val [Tt, (_, pure), (_, ap)] = unpack_poly_terms (terms_of_afun af);
+    val [Tt, (_, pure), (_, ap), _] = unpack_poly_terms (terms_of_afun af);
     val (_, T) = poly_type_of_term Tt;
   in [#2 (mk_comb_pattern (pure, 1)), #2 (mk_comb_pattern (ap, 2)), Net.encode_type T] end;
 
@@ -352,11 +352,12 @@ val all_unfolds_of = all_unfolds_of_generic o Context.Proof;
 type afun_inst = {
   T: poly_type,
   pure: poly_term,
-  ap: poly_term
+  ap: poly_term,
+  set: poly_term
 };
 
-fun mk_afun_inst [T, pure, ap] = {T = poly_type_of_term T, pure = pure, ap = ap};
-fun pack_afun_inst {T, pure, ap} = pack_poly_terms [poly_type_to_term T, pure, ap];
+fun mk_afun_inst [T, pure, ap, set] = {T = poly_type_of_term T, pure = pure, ap = ap, set = set};
+fun pack_afun_inst {T, pure, ap, set} = pack_poly_terms [poly_type_to_term T, pure, ap, set];
 
 fun match_afun_inst ctxt af = match_poly_terms ctxt (terms_of_afun af, 0) #> mk_afun_inst;
 fun import_afun_inst_raw terms = import_poly_terms terms #>> mk_afun_inst;
@@ -367,6 +368,7 @@ fun inner_sort_of {T = (tvars, _), ...} = Type.sort_of_atyp (the_single tvars);
 fun mk_type {T, ...} = instantiate_poly_type T o single;
 fun mk_pure {pure, ...} = instantiate_poly_term pure o single;
 fun mk_ap {ap, ...} (T1, T2) = instantiate_poly_term ap [T1, T2];
+fun mk_set {set, ...} = instantiate_poly_term set o single;
 
 fun lift_term af_inst t = Term.betapply (mk_pure af_inst (Term.fastype_of t), t);
 fun mk_comb af_inst funT (t1, t2) = Term.betapplys (mk_ap af_inst (dest_funT funT), [t1, t2]);
@@ -735,6 +737,7 @@ fun rename_params names i st =
   where either both R and R' are equality, or R' = relF R for relator relF of the functor.
   Succeeds if partial progress can be made. The names of the new parameters are derived
   from the arguments xi.
+  TODO: mention set
 *)
 fun head_cong_tac ctxt af renames =
   let
@@ -751,7 +754,8 @@ fun head_cong_tac ctxt af renames =
       | _ => [];
   in SUBGOAL (fn (subgoal, i) =>
     (REPEAT_DETERM (resolve_tac ctxt rel_intros i) THEN
-      REPEAT_DETERM (resolve_tac ctxt [ext, @{thm rel_fun_eqI}] i) THEN
+      REPEAT_DETERM (resolve_tac ctxt [ext, @{thm rel_fun_eq_onI}] i ORELSE
+        eresolve_tac ctxt [@{thm UNIV_E}] i) THEN
       PRIMITIVE (rename_params (gather_vars subgoal) i)))
   end;
 
@@ -934,7 +938,7 @@ fun combinator_red_closure ctxt (comb_defs, rules) (af_inst, merge_thm) weak_red
 
 (* Preparation of AFun data *)
 
-fun mk_terms ctxt (raw_pure, raw_ap, raw_rel) =
+fun mk_terms ctxt (raw_pure, raw_ap, raw_rel, raw_set) =
   let
     val thy = Proof_Context.theory_of ctxt;
     val show_typ = quote o Syntax.string_of_typ ctxt;
@@ -987,9 +991,29 @@ fun mk_terms ctxt (raw_pure, raw_ap, raw_rel) =
     val pure' = norm_term_types common_env pure;
     val (tvar2', tvar3') = apply2 (Envir.norm_type common_env) (T2_arg, T3_arg);
     val ap' = norm_term_types common_env ap;
+    val trivial_set = ([tvar'], Abs ("x", tvar', HOLogic.mk_UNIV tvar'));
+    val terms0 = Term_Subst.zero_var_indexes (pack_poly_terms
+      [poly_type_to_term ([tvar'], range_type (fastype_of pure')),
+        ([tvar'], pure'), ([tvar2', tvar3'], ap'), trivial_set]);
+
+    fun bad_set set = error ("Bad type for set: " ^ show_typ (fastype_of set));
+    fun mk_set set =
+      let
+        val (T_af, T_set) = fastype_of set |> dest_funT;
+        val T = HOLogic.dest_setT T_set;
+        val _ = dest_TVar T;
+        val af_inst = mk_afun_inst (match_poly_terms_type ctxt (terms0, 0) (T_af, maxidx_of_term set));
+        val T' = dest_type ctxt af_inst T_af;
+        val _ = if is_none T' orelse T' = SOME T then () else bad_set set;
+      in ([T], set) end
+      handle TYPE _ => bad_set set;
+    val set = (case raw_set of
+        NONE => trivial_set
+      | SOME t => mk_set (closed_poly_term t));
+
     val terms = Term_Subst.zero_var_indexes (pack_poly_terms
       [poly_type_to_term ([tvar'], range_type (fastype_of pure')),
-        ([tvar'], pure'), ([tvar2', tvar3'], ap')]);
+      ([tvar'], pure'), ([tvar2', tvar3'], ap'), set]);
 
     (* TODO: also infer the relator type? *)
     fun bad_rel rel = error ("Bad type for rel: " ^ show_typ (fastype_of rel));
@@ -1010,33 +1034,11 @@ fun mk_terms ctxt (raw_pure, raw_ap, raw_rel) =
     val rel = Option.map (mk_rel o closed_poly_term) raw_rel;
   in (terms, rel) end;
 
-fun mk_rel_intros ctxt (af_inst, rel_inst) {pure_transfer, ap_transfer, rel_eq_refl} =
-  let
-    val pure_rel_intro = pure_transfer RS @{thm rel_funD};
-    val ap_rel_intro = ap_transfer RS @{thm rel_funD} RS @{thm rel_funD};
+fun mk_rel_intros {pure_transfer, ap_rel_fun} =
+  let val pure_rel_intro = pure_transfer RS @{thm rel_funD};
+  in [pure_rel_intro, ap_rel_fun] end;
 
-    val ([T1, T2, T3], ctxt_Ts) = mk_TFrees_of 3 (inner_sort_of af_inst) ctxt;
-    val T12 = mk_type af_inst (T1 --> T2);
-    val T13 = mk_type af_inst (T1 --> T3);
-    val ((((R, f), g), x), ctxt') = ctxt_Ts
-      |> mk_Free "R" (T2 --> T3 --> @{typ bool})
-      ||>> mk_Free "f" T12
-      ||>> mk_Free "g" T13
-      ||>> mk_Free "x" (mk_type af_inst T1);
-
-    fun mk_rel (T1, T2) = instantiate_poly_term rel_inst [T1, T2];
-    fun mk_rel' tR t1 t2 = betapplys (mk_rel (BNF_Util.dest_pred2T (fastype_of tR)), [tR, t1, t2]);
-    val ap_funrel_prop = Logic.mk_implies
-      (HOLogic.mk_Trueprop (mk_rel' (BNF_Util.mk_rel_fun (HOLogic.eq_const T1) R) f g),
-        HOLogic.mk_Trueprop (mk_rel' R
-          (mk_comb af_inst (T1 --> T2) (f, x)) (mk_comb af_inst (T1 --> T3) (g, x))));
-    val ap_funrel_tac = HEADGOAL (resolve_tac ctxt' [ap_rel_intro] THEN'
-      RANGE [assume_tac ctxt', resolve_tac ctxt' [rel_eq_refl]]);
-    val ap_funrel_intro = Goal.prove ctxt' [] [] ap_funrel_prop (K ap_funrel_tac);
-    val ap_funrel_intro' = singleton (Variable.export ctxt' ctxt) ap_funrel_intro;
-  in [pure_rel_intro, ap_funrel_intro'] end;
-
-fun mk_afun_thms ctxt (af_inst, rel_insts) (hom_thm, ichng_thm, reds, rel_axioms) =
+fun mk_afun_thms ctxt af_inst (hom_thm, ichng_thm, reds, rel_axioms) =
   let
     val pure_comp_conv =
       let
@@ -1077,9 +1079,9 @@ fun mk_afun_thms ctxt (af_inst, rel_insts) (hom_thm, ichng_thm, reds, rel_axioms
           (map (SOME o Thm.cterm_of ctxt')  [f, g, ap_fun, x']) @{thm arg1_cong};
       in Variable.export ctxt' ctxt [pure_cong, ap_cong1] end;
 
-    val rel_intros = case rel_insts of
+    val rel_intros = case rel_axioms of
         NONE => []
-      | SOME insts => mk_rel_intros ctxt insts (the rel_axioms);
+      | SOME axioms => mk_rel_intros axioms;
   in
     {hom = hom_thm,
       ichng = ichng_thm,
@@ -1134,30 +1136,34 @@ fun mk_interchange_prop af_inst ctxt_Ts =
     val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
   in (Logic.all f (Logic.all x prop), (ctxt', Ts')) end;
 
+(* FIXME: move *)
+fun mk_eq_on S =
+  let val (SA, ST) = `HOLogic.dest_setT (fastype_of S);
+  in Const (@{const_name eq_on}, ST --> BNF_Util.mk_pred2T SA SA) $ S end;
+
 fun mk_rel_props (af_inst, rel_inst) ctxt_Ts =
   let
     fun mk_af_rel tm =
       let val (T1, T2) = BNF_Util.dest_pred2T (fastype_of tm);
       in betapply (instantiate_poly_term rel_inst [T1, T2], tm) end;
 
-    val ([T1, T2, T3, T4], (ctxt', Ts')) = reuse_TFrees 4 (inner_sort_of af_inst) ctxt_Ts;
+    val ([T1, T2, T3], (ctxt', Ts')) = reuse_TFrees 3 (inner_sort_of af_inst) ctxt_Ts;
     val (pure_R, _) = mk_Free "R" (T1 --> T2 --> @{typ bool}) ctxt';
     val rel_pure = BNF_Util.mk_rel_fun pure_R (mk_af_rel pure_R) $ mk_pure af_inst T1 $
       mk_pure af_inst T2;
     val pure_prop = Logic.all pure_R (HOLogic.mk_Trueprop rel_pure);
 
-    val ((ap_R, ap_S), _) = ctxt'
-      |> mk_Free "R" (T1 --> T2 --> @{typ bool})
-      ||>> mk_Free "S" (T3 --> T4 --> @{typ bool});
-    val rel_ap = BNF_Util.mk_rel_fun (mk_af_rel (BNF_Util.mk_rel_fun ap_R ap_S))
-        (BNF_Util.mk_rel_fun (mk_af_rel ap_R) (mk_af_rel ap_S)) $
-      mk_ap af_inst (T1, T3) $ mk_ap af_inst (T2, T4);
-    val ap_prop = Logic.all ap_R (Logic.all ap_S (HOLogic.mk_Trueprop rel_ap));
-
-    val (x, _) = mk_Free "x" (mk_type af_inst T1) ctxt';
-    val eq_rel = betapplys (mk_af_rel (HOLogic.eq_const T1), [x, x]);
-    val eq_rel_prop = Logic.all x (HOLogic.mk_Trueprop eq_rel);
-  in ([pure_prop, ap_prop, eq_rel_prop], (ctxt', Ts')) end;
+    val ((((f, g), x), ap_R), _) = ctxt'
+      |> mk_Free "f" (mk_type af_inst (T1 --> T2))
+      ||>> mk_Free "g" (mk_type af_inst (T1 --> T3))
+      ||>> mk_Free "x" (mk_type af_inst T1)
+      ||>> mk_Free "R" (T2 --> T3 --> @{typ bool});
+    val fun_rel = BNF_Util.mk_rel_fun (mk_eq_on (mk_set af_inst T1 $ x)) ap_R;
+    val rel_ap = Logic.mk_implies (HOLogic.mk_Trueprop (mk_af_rel fun_rel $ f $ g),
+      HOLogic.mk_Trueprop (mk_af_rel ap_R $ mk_comb af_inst (T1 --> T2) (f, x) $
+        mk_comb af_inst (T1 --> T3) (g, x)));
+    val ap_prop = fold_rev Logic.all [ap_R, f, g, x] rel_ap;
+  in ([pure_prop, ap_prop], (ctxt', Ts')) end;
 
 fun mk_interchange ctxt ((comb_defs, _), comb_unfolds) (af_inst, merge_thm) reds =
   let
@@ -1174,7 +1180,7 @@ fun mk_weak_reds ctxt ((comb_defs, _), comb_unfolds) af_inst (hom_thm, ichng_thm
   let
     val unfolded_reds =
       Symtab.map (K (Raw_Simplifier.rewrite_rule ctxt comb_unfolds)) reds;
-    val af_thms = mk_afun_thms ctxt (af_inst, NONE) (hom_thm, ichng_thm, unfolded_reds, NONE);
+    val af_thms = mk_afun_thms ctxt af_inst (hom_thm, ichng_thm, unfolded_reds, NONE);
     val af = mk_afun Binding.empty (pack_afun_inst af_inst) NONE af_thms;
 
     fun tac {context, ...} = HEADGOAL (normalize_wrapper_tac context (SOME af) THEN'
@@ -1219,8 +1225,7 @@ fun note_afun_thms af =
         NONE => []
       | SOME rel_thms' =>
           [("pure_transfer", [#pure_transfer rel_thms']),
-            ("ap_transfer", [#ap_transfer rel_thms']),
-            ("rel_eq_refl", [#rel_eq_refl rel_thms'])]);
+            ("ap_rel_fun", [#ap_rel_fun rel_thms'])]);
 
     val base_name = Binding.name_of (name_of_afun af);
     fun mk_note (name, thms) =
@@ -1236,7 +1241,7 @@ fun register_afun af =
     in {combinators = combinators, afuns = afuns', patterns = patterns'} end) context;
   in Local_Theory.declaration {syntax = false, pervasive = false} decl end;
 
-fun applicative_cmd ((((name, flags), pure), ap), rel) lthy =
+fun applicative_cmd (((((name, flags), raw_pure), raw_ap), raw_rel), raw_set) lthy =
   let
     val comb_unfolds = Named_Theorems.get lthy @{named_theorems combinator_unfold};
     val comb_reprs = Named_Theorems.get lthy @{named_theorems combinator_repr};
@@ -1250,10 +1255,11 @@ fun applicative_cmd ((((name, flags), pure), ap), rel) lthy =
       else ();
     val user_combs0 = Ord_List.make fast_string_ord flags;
 
-    val raw_pure = Syntax.read_term lthy pure;
-    val raw_ap = Syntax.read_term lthy ap;
-    val raw_rel = Option.map (Syntax.read_term lthy) rel;
-    val (terms, rel) = mk_terms lthy (raw_pure, raw_ap, raw_rel);
+    val raw_pure' = Syntax.read_term lthy raw_pure;
+    val raw_ap' = Syntax.read_term lthy raw_ap;
+    val raw_rel' = Option.map (Syntax.read_term lthy) raw_rel;
+    val raw_set' = Option.map (Syntax.read_term lthy) raw_set;
+    val (terms, rel) = mk_terms lthy (raw_pure', raw_ap', raw_rel', raw_set');
 
     val derived_combs0 = combinator_closure comb_rules false user_combs0;
     val required_combs = Ord_List.make fast_string_ord ["B", "I"];
@@ -1293,8 +1299,8 @@ fun applicative_cmd ((((name, flags), pure), ap), rel) lthy =
           af_inst user_combs (hom_thm, user_thms, ichng_thms);
         val rel_axioms = case rel_thms of
             [] => NONE
-          | [thm1, thm2, thm3] => SOME {pure_transfer = thm1, ap_transfer = thm2, rel_eq_refl = thm3};
-        val af_thms = mk_afun_thms ctxt_inst (af_inst, rel_insts) (hom_thm, ichng_thm, reds, rel_axioms);
+          | [thm1, thm2] => SOME {pure_transfer = thm1, ap_rel_fun = thm2};
+        val af_thms = mk_afun_thms ctxt_inst af_inst (hom_thm, ichng_thm, reds, rel_axioms);
         val af_thms = map_afun_thms (singleton (Variable.export ctxt_inst lthy)) af_thms;
         val af = mk_afun name terms rel af_thms;
       in lthy
@@ -1311,7 +1317,7 @@ fun print_afuns ctxt =
   let
     fun pretty_afun (name, af) =
       let
-        val [pT, (_, pure), (_, ap)] = unpack_poly_terms (terms_of_afun af);
+        val [pT, (_, pure), (_, ap), (_, set)] = unpack_poly_terms (terms_of_afun af);
         val ([tvar], T) = poly_type_of_term pT;
         val rel = Option.map (#2 o the_single o unpack_poly_terms) (rel_of_afun af);
         val combinators = Symtab.keys (#reds (thms_of_afun af));
@@ -1319,7 +1325,8 @@ fun print_afuns ctxt =
           Pretty.quote (Syntax.pretty_typ ctxt T), Pretty.brk 1, Pretty.str "of", Pretty.brk 1,
           Syntax.pretty_typ ctxt tvar],
         Pretty.block [Pretty.str "pure:", Pretty.brk 1, Pretty.quote (Syntax.pretty_term ctxt pure)],
-        Pretty.block [Pretty.str "ap:", Pretty.brk 1, Pretty.quote (Syntax.pretty_term ctxt ap)]] @
+        Pretty.block [Pretty.str "ap:", Pretty.brk 1, Pretty.quote (Syntax.pretty_term ctxt ap)],
+        Pretty.block [Pretty.str "set:", Pretty.brk 1, Pretty.quote (Syntax.pretty_term ctxt set)]] @
         (case rel of
           NONE => []
         | SOME rel' => [Pretty.block [Pretty.str "rel:", Pretty.brk 1,

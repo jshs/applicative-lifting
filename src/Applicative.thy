@@ -7,13 +7,24 @@ imports Main
 keywords "applicative" :: thy_goal and "print_applicative" :: diag
 begin
 
+(* TODO *)
+
+definition eq_on :: "'a set \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool"
+where [simp]: "eq_on A x y = (x \<in> A \<and> y \<in> A \<and> x = y)"
+
+lemma eq_on_UNIV_eq[simp]: "eq_on UNIV = op ="
+by (rule ext)+ simp
+
+lemma rel_fun_eq_onI: "(\<And>x. x \<in> A \<Longrightarrow> R (f x) (g x)) \<Longrightarrow> rel_fun (eq_on A) R f g"
+by auto
+
+
 subsection \<open>Proof automation\<close>
 
 lemma arg1_cong: "x = y \<Longrightarrow> f x z = f y z"
 by (rule arg_cong)
 
-lemma rel_fun_eqI: "(\<And>x. R (f x) (g x)) \<Longrightarrow> rel_fun (op =) R f g"
-by blast
+lemma UNIV_E: "x \<in> UNIV \<Longrightarrow> P \<Longrightarrow> P" .
 
 context begin
 
@@ -94,7 +105,8 @@ ML \<open>Outer_Syntax.local_theory_to_proof @{command_keyword "applicative"}
     Scan.optional (@{keyword "("} |-- Parse.list Parse.short_ident --| @{keyword ")"}) [] --
     (@{keyword "for"} |-- Parse.reserved "pure" |-- @{keyword ":"} |-- Parse.term) --
     (Parse.reserved "ap" |-- @{keyword ":"} |-- Parse.term) --
-    Scan.option (Parse.reserved "rel" |-- @{keyword ":"} |-- Parse.term) >>
+    Scan.option (Parse.reserved "rel" |-- @{keyword ":"} |-- Parse.term) --
+    Scan.option (Parse.reserved "set" |-- @{keyword ":"} |-- Parse.term) >>
     Applicative.applicative_cmd)\<close>
 
 ML \<open>Outer_Syntax.command @{command_keyword "print_applicative"}

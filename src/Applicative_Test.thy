@@ -144,7 +144,11 @@ by applicative_lifting simp
 
 subsection {* Relators *}
 
-lemma "stream_all2 R (f \<diamondop> (pure g \<diamondop> x + y)) (x + z)"
+schematic_goal "\<forall>g f x. rel_sum ?R (op =) (ap_either f x) (ap_either (ap_either (Inl g) f) x)"
+apply applicative_lifting
+oops
+
+schematic_goal "stream_all2 ?R (?f \<diamondop> (pure ?g \<diamondop> ?x + ?y)) (?x + ?z)"
 apply applicative_lifting
 oops
 

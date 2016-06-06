@@ -57,7 +57,7 @@ for
   pure: Inl
   ap: ap_either
   rel: "\<lambda>A. rel_sum A B"
-proof goal_cases
+proof -
   interpret applicative_syntax .
   { fix f :: "('c \<Rightarrow> 'c \<Rightarrow> 'd) + 'a" and x
     show "pure (\<lambda>f x. f x x) \<diamondop> f \<diamondop> x = f \<diamondop> x \<diamondop> x"
@@ -68,17 +68,11 @@ proof goal_cases
     show "pure (\<lambda>g f x. g (f x)) \<diamondop> g \<diamondop> f \<diamondop> x = g \<diamondop> (f \<diamondop> x)"
       by(rule ap_sum_comp[simplified comp_def[abs_def]])
   next
-    case (7 R S) show ?case proof rule+
-      fix f g x y
-      assume "rel_sum (rel_fun R S) B f g" "rel_sum R B x y"
-      then show "rel_sum S B (f \<diamondop> x) (g \<diamondop> y)"
-        apply (cases f g x y rule: sum.exhaust[case_product sum.exhaust, case_product sum.exhaust,
-            case_product sum.exhaust])
-        apply (auto elim: rel_funE)
-        done
-    qed
-  next
-    case (8 x) show ?case using B_refl by (auto intro: sum.rel_reflp[THEN reflpD])
+    fix R and f :: "('c \<Rightarrow> 'd) + 'b" and g :: "('c \<Rightarrow> 'e) + 'b" and x
+    assume "rel_sum (rel_fun (eq_on UNIV) R) B f g"
+    then show "rel_sum R B (f \<diamondop> x) (g \<diamondop> x)"
+      by (cases f g x rule: sum.exhaust[case_product sum.exhaust, case_product sum.exhaust])
+        (auto intro: B_refl[THEN reflpD] elim: rel_funE)
   }
 qed (auto intro: ap_sum_id[simplified id_def] ap_sum_ichng)
 

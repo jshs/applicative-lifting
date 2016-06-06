@@ -39,6 +39,7 @@ for
   pure: sconst
   ap: ap_stream
   rel: stream_all2
+  set: sset
 proof -
   fix g :: "('b \<Rightarrow> 'a \<Rightarrow> 'c) stream" and f x
   show "pure (\<lambda>g f x. g x (f x)) \<diamondop> g \<diamondop> f \<diamondop> x = g \<diamondop> x \<diamondop> (f \<diamondop> x)"
@@ -57,10 +58,12 @@ next
       by coinduction simp
   qed
 next
-  fix R :: "'a \<Rightarrow> 'b \<Rightarrow> bool" and S :: "'c \<Rightarrow> 'd \<Rightarrow> bool"
-  show "(stream_all2 (R ===> S) ===> stream_all2 R ===> stream_all2 S) ap_stream ap_stream"
-    by(rule ap_stream.transfer)
-qed (rule ap_stream_homo stream.rel_refl refl)+
+  fix R and f :: "('a \<Rightarrow> 'b) stream" and g :: "('a \<Rightarrow> 'c) stream" and x
+  assume "stream_all2 (eq_on (sset x) ===> R) f g"
+  then show "stream_all2 R (f \<diamondop> x) (g \<diamondop> x)"
+    by (rule ap_stream.transfer[THEN rel_funD, THEN rel_funD])
+      (simp add: stream.rel_refl_strong)
+qed (rule ap_stream_homo)
 
 lemma smap_applicative[applicative_unfold]: "smap f x = pure f \<diamondop> x"
 unfolding ap_stream_def by (coinduction arbitrary: x) auto
