@@ -1,4 +1,3 @@
-- automatically prove redundant combinators
 - rewrite wrapper for normalform conversion
 - "del" variant for applicative_unfold attribute
 
