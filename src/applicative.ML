@@ -193,7 +193,7 @@ datatype afun = AFun of {
   terms: term,
   rel: term option,
   thms: afun_thms,
-  unfolds: thm list
+  unfolds: thm Item_Net.T
 };
 
 fun rep_afun (AFun af) = af;
@@ -201,27 +201,29 @@ val name_of_afun = #name o rep_afun;
 val terms_of_afun = #terms o rep_afun;
 val rel_of_afun = #rel o rep_afun;
 val thms_of_afun = #thms o rep_afun;
-val unfolds_of_afun = #unfolds o rep_afun;
+val unfolds_of_afun = Item_Net.content o #unfolds o rep_afun;
 
 val red_of_afun = Symtab.lookup o #reds o thms_of_afun;
 val has_red_afun = is_some oo red_of_afun;
 
 fun mk_afun name terms rel thms =
-  AFun {name = name, terms = terms, rel = rel, thms = thms, unfolds = []};
+  AFun {name = name, terms = terms, rel = rel, thms = thms, unfolds = Thm.full_rules};
 
 fun map_afun f1 f2 f3 f4 f5 (AFun {name, terms, rel, thms, unfolds}) =
   AFun {name = f1 name, terms = f2 terms, rel = f3 rel, thms = f4 thms, unfolds = f5 unfolds};
+
+fun map_unfolds f thms = fold Item_Net.update (map f (Item_Net.content thms)) Thm.full_rules;
 
 fun morph_afun phi =
   let
     val binding = Morphism.binding phi;
     val term = Morphism.term phi;
     val thm = Morphism.thm phi;
-  in map_afun binding term (Option.map term) (map_afun_thms thm) (map thm) end;
+  in map_afun binding term (Option.map term) (map_afun_thms thm) (map_unfolds thm) end;
 
 val transfer_afun = morph_afun o Morphism.transfer_morphism;
 
-fun add_unfolds_afun thms = map_afun I I I I (curry (merge Thm.eq_thm_prop) thms);
+fun add_unfolds_afun thms = map_afun I I I I (fold Item_Net.update thms);
 
 fun patterns_of_afun af =
   let
@@ -271,12 +273,11 @@ fun mk_combinator_rule comb_names weak_premises thm =
 
 (* Generic data *)
 
-(* FIXME: carefully verify context storage *)
 (* FIXME: needs tests, especially around theory merging *)
 
 fun merge_afuns _ (af1, af2) = if pointer_eq (af1, af2)
   then raise Change_Table.SAME
-  else add_unfolds_afun (unfolds_of_afun af2) af1;
+  else map_afun I I I I (fn thms1 => Item_Net.merge (thms1, #unfolds (rep_afun af2))) af1;
 
 structure Data = Generic_Data
 (
