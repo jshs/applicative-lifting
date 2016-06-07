@@ -59,10 +59,9 @@ next
   qed
 next
   fix R and f :: "('a \<Rightarrow> 'b) stream" and g :: "('a \<Rightarrow> 'c) stream" and x
-  assume "stream_all2 (eq_on (sset x) ===> R) f g"
-  then show "stream_all2 R (f \<diamondop> x) (g \<diamondop> x)"
-    by (rule ap_stream.transfer[THEN rel_funD, THEN rel_funD])
-      (simp add: stream.rel_refl_strong)
+  assume [transfer_rule]: "stream_all2 (eq_on (sset x) ===> R) f g"
+  have [transfer_rule]: "stream_all2 (eq_on (sset x)) x x" by(simp add: stream.rel_refl_strong)
+  show "stream_all2 R (f \<diamondop> x) (g \<diamondop> x)" by transfer_prover
 qed (rule ap_stream_homo)
 
 lemma smap_applicative[applicative_unfold]: "smap f x = pure f \<diamondop> x"
