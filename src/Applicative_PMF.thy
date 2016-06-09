@@ -52,11 +52,26 @@ apply(subst (2) pair_commute_pmf)
 apply(simp add: pair_map_pmf2 pmf.map_comp o_def split_def)
 done
 
+lemma ap_pmf_transfer[transfer_rule]:
+  "rel_fun (rel_pmf (rel_fun A B)) (rel_fun (rel_pmf A) (rel_pmf B)) ap_pmf ap_pmf"
+unfolding ap_pmf_def[abs_def, abs_def] pair_pmf_def
+by transfer_prover
+
 applicative pmf (C, K)
 for
   pure: pure_pmf
   ap: ap_pmf
-by(rule ap_pmf_comp[unfolded o_def[abs_def]] ap_pmf_homo ap_pmf_C ap_pmf_K)+
+  rel: rel_pmf
+  set: set_pmf
+proof -
+  fix R :: "'a \<Rightarrow> 'b \<Rightarrow> bool"
+  show "rel_fun R (rel_pmf R) pure_pmf pure_pmf" by transfer_prover
+next
+  fix R and f :: "('a \<Rightarrow> 'b) pmf" and g :: "('a \<Rightarrow> 'c) pmf" and x
+  assume [transfer_rule]: "rel_pmf (rel_fun (eq_on (set_pmf x)) R) f g"
+  have [transfer_rule]: "rel_pmf (eq_on (set_pmf x)) x x" by (simp add: pmf.rel_refl_strong)
+  show "rel_pmf R (ap_pmf f x) (ap_pmf g x)" by transfer_prover
+qed(rule ap_pmf_comp[unfolded o_def[abs_def]] ap_pmf_homo ap_pmf_C ap_pmf_K)+
 
 end
 

@@ -4,6 +4,9 @@ section \<open>Regression tests for applicative lifting\<close>
 
 theory Applicative_Test imports
   Stream_Algebra
+  Applicative_Environment
+  Applicative_List
+  Applicative_Option
   Applicative_Set
   Applicative_Sum
   Abstract_AF
@@ -143,6 +146,15 @@ by applicative_lifting simp
 
 
 subsection {* Relators *}
+
+lemma "rel_fun (op =) (op \<le>) (const (0::nat)) x"
+by applicative_lifting simp
+
+lemma "list_all2 (op \<subseteq>) (map (\<lambda>_. {}) x) (map set x)"
+by applicative_nf simp
+
+lemma "x = Some a \<Longrightarrow> rel_option (op \<le>) (map_option (\<lambda>_. a) x) (map_option Suc x)"
+by applicative_lifting simp
 
 schematic_goal "\<forall>g f x. rel_sum ?R (op =) (ap_either f x) (ap_either (ap_either (Inl g) f) x)"
 apply applicative_lifting

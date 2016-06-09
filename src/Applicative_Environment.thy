@@ -22,7 +22,9 @@ applicative env (K, W)
 for
   pure: const
   ap: apf
-by(simp_all add: const_def apf_def)
+  rel: "rel_fun op ="
+  set: range
+by(simp_all add: const_def apf_def rel_fun_def)
 
 experiment begin
   interpretation applicative_syntax .
