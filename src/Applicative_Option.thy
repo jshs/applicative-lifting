@@ -26,14 +26,7 @@ by (cases f) simp_all
 
 lemma ap_option_transfer[transfer_rule]:
   "rel_fun (rel_option (rel_fun A B)) (rel_fun (rel_option A) (rel_option B)) ap_option ap_option"
-proof (rule rel_funI)+
-  fix f g x y
-  assume "rel_option (rel_fun A B) f g" and "rel_option A x y"
-  then show "rel_option B (ap_option f x) (ap_option g y)"
-    by (cases f g x y rule: option.exhaust[case_product option.exhaust,
-        case_product option.exhaust, case_product option.exhaust])
-      (simp_all add: rel_fun_def)
-qed
+by(auto elim!: option.rel_cases simp add: rel_fun_def)
 
 applicative option (C, W)
 for

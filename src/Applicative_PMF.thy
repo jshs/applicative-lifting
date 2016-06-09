@@ -8,19 +8,6 @@ theory Applicative_PMF imports
   "~~/src/HOL/Probability/Probability"
 begin
 
-lemma pair_return_pmf1: "pair_pmf (return_pmf x) y = map_pmf (Pair x) y"
-by(simp add: pair_pmf_def bind_return_pmf map_pmf_def)
-
-lemma pair_return_pmf2: "pair_pmf x (return_pmf y) = map_pmf (\<lambda>x. (x, y)) x"
-by(simp add: pair_pmf_def bind_return_pmf map_pmf_def)
-
-lemma pair_pair_pmf: "pair_pmf (pair_pmf u v) w = map_pmf (\<lambda>(x, (y, z)). ((x, y), z)) (pair_pmf u (pair_pmf v w))"
-by(simp add: pair_pmf_def bind_return_pmf map_pmf_def bind_assoc_pmf)
-
-lemma pair_commute_pmf: "pair_pmf x y = map_pmf (\<lambda>(x, y). (y, x)) (pair_pmf y x)"
-unfolding pair_pmf_def by(subst bind_commute_pmf)(simp add: map_pmf_def bind_assoc_pmf bind_return_pmf)
-
-
 abbreviation (input) pure_pmf :: "'a \<Rightarrow> 'a pmf"
 where "pure_pmf \<equiv> return_pmf"
 
@@ -54,7 +41,7 @@ done
 
 lemma ap_pmf_transfer[transfer_rule]:
   "rel_fun (rel_pmf (rel_fun A B)) (rel_fun (rel_pmf A) (rel_pmf B)) ap_pmf ap_pmf"
-unfolding ap_pmf_def[abs_def, abs_def] pair_pmf_def
+unfolding ap_pmf_def[abs_def] pair_pmf_def
 by transfer_prover
 
 applicative pmf (C, K)

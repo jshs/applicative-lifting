@@ -19,7 +19,7 @@ unfolding ap_list_def by (induction fs) simp_all
 
 lemma ap_list_transfer[transfer_rule]:
   "rel_fun (list_all2 (rel_fun A B)) (rel_fun (list_all2 A) (list_all2 B)) ap_list ap_list"
-unfolding ap_list_def[abs_def, abs_def] List.bind_def
+unfolding ap_list_def[abs_def] List.bind_def
 by transfer_prover
 
 context begin interpretation applicative_syntax .

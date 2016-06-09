@@ -14,7 +14,7 @@ adhoc_overloading Applicative.ap ap_set
 
 lemma ap_set_transfer[transfer_rule]:
   "rel_fun (rel_set (rel_fun A B)) (rel_fun (rel_set A) (rel_set B)) ap_set ap_set"
-unfolding ap_set_def[abs_def, abs_def] rel_set_def
+unfolding ap_set_def[abs_def] rel_set_def
 by (fastforce elim: rel_funE)
 
 applicative set (C)
