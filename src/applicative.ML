@@ -1009,24 +1009,20 @@ fun mk_terms ctxt (raw_pure, raw_ap, raw_rel, raw_set) =
     val pure' = norm_term_types common_env pure;
     val (tvar2', tvar3') = apply2 (Envir.norm_type common_env) (T2_arg, T3_arg);
     val ap' = norm_term_types common_env ap;
-    val trivial_set = ([tvar'], Abs ("x", tvar', HOLogic.mk_UNIV tvar'));
-    val terms0 = Term_Subst.zero_var_indexes (pack_poly_terms
-      [poly_type_to_term ([tvar'], range_type (fastype_of pure')),
-        ([tvar'], pure'), ([tvar2', tvar3'], ap'), trivial_set]);
 
     fun bad_set set = error ("Bad type for set: " ^ show_typ (fastype_of set));
     fun mk_set set =
       let
-        val (T_af, T_set) = fastype_of set |> dest_funT;
-        val T = HOLogic.dest_setT T_set;
-        val _ = dest_TVar T;
-        val af_inst = mk_afun_inst (match_poly_terms_type ctxt (terms0, 0) (T_af, maxidx_of_term set));
-        val T' = dest_type ctxt af_inst T_af;
-        val _ = if is_none T' orelse T' = SOME T then () else bad_set set;
-      in ([T], set) end
-      handle TYPE _ => bad_set set;
+        val tyenv = Sign.typ_match thy (domain_type (fastype_of set), range_type (fastype_of pure'))
+          Vartab.empty
+          handle Type.TYPE_MATCH => bad_set set;
+        val set' = Envir.subst_term_types tyenv set;
+        val set_tvar = fastype_of set' |> range_type |> HOLogic.dest_setT |> dest_TVar
+          handle TYPE _ => bad_set set;
+        val _ = if Term.eq_tvar (dest_TVar tvar', set_tvar) then () else bad_set set;
+      in ([tvar'], set') end
     val set = (case raw_set of
-        NONE => trivial_set
+        NONE => ([tvar'], Abs ("x", tvar', HOLogic.mk_UNIV tvar'))
       | SOME t => mk_set (closed_poly_term t));
 
     val terms = Term_Subst.zero_var_indexes (pack_poly_terms
