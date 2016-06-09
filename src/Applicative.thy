@@ -7,13 +7,10 @@ imports Main
 keywords "applicative" :: thy_goal and "print_applicative" :: diag
 begin
 
-(* TODO *)
+subsection \<open>Equality restricted to a set\<close>
 
 definition eq_on :: "'a set \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool"
-where [simp]: "eq_on A x y = (x \<in> A \<and> y \<in> A \<and> x = y)"
-
-lemma eq_on_UNIV_eq[simp]: "eq_on UNIV = op ="
-by (rule ext)+ simp
+where [simp]: "eq_on A = (\<lambda>x y. x \<in> A \<and> x = y)"
 
 lemma rel_fun_eq_onI: "(\<And>x. x \<in> A \<Longrightarrow> R (f x) (g x)) \<Longrightarrow> rel_fun (eq_on A) R f g"
 by auto
