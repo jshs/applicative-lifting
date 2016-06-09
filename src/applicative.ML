@@ -100,11 +100,15 @@ val mk_TFrees_of = mk_TFrees' oo replicate;
 fun mk_Free name typ ctxt = yield_singleton Variable.variant_fixes name ctxt
   |>> (fn name' => Free (name', typ));
 
-(* tuples with explicit sentinel *)
+(*tuples with explicit sentinel*)
 fun mk_tuple' ts = fold_rev (curry HOLogic.mk_prod) ts HOLogic.unit;
 fun strip_tuple' (Const (@{const_name Unity}, _)) = []
   | strip_tuple' (Const (@{const_name Pair}, _) $ t1 $ t2) = t1 :: strip_tuple' t2
   | strip_tuple' t = raise TERM ("strip_tuple'", [t]);
+
+fun mk_eq_on S =
+  let val (SA, ST) = `HOLogic.dest_setT (fastype_of S);
+  in Const (@{const_name eq_on}, ST --> BNF_Util.mk_pred2T SA SA) $ S end;
 
 
 (* Polymorphic terms and term groups *)
@@ -125,6 +129,11 @@ fun dest_poly_type ctxt (tvars, T) U =
 fun poly_type_to_term (tvars, T) = (tvars, Logic.mk_type T);
 fun poly_type_of_term (tvars, t) = (tvars, Logic.dest_type t);
 
+(*
+  Schematic variables are treated uniformly in packed terms, thus forming an ad hoc context
+  of type variables. Otherwise, morphisms are allowed to rename schematic variables
+  non-consistently in separate terms, and occasionally will do so.
+*)
 fun pack_poly_term (tvars, t) = HOLogic.mk_prod (mk_tuple' (map Logic.mk_type tvars), t);
 fun unpack_poly_term t =
   let val (tvars, t') = HOLogic.dest_prod t;
@@ -133,6 +142,7 @@ fun unpack_poly_term t =
 val pack_poly_terms = mk_tuple' o map pack_poly_term;
 val unpack_poly_terms = map unpack_poly_term o strip_tuple';
 
+(*match and instantiate schematic type variables which are not "quantified" in the packed term*)
 fun match_poly_terms_type ctxt (pt, i) (U, maxidx) =
   let
     val thy = Proof_Context.theory_of ctxt;
@@ -147,6 +157,7 @@ fun match_poly_terms_type ctxt (pt, i) (U, maxidx) =
 fun match_poly_terms ctxt (pt, i) (t, maxidx) =
   match_poly_terms_type ctxt (pt, i) (fastype_of t, maxidx);
 
+(*fix schematic type variables which are not "quantified", as well as schematic term variables*)
 fun import_poly_terms pt ctxt =
   let
     fun insert_paramTs (tvars, t) = fold_types (fold_atyps
@@ -273,7 +284,7 @@ fun mk_combinator_rule comb_names weak_premises thm =
 
 (* Generic data *)
 
-(* FIXME: needs tests, especially around theory merging *)
+(*FIXME: needs tests, especially around theory merging*)
 
 fun merge_afuns _ (af1, af2) = if pointer_eq (af1, af2)
   then raise Change_Table.SAME
@@ -333,7 +344,7 @@ end;
 fun match_term context = map #1 o Item_Net.retrieve_matching (get_patterns context);
 fun match_typ context = match_term context o Net.encode_type;
 
-(* works only with terms which are combinations of pure and ap *)
+(*works only with terms which are combinations of pure and ap*)
 fun afuns_of_term_generic context = map (afun_of_generic context) o match_term context;
 val afuns_of_term = afuns_of_term_generic o Context.Proof;
 
@@ -383,7 +394,7 @@ fun infer_comb ctxt af_inst (t1, t2) =
   let val funT = the_default (dummyT --> dummyT) (dest_type ctxt af_inst (fastype_of t1));
   in mk_comb af_inst funT (t1, t2) end;
 
-(* lift a term, except for (non-combination) subterms mapped by subst *)
+(*lift a term, except for non-combination subterms mapped by subst*)
 fun subst_lift_term af_inst subst tm =
   let
     fun subst_lift (s $ t) =
@@ -403,6 +414,7 @@ fun add_lifted_vars (s $ t) = add_lifted_vars s #> add_lifted_vars t
   | add_lifted_vars (Abs (_, _, t)) = Term.add_vars t
   | add_lifted_vars _ = I;
 
+(*lift terms, where schematic variables are generalized to the functor and then fixed*)
 fun generalize_lift_terms af_inst ts ctxt =
   let
     val vars = subtract (op =) (fold add_lifted_vars ts []) (fold Term.add_vars ts []);
@@ -419,7 +431,7 @@ fun generalize_lift_terms af_inst ts ctxt =
 
 val clean_name = perhaps (perhaps_apply [try Name.dest_skolem, try Name.dest_internal]);
 
-(* based on term_name from Pure/term.ML *)
+(*based on term_name from Pure/term.ML*)
 fun term_to_vname (Const (x, _)) = Long_Name.base_name x
   | term_to_vname (Free (x, _)) = clean_name x
   | term_to_vname (Var ((x, _), _)) = clean_name x
@@ -495,6 +507,7 @@ fun ap_conv ctxt {ap = (_, ap), ...} cv1 cv2 ct =
 
 (* Normal form conversion *)
 
+(*convert a term into applicative normal form*)
 fun normalform_conv ctxt af ct =
   let
     val {hom, ichng, pure_comp_conv, ...} = thms_of_afun af;
@@ -524,11 +537,11 @@ val normalize_rel_tac = binop_par_conv_tac o apply2 oo normalform_conv;
 
 (* Bracket abstraction and generalized unlifting *)
 
-(* TODO: use proper conversions *)
+(*TODO: use proper conversions*)
 
 datatype apterm =
-    Pure of term  (* includes pure application *)
-  | ApVar of int * term  (* unique index, instantiated term *)
+    Pure of term  (*includes pure application*)
+  | ApVar of int * term  (*unique index, instantiated term*)
   | Ap of apterm * apterm;
 
 fun apterm_vars (Pure _) = I
@@ -555,6 +568,7 @@ fun apterm_of_term ctxt af_inst t =
           else (ApVar (i, t), i + 1);
   in aptm_of t end;
 
+(*find a common variable sequence for two applicative terms, depending on available combinators*)
 fun consolidate ctxt af (t1, t2) =
   let
     fun common_inst (i, t) (j, insts) = case Termtab.lookup insts t of
@@ -630,6 +644,7 @@ fun merge_pures ctxt af_inst merge_thm tt =
 
 exception ASSERT of string;
 
+(*abstract over a variable (opaque subterm)*)
 fun eliminate ctxt (af, af_inst) tt (v, v_tm) =
   let
     val {hom, ichng, ...} = thms_of_afun af;
@@ -701,6 +716,7 @@ fun eliminate ctxt (af, af_inst) tt (v, v_tm) =
     else K_step tt v_tm
   end;
 
+(*convert a pair of terms into equal canonical forms, modulo pure terms*)
 fun general_normalform_conv ctxt af cts =
   let
     val (t1, t2) = apply2 (Thm.term_of) cts;
@@ -733,11 +749,11 @@ fun rename_params names i st =
 
 (*
   R' (pure f <> x1 <> ... <> xn) (pure g <> x1 <> ... <> xn)
-    ===> !!x1 ... xn. R (f x1 ... xn) (g x1 ... xn),
+    ===> !!y1 ... yn. [| yi : setF xi ... |] ==> R (f y1 ... yn) (g y1 ... yn),
   where either both R and R' are equality, or R' = relF R for relator relF of the functor.
-  Succeeds if partial progress can be made. The names of the new parameters are derived
+  The premises yi : setF xi are added only in the latter case and if the set operator is available.
+  Succeeds if partial progress can be made. The names of the new parameters yi are derived
   from the arguments xi.
-  TODO: mention set
 *)
 fun head_cong_tac ctxt af renames =
   let
@@ -762,8 +778,9 @@ fun head_cong_tac ctxt af renames =
 
 (* Forward lifting *)
 
-(* TODO: add limited support for premises, where used variables are not generalized
-   in the conclusion *)
+(*
+  TODO: add limited support for premises, where used variables are not generalized in the conclusion
+*)
 fun forward_lift_rule ctxt af thm =
   let
     val thm = Object_Logic.rulify ctxt thm;
@@ -890,7 +907,8 @@ fun derive_combinator_red ctxt af_inst red_thms (base_thm, eq_thm) =
       resolve_tac ctxt' [@{thm refl}]);
   in singleton (Variable.export ctxt' ctxt) (Goal.prove ctxt' [] [] lifted_prop (K tac)) end;
 
-(* FIXME: more of a workaround than a sensible solution *)
+(*derive all instantiations with pure terms which can be simplified by homomorphism*)
+(*FIXME: more of a workaround than a sensible solution*)
 fun weak_red_closure ctxt (af_inst, merge_thm) strong_red =
   let
     val (lhs, _) = Thm.prop_of strong_red |> Logic.dest_equals;
@@ -964,7 +982,7 @@ fun mk_terms ctxt (raw_pure, raw_ap, raw_rel, raw_set) =
       handle TYPE _ => bad_ap ();
     val maxidx_common = Term.maxidx_term ap maxidx_pure;
 
-    (* unify type variables, while keeping the live variables separate *)
+    (*unify type variables, while keeping the live variables separate*)
     fun no_unifier (T, U) = error ("Unable to infer common functor type from " ^
       commas (map show_typ [T, U]));
     fun unify_ap_type T (tyenv, maxidx) =
@@ -1015,7 +1033,7 @@ fun mk_terms ctxt (raw_pure, raw_ap, raw_rel, raw_set) =
       [poly_type_to_term ([tvar'], range_type (fastype_of pure')),
       ([tvar'], pure'), ([tvar2', tvar3'], ap'), set]);
 
-    (* TODO: also infer the relator type? *)
+    (*TODO: also infer the relator type?*)
     fun bad_rel rel = error ("Bad type for rel: " ^ show_typ (fastype_of rel));
     fun mk_rel rel =
       let
@@ -1135,11 +1153,6 @@ fun mk_interchange_prop af_inst ctxt_Ts =
     val rhs = mk_comb af_inst ((T1 --> T2) --> T2) (lift_term af_inst T_x, f);
     val prop = HOLogic.mk_Trueprop (HOLogic.mk_eq (lhs, rhs));
   in (Logic.all f (Logic.all x prop), (ctxt', Ts')) end;
-
-(* FIXME: move *)
-fun mk_eq_on S =
-  let val (SA, ST) = `HOLogic.dest_setT (fastype_of S);
-  in Const (@{const_name eq_on}, ST --> BNF_Util.mk_pred2T SA SA) $ S end;
 
 fun mk_rel_props (af_inst, rel_inst) ctxt_Ts =
   let
@@ -1349,12 +1362,12 @@ fun add_unfold_thm name thm context =
           ns as (_::_) => ns
         | [] => error "Unable to determine applicative functor instance";
     val _ = map (afun_of_generic context) names;
-    (* TODO: check equation *)
+    (*TODO: check equation*)
     val thm' = mk_meta_eq thm;
   in fold (fn n => update_afun n (add_unfolds_afun [thm'])) names context end;
 
 fun add_unfold_attrib name = Thm.declaration_attribute (add_unfold_thm name);
 
-(* TODO: delete unfolds *)
+(*TODO: attribute to delete unfolds*)
 
 end;
