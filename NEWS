@@ -1,0 +1,20 @@
+June 2016
+---------
+
+- The "applicative" command derives combinator reductions automatically, e.g.
+  for I if C and K are provided. Therefore, the command no longer emits
+  redundant proof obligations in such cases. This includes the derivation of
+  C from BKW and interchange, as well as the derivation of the interchange law
+  from C and I. Also added the S combinator, such that SK can be used instead
+  of BCKW.
+
+- Added support for arbitrary lifted relations via relators. An optional "set"
+  operator can be provided, which may produce weaker subgoals (with additional
+  premises) after application of a lifting proof method.
+
+- Improved compatibility with locale interpretation; see Applicative_Sum for
+  a use case.
+
+- Small user-facing changes: more intuitive assignment of type variables,
+  modified order of subgoals in the proof for "applicative"; changed some
+  theorem names.
