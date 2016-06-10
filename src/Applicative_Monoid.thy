@@ -36,7 +36,7 @@ done
 applicative comm_monoid_add (C)
   for pure: "pure_monoid_add :: _ \<Rightarrow> (_ :: comm_monoid_add, _) monoid_ap"
       ap: "ap_monoid_add :: (_ :: comm_monoid_add, _) monoid_ap \<Rightarrow> _"
-apply(rule monoid_add.afun_hom monoid_add.pure_B_conv monoid_add.afun_ichng)+
+apply(rule monoid_add.homomorphism monoid_add.pure_B_conv monoid_add.interchange)+
 subgoal for f x y by(cases f x y rule: monoid_ap.exhaust[case_product monoid_ap.exhaust, case_product monoid_ap.exhaust])(simp add: pure_monoid_add_def add_ac)
 apply(rule monoid_add.pure_I_conv)
 done
@@ -47,9 +47,9 @@ class idemp_monoid_add = monoid_add +
 applicative idemp_monoid_add (W)
   for pure: "pure_monoid_add :: _ \<Rightarrow> (_ :: idemp_monoid_add, _) monoid_ap"
       ap: "ap_monoid_add :: (_ :: idemp_monoid_add, _) monoid_ap \<Rightarrow> _"
-apply(rule monoid_add.afun_hom monoid_add.pure_B_conv monoid_add.pure_I_conv)+
+apply(rule monoid_add.homomorphism monoid_add.pure_B_conv monoid_add.pure_I_conv)+
 subgoal for f x by(cases f x rule: monoid_ap.exhaust[case_product monoid_ap.exhaust])(simp add: pure_monoid_add_def add.assoc add_idemp)
-apply(rule monoid_add.afun_ichng)
+apply(rule monoid_add.interchange)
 done
 
 text \<open>Test case\<close>

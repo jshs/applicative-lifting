@@ -1225,8 +1225,8 @@ fun note_afun_thms af =
   let
     val thms = thms_of_afun af;
     val named_thms =
-      [("afun_hom", [#hom thms]),
-        ("afun_ichng", [#ichng thms]),
+      [("homomorphism", [#hom thms]),
+        ("interchange", [#ichng thms]),
         ("afun_rel_intros", #rel_intros thms)] @
       map (fn (name, thm) => ("pure_" ^ name ^ "_conv", [thm])) (Symtab.dest (#reds thms)) @
       (case #rel_thms thms of

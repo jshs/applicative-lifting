@@ -115,7 +115,7 @@ proof -
   show "pure_dnelist f \<diamondop> pure_dnelist x = pure_dnelist (f x)" for f :: "'a \<Rightarrow> 'b" and x
     by transfer simp
   show "f \<diamondop> pure_dnelist x = pure_dnelist (\<lambda>f. f x) \<diamondop> f" for f :: "('a \<Rightarrow> 'b) dnelist" and x
-    by transfer(simp add: list.afun_ichng)
+    by transfer(simp add: list.interchange)
 
   have *: "remdups (remdups ([\<lambda>x y. x] \<diamondop> x) \<diamondop> y) = x" if x: "distinct x" and y: "distinct y" "y \<noteq> []"
     for x :: "'b list" and y :: "'a list"
