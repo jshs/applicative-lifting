@@ -103,7 +103,7 @@ proof -
     also have "\<dots> =  remdups (concat (map (\<lambda>f. map f x) (concat (map (\<lambda>x. map (\<lambda>f y. x (f y)) f) g))))"
       by(subst (1) remdups_concat_remdups[symmetric])(simp add: remdups_map_remdups remdups_concat_remdups)
     also have "\<dots> = remdups (concat (map remdups (map (\<lambda>g. map g (concat (map (\<lambda>f. map f x) f))) g)))"
-      using list.B_conv[of g f x] unfolding remdups_concat_map
+      using list.pure_B_conv[of g f x] unfolding remdups_concat_map
       by(simp add: ap_list_def List.bind_def o_def)
     also have "\<dots> = ?rhs" unfolding ap_list_def List.bind_def
       by(subst (2) remdups_concat_map[symmetric])(simp add: o_def remdups_map_remdups)
@@ -115,7 +115,7 @@ proof -
   show "pure_dnelist f \<diamondop> pure_dnelist x = pure_dnelist (f x)" for f :: "'a \<Rightarrow> 'b" and x
     by transfer simp
   show "f \<diamondop> pure_dnelist x = pure_dnelist (\<lambda>f. f x) \<diamondop> f" for f :: "('a \<Rightarrow> 'b) dnelist" and x
-    by transfer(simp add: list.interchange)
+    by transfer(simp add: list.afun_ichng)
 
   have *: "remdups (remdups ([\<lambda>x y. x] \<diamondop> x) \<diamondop> y) = x" if x: "distinct x" and y: "distinct y" "y \<noteq> []"
     for x :: "'b list" and y :: "'a list"

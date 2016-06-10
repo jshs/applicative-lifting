@@ -1225,16 +1225,15 @@ fun note_afun_thms af =
   let
     val thms = thms_of_afun af;
     val named_thms =
-      [("homomorphism", [#hom thms]),
-        ("interchange", [#ichng thms]),
-        ("pure_comp_conv", [#pure_comp_conv thms]),
-        ("rel_intros", #rel_intros thms)] @
-      map (fn (name, thm) => (name ^ "_conv", [thm])) (Symtab.dest (#reds thms)) @
+      [("afun_hom", [#hom thms]),
+        ("afun_ichng", [#ichng thms]),
+        ("afun_rel_intros", #rel_intros thms)] @
+      map (fn (name, thm) => ("pure_" ^ name ^ "_conv", [thm])) (Symtab.dest (#reds thms)) @
       (case #rel_thms thms of
         NONE => []
       | SOME rel_thms' =>
           [("pure_transfer", [#pure_transfer rel_thms']),
-            ("ap_rel_fun", [#ap_rel_fun rel_thms'])]);
+            ("ap_rel_fun_cong", [#ap_rel_fun rel_thms'])]);
 
     val base_name = Binding.name_of (name_of_afun af);
     fun mk_note (name, thms) =
