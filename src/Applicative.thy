@@ -111,11 +111,11 @@ ML \<open>Outer_Syntax.command @{command_keyword "print_applicative"}
   (Scan.succeed (Toplevel.keep (Applicative.print_afuns o Toplevel.context_of)))\<close>
 
 attribute_setup applicative_unfold =
-  \<open>Scan.lift (Scan.option Parse.xname >> Applicative.add_unfold_attrib)\<close>
+  \<open>Scan.lift (Scan.option Parse.name >> Applicative.add_unfold_attrib)\<close>
   "register rules for unfolding into applicative expressions"
 
 attribute_setup applicative_lifted =
-  \<open>Scan.lift (Parse.xname >> Applicative.forward_lift_attrib)\<close>
+  \<open>Scan.lift (Parse.name >> Applicative.forward_lift_attrib)\<close>
   "lift an equation to an applicative functor"
 
 
